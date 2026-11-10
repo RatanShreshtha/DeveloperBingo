@@ -9,6 +9,7 @@ export default defineConfig({
     proxy: {
       '/health': 'http://localhost:8000',
       '/games': 'http://localhost:8000',
+      '/pools': 'http://localhost:8000',
       '/socket.io': { target: 'http://localhost:8000', ws: true },
     },
   },

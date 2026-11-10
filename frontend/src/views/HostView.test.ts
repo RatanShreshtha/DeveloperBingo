@@ -13,6 +13,14 @@ vi.mock('../realtime/socket', () => ({
   watchLobby: vi.fn(),
   onLobbyUpdated: vi.fn(),
 }))
+vi.mock('../api/pools', () => ({
+  fetchDefaultPool: vi.fn(async () => ({
+    columns: [
+      [{ name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+      [{ name: 'JSON', explanation: 'A lightweight data format.' }],
+    ],
+  })),
+}))
 
 beforeEach(() => {
   vi.mocked(watchLobby).mockReset()
@@ -20,6 +28,22 @@ beforeEach(() => {
 })
 
 describe('HostView', () => {
+  it('shows the default pool as columns of topics with their explanations', async () => {
+    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: [] })
+
+    const wrapper = mount(HostView, {
+      props: { code: 'ABC123', token: 'secret-token' },
+      global: { plugins: makePlugins() },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Column 1')
+    expect(wrapper.text()).toContain('Algorithm')
+    expect(wrapper.text()).toContain('A finite sequence of steps.')
+    expect(wrapper.text()).toContain('Column 2')
+    expect(wrapper.text()).toContain('JSON')
+  })
+
   it('shows the players the server reports for the lobby', async () => {
     vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'] })
 

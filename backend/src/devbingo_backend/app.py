@@ -8,6 +8,7 @@ from fastapi import FastAPI, Header, HTTPException, Response
 from pydantic import BaseModel
 from sqlmodel import create_engine, text
 
+from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
 from devbingo_backend.realtime import build_socket_server
 
@@ -26,6 +27,15 @@ class CreateGameResponse(BaseModel):
 
 class LobbyResponse(BaseModel):
     players: list[str]
+
+
+class TopicOut(BaseModel):
+    name: str
+    explanation: str
+
+
+class PoolOut(BaseModel):
+    columns: list[list[TopicOut]]
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
@@ -88,6 +98,15 @@ def create_app(database_url: str | None = None) -> FastAPI:
         except NotHost:
             raise HTTPException(status_code=403, detail="host token required") from None
         return Response(status_code=204)
+
+    @app.get("/pools/default", response_model=PoolOut)
+    def read_default_pool() -> PoolOut:
+        return PoolOut(
+            columns=[
+                [TopicOut(name=topic.name, explanation=topic.explanation) for topic in column]
+                for column in DEFAULT_POOL.columns()
+            ]
+        )
 
     socket_server = build_socket_server(registry)
     app.mount("/socket.io", socketio.ASGIApp(socket_server))
