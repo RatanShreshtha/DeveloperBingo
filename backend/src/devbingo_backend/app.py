@@ -5,9 +5,7 @@ from typing import Literal
 
 from fastapi import FastAPI
 from pydantic import BaseModel
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
-from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import create_engine, text
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
 
@@ -17,18 +15,19 @@ class HealthResponse(BaseModel):
     database: Literal["up", "down"]
 
 
-def database_is_up(engine: Engine) -> bool:
-    try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-    except SQLAlchemyError:
-        return False
-    return True
-
-
 def create_app(database_url: str | None = None) -> FastAPI:
     url = database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     engine = create_engine(url, connect_args={"connect_timeout": 2})
+
+    def database_is_up() -> bool:
+        # A health probe must never raise: any failure means the database
+        # can't be used right now, whatever the driver reports.
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+        except Exception:
+            return False
+        return True
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -39,7 +38,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     @app.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
-        up = database_is_up(engine)
+        up = database_is_up()
         return HealthResponse(
             status="ok" if up else "degraded",
             database="up" if up else "down",
