@@ -8,6 +8,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/health': 'http://localhost:8000',
+      '/games': 'http://localhost:8000',
+      '/socket.io': { target: 'http://localhost:8000', ws: true },
     },
   },
   test: {
