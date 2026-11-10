@@ -13,6 +13,7 @@ from devbingo_backend.game import (
     NameTaken,
     NoTopicsLeft,
     NotAPlayer,
+    PlayerRef,
     NotHost,
     TopicNotDrawn,
     TopicNotOnTicket,
@@ -55,6 +56,10 @@ def _refusal(err: GameError) -> dict[str, Any]:
 
 def _host_link(payload: dict[str, str]) -> HostLink:
     return HostLink(code=payload["code"], token=payload["host_token"])
+
+
+def _player(payload: dict[str, str]) -> PlayerRef:
+    return PlayerRef(code=payload["code"], name=payload["name"])
 
 
 class RealtimeAdapter:
@@ -112,21 +117,22 @@ class RealtimeAdapter:
         await self._broadcaster.emit("topic_drawn", announcement, room=code)
         return {"ok": True, "draw": announcement}
 
-    # Ticks are private to the player, so their acknowledgements go to the sender only.
+    # Ticks are private, and nothing is broadcast. The acknowledgement says only
+    # whether the change happened: the client keeps its own list, so no ticks are
+    # sent back to anyone.
 
     async def tick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
-        try:
-            ticked = self._registry.tick(payload["code"], payload["name"], payload["topic"])
-        except GameError as err:
-            return _refusal(err)
-        return {"ok": True, "ticked": sorted(ticked)}
+        return self._change_ticks(payload, self._registry.tick)
 
     async def untick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        return self._change_ticks(payload, self._registry.untick)
+
+    def _change_ticks(self, payload: dict[str, str], change: Any) -> dict[str, Any]:
         try:
-            ticked = self._registry.untick(payload["code"], payload["name"], payload["topic"])
+            change(_player(payload), payload["topic"])
         except GameError as err:
             return _refusal(err)
-        return {"ok": True, "ticked": sorted(ticked)}
+        return {"ok": True}
 
 
 class _SocketIOBroadcaster:

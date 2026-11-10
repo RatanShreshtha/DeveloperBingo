@@ -15,8 +15,7 @@ beforeEach(() => {
 
 function setUpTicket() {
   const store = useLobbyStore()
-  store.playerCode = 'ABC123'
-  store.playerName = 'Ada'
+  store.player = { code: 'ABC123', name: 'Ada' }
   store.ticket = [
     ['Algorithm', null, 'JSON'],
     [null, 'Cache', null],
@@ -27,15 +26,15 @@ function setUpTicket() {
 
 describe('PlayerLobbyView ticking', () => {
   it('lets the player tick a drawn topic on their ticket', async () => {
-    vi.mocked(tickTopic).mockResolvedValue({ ok: true, ticked: ['Algorithm'] })
+    vi.mocked(tickTopic).mockResolvedValue({ ok: true })
     const store = setUpTicket()
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     await wrapper.findAll('[data-test="tick-cell"]')[0].trigger('click')
     await flushPromises()
 
-    expect(tickTopic).toHaveBeenCalledWith('ABC123', 'Ada', 'Algorithm')
-    expect(store.ticked).toEqual(['Algorithm'])
+    expect(tickTopic).toHaveBeenCalledWith({ code: 'ABC123', name: 'Ada' }, 'Algorithm')
+    expect(store.ticks).toEqual(['Algorithm'])
   })
 
   it('disables topics that have not been drawn yet', () => {
@@ -50,7 +49,7 @@ describe('PlayerLobbyView ticking', () => {
 
   it('shows ticked topics as pressed on the ticket', async () => {
     const store = setUpTicket()
-    store.ticked = ['Algorithm']
+    store.ticks = ['Algorithm']
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     const algorithm = wrapper.findAll('[data-test="tick-cell"]')[0]

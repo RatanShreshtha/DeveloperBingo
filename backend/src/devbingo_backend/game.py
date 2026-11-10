@@ -68,6 +68,14 @@ class HostLink:
 
 
 @dataclass(frozen=True)
+class PlayerRef:
+    """One player in one game, addressed by the game's code and the player's display name."""
+
+    code: str
+    name: str
+
+
+@dataclass(frozen=True)
 class CreatedGame:
     code: str
     host_token: str
@@ -174,37 +182,39 @@ class GameRegistry:
         """Every draw so far, in order. Public: every player in the room may see them."""
         return tuple(self._find(code).draws)
 
-    def tick(self, code: str, name: str, topic_name: str) -> frozenset[str]:
+    def tick(self, player: PlayerRef, topic_name: str) -> None:
         """Tick a topic on the player's ticket. It must be on the ticket and already drawn."""
-        game = self._find(code)
-        ticket_names = self._ticket_names(game, name)
+        game, ticket_names = self._player_game(player)
         if topic_name not in ticket_names:
             raise TopicNotOnTicket(topic_name)
         if topic_name not in game.drawn_names():
             raise TopicNotDrawn(topic_name)
-        game.ticks[name].add(topic_name)
-        return self.ticks(code, name)
+        game.ticks[player.name].add(topic_name)
 
-    def untick(self, code: str, name: str, topic_name: str) -> frozenset[str]:
-        """Untick a topic. Nothing stops a player unticking until claims exist (ticket 08)."""
-        game = self._find(code)
-        self._ticket_names(game, name)
-        game.ticks[name].discard(topic_name)
-        return self.ticks(code, name)
+    def untick(self, player: PlayerRef, topic_name: str) -> None:
+        """Untick a topic on the player's ticket. Nothing blocks an untick until claims exist (issue 08)."""
+        game, ticket_names = self._player_game(player)
+        if topic_name not in ticket_names:
+            raise TopicNotOnTicket(topic_name)
+        game.ticks[player.name].discard(topic_name)
 
-    def ticks(self, code: str, name: str) -> frozenset[str]:
-        """The topics this player has ticked. Only the player's own ticks are returned."""
-        return frozenset(self._find(code).ticks.get(name, set()))
+    def ticks(self, player: PlayerRef) -> frozenset[str]:
+        """The topics this player has ticked."""
+        game, _ = self._player_game(player)
+        return frozenset(game.ticks[player.name])
 
-    def _ticket_names(self, game: _Game, name: str) -> set[str]:
-        if name not in game.tickets:
-            raise NotAPlayer(name)
-        return {
+    def _player_game(self, player: PlayerRef) -> tuple[_Game, set[str]]:
+        """The game, and the topic names on the player's ticket. Refuses anyone not in the game."""
+        game = self._find(player.code)
+        if player.name not in game.tickets:
+            raise NotAPlayer(player.name)
+        names = {
             cell.name
-            for line in game.tickets[name].lines
+            for line in game.tickets[player.name].lines
             for cell in line
             if cell is not None
         }
+        return game, names
 
     def _host_game(self, host: HostLink) -> _Game:
         """The game, once the link proves it belongs to its host."""

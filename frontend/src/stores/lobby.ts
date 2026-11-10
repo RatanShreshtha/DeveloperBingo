@@ -13,6 +13,7 @@ import {
   watchLobby,
   type DrawnTopic,
   type HostLink,
+  type PlayerRef,
   type TicketCells,
 } from '../realtime/socket'
 
@@ -41,9 +42,8 @@ export const useLobbyStore = defineStore('lobby', () => {
   const started = ref(false)
   const draws = ref<DrawnTopic[]>([])
   // This player's own identity in the game, and the topics they have ticked.
-  const playerCode = ref<string | null>(null)
-  const playerName = ref<string | null>(null)
-  const ticked = ref<string[]>([])
+  const player = ref<PlayerRef | null>(null)
+  const ticks = ref<string[]>([])
   const drawnNames = computed(() => draws.value.map((draw) => draw.name))
   // Problems loading the lobby, shown in place of it.
   const error = ref<string | null>(null)
@@ -90,22 +90,27 @@ export const useLobbyStore = defineStore('lobby', () => {
       return false
     }
     ticket.value = result.ticket
-    playerCode.value = code
-    playerName.value = name
-    ticked.value = []
+    player.value = { code, name }
+    ticks.value = []
     return true
   }
 
-  // Ticks the topic if it isn't ticked, otherwise unticks it. The server decides.
+  // Ticks the topic if it isn't ticked, otherwise unticks it. The list changes only
+  // once the server agrees.
   async function toggleTick(topic: string) {
-    if (!playerCode.value || !playerName.value) {
+    const who = player.value
+    if (!who) {
       return
     }
-    const call = ticked.value.includes(topic) ? untickTopic : tickTopic
-    const result = await attempt(() => call(playerCode.value!, playerName.value!, topic))
-    if (result?.ok) {
-      ticked.value = result.ticked
+    const isTicked = ticks.value.includes(topic)
+    const send = isTicked ? untickTopic : tickTopic
+    const result = await attempt(() => send(who, topic))
+    if (!result?.ok) {
+      return
     }
+    ticks.value = isTicked
+      ? ticks.value.filter((known) => known !== topic)
+      : [...ticks.value, topic]
   }
 
   async function watchAsHost(link: HostLink) {
@@ -149,9 +154,8 @@ export const useLobbyStore = defineStore('lobby', () => {
     started,
     draws,
     drawnNames,
-    playerCode,
-    playerName,
-    ticked,
+    player,
+    ticks,
     error,
     actionError,
     create,

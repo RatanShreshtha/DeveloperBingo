@@ -7,6 +7,7 @@ vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGame
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 const ticket = [['Algorithm', null, 'JSON']]
+const ada = { code: 'ABC123', name: 'Ada' }
 
 beforeEach(() => {
   setActivePinia(createPinia())
@@ -25,30 +26,29 @@ describe('lobby store ticks', () => {
   it('remembers who the player is when they join', async () => {
     const store = await joinAsAda()
 
-    expect(store.playerCode).toBe('ABC123')
-    expect(store.playerName).toBe('Ada')
+    expect(store.player).toEqual(ada)
   })
 
-  it('ticks a topic and keeps the ticks the server reports', async () => {
-    vi.mocked(tickTopic).mockResolvedValue({ ok: true, ticked: ['Algorithm'] })
+  it('adds a topic to the player\'s ticks once the server accepts the tick', async () => {
+    vi.mocked(tickTopic).mockResolvedValue({ ok: true })
     const store = await joinAsAda()
 
     await store.toggleTick('Algorithm')
 
-    expect(tickTopic).toHaveBeenCalledWith('ABC123', 'Ada', 'Algorithm')
-    expect(store.ticked).toEqual(['Algorithm'])
+    expect(tickTopic).toHaveBeenCalledWith(ada, 'Algorithm')
+    expect(store.ticks).toEqual(['Algorithm'])
   })
 
-  it('unticks a topic that is already ticked', async () => {
-    vi.mocked(tickTopic).mockResolvedValue({ ok: true, ticked: ['Algorithm'] })
-    vi.mocked(untickTopic).mockResolvedValue({ ok: true, ticked: [] })
+  it('removes a topic from the ticks once the server accepts the untick', async () => {
+    vi.mocked(tickTopic).mockResolvedValue({ ok: true })
+    vi.mocked(untickTopic).mockResolvedValue({ ok: true })
     const store = await joinAsAda()
     await store.toggleTick('Algorithm')
 
     await store.toggleTick('Algorithm')
 
-    expect(untickTopic).toHaveBeenCalledWith('ABC123', 'Ada', 'Algorithm')
-    expect(store.ticked).toEqual([])
+    expect(untickTopic).toHaveBeenCalledWith(ada, 'Algorithm')
+    expect(store.ticks).toEqual([])
   })
 
   it('shows why a tick was refused and leaves the ticks alone', async () => {
@@ -58,6 +58,6 @@ describe('lobby store ticks', () => {
     await store.toggleTick('Algorithm')
 
     expect(store.actionError).toBe('That topic has not been drawn yet')
-    expect(store.ticked).toEqual([])
+    expect(store.ticks).toEqual([])
   })
 })

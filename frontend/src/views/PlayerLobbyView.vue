@@ -29,10 +29,10 @@ onMounted(() => {
               v-if="cell"
               type="button"
               data-test="tick-cell"
-              :aria-pressed="store.ticked.includes(cell)"
+              :aria-pressed="store.ticks.includes(cell)"
               :disabled="!store.drawnNames.includes(cell)"
               @click="store.toggleTick(cell)"
-            >{{ cell }}<span v-if="store.ticked.includes(cell)" aria-hidden="true"> ✓</span></button>
+            >{{ cell }}<span v-if="store.ticks.includes(cell)" aria-hidden="true"> ✓</span></button>
           </td>
         </tr>
       </tbody>

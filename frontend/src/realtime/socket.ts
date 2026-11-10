@@ -17,7 +17,10 @@ export type WatchResult =
   | { ok: false; error: string }
 export type StartResult = { ok: true } | { ok: false; error: string }
 export type DrawResult = { ok: true; draw: DrawnTopic } | { ok: false; error: string }
-export type TickResult = { ok: true; ticked: string[] } | { ok: false; error: string }
+// One player in one game, as the server addresses them: the game code and their display name.
+export type PlayerRef = { code: string; name: string }
+// A tick changes only the player's own list, so the server says only whether it happened.
+export type TickResult = { ok: true } | { ok: false; error: string }
 
 let socket: Socket | null = null
 
@@ -48,13 +51,17 @@ export function drawTopic(link: HostLink): Promise<DrawResult> {
   return connection().emitWithAck('draw_topic', hostPayload(link)) as Promise<DrawResult>
 }
 
-// A player's ticks are private to them, so each call answers only the sender.
-export function tickTopic(code: string, name: string, topic: string): Promise<TickResult> {
-  return connection().emitWithAck('tick_topic', { code, name, topic }) as Promise<TickResult>
+// A player's ticks are private, so each call answers only the sender, and no ticks come back.
+function tickPayload(player: PlayerRef, topic: string) {
+  return { code: player.code, name: player.name, topic }
 }
 
-export function untickTopic(code: string, name: string, topic: string): Promise<TickResult> {
-  return connection().emitWithAck('untick_topic', { code, name, topic }) as Promise<TickResult>
+export function tickTopic(player: PlayerRef, topic: string): Promise<TickResult> {
+  return connection().emitWithAck('tick_topic', tickPayload(player, topic)) as Promise<TickResult>
+}
+
+export function untickTopic(player: PlayerRef, topic: string): Promise<TickResult> {
+  return connection().emitWithAck('untick_topic', tickPayload(player, topic)) as Promise<TickResult>
 }
 
 export function onLobbyUpdated(handler: (players: string[]) => void): void {
