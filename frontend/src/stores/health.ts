@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchHealth, type HealthResponse } from '../api/health'
+import {
+  fetchHealth,
+  HealthRequestError,
+  type HealthResponse,
+} from '../api/health'
 
 export const useHealthStore = defineStore('health', () => {
   const health = ref<HealthResponse | null>(null)
@@ -12,9 +16,12 @@ export const useHealthStore = defineStore('health', () => {
     error.value = null
     try {
       health.value = await fetchHealth()
-    } catch {
+    } catch (err) {
       health.value = null
-      error.value = 'Could not reach the backend'
+      error.value =
+        err instanceof HealthRequestError
+          ? `Backend health check failed with status ${err.status}`
+          : 'Could not reach the backend'
     } finally {
       loading.value = false
     }

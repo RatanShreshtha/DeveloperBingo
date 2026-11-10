@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import SQLAlchemyError
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
 
@@ -21,7 +21,7 @@ def database_is_up(engine: Engine) -> bool:
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
-    except OperationalError:
+    except SQLAlchemyError:
         return False
     return True
 

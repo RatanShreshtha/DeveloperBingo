@@ -53,4 +53,16 @@ describe('HealthView', () => {
 
     expect(wrapper.text()).toContain('Could not reach the backend')
   })
+
+  it('reports the HTTP status when the backend answers with an error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('boom', { status: 500 })),
+    )
+
+    const wrapper = await renderHealthView()
+
+    expect(wrapper.text()).toContain('Backend health check failed with status 500')
+    expect(wrapper.text()).not.toContain('Could not reach the backend')
+  })
 })

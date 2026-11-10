@@ -23,6 +23,8 @@ Override the database with `DATABASE_URL`.
 
 ## Tests and checks
 
+The backend tests need Postgres running, as above.
+
 ```sh
 # Backend, from backend/
 uv run pytest

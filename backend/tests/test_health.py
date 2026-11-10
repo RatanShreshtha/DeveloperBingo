@@ -2,13 +2,12 @@ import os
 import socket
 
 from fastapi.testclient import TestClient
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import InterfaceError
 
-from devbingo_backend.app import create_app
+from devbingo_backend.app import DEFAULT_DATABASE_URL, create_app
 
-DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo",
-)
+DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_DATABASE_URL)
 
 
 def unused_database_url() -> str:
@@ -29,6 +28,19 @@ def test_health_reports_database_up():
 
 def test_health_reports_database_down_without_failing():
     with TestClient(create_app(unused_database_url())) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "degraded", "database": "down"}
+
+
+def test_health_reports_database_down_for_any_driver_error(monkeypatch):
+    def failing_connect(self, *args, **kwargs):
+        raise InterfaceError("SELECT 1", None, Exception("driver failure"))
+
+    monkeypatch.setattr(Engine, "connect", failing_connect)
+
+    with TestClient(create_app(DATABASE_URL)) as client:
         response = client.get("/health")
 
     assert response.status_code == 200
