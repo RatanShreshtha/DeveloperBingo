@@ -75,20 +75,26 @@ class RealtimeAdapter:
         self._sessions: dict[str, PlayerRef] = {}
 
     async def join_game(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
-        code, name = payload["code"], payload["name"]
+        # One socket is one player. Joining again on the same socket would leave the
+        # first player connected for ever, so it is refused.
+        if sid in self._sessions:
+            return {"ok": False, "error": "already_joined"}
+        player = _player(payload)
         try:
-            ticket = self._registry.join(code, name)
+            lobby_size = len(self._registry.players(player.code))
+            ticket = self._registry.join(player)
         except GameError as err:
             return _refusal(err)
 
-        player = PlayerRef(code=code, name=name)
         self._sessions[sid] = player
-        await self._broadcaster.enter_room(sid, code)
-        await self._broadcaster.emit(
-            "lobby_updated",
-            {"players": self._registry.players(code)},
-            room=code,
-        )
+        await self._broadcaster.enter_room(sid, player.code)
+        # Only a new player changes the lobby. A rejoin changes nothing for the others.
+        if len(self._registry.players(player.code)) != lobby_size:
+            await self._broadcaster.emit(
+                "lobby_updated",
+                {"players": self._registry.players(player.code)},
+                room=player.code,
+            )
         # A rejoin restores the ticks the player already had, so they come back here.
         return {
             "ok": True,

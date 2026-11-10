@@ -45,7 +45,7 @@ def test_a_join_becomes_an_engine_command_and_a_room_broadcast():
 def test_a_rejected_join_is_acknowledged_to_the_sender_only():
     registry = GameRegistry()
     game = registry.create_game()
-    registry.join(game.code, "Ada")
+    registry.join(PlayerRef(game.code, "Ada"))
     broadcaster = RecordingBroadcaster()
     adapter = RealtimeAdapter(registry, broadcaster)
 
@@ -59,7 +59,7 @@ def test_a_rejected_join_is_acknowledged_to_the_sender_only():
 def test_the_host_can_watch_the_lobby_with_the_host_token():
     registry = GameRegistry()
     game = registry.create_game()
-    registry.join(game.code, "Ada")
+    registry.join(PlayerRef(game.code, "Ada"))
     broadcaster = RecordingBroadcaster()
     adapter = RealtimeAdapter(registry, broadcaster)
 
@@ -74,7 +74,7 @@ def test_the_host_can_watch_the_lobby_with_the_host_token():
 def test_starting_the_game_is_announced_to_the_room():
     registry = GameRegistry()
     game = registry.create_game()
-    registry.join(game.code, "Ada")
+    registry.join(PlayerRef(game.code, "Ada"))
     broadcaster = RecordingBroadcaster()
     adapter = RealtimeAdapter(registry, broadcaster)
 
@@ -103,7 +103,7 @@ def test_only_the_host_can_start_the_game_over_the_socket():
 def test_a_draw_is_announced_to_the_room_with_its_explanation():
     registry = GameRegistry()
     game = registry.create_game()
-    registry.join(game.code, "Ada")
+    registry.join(PlayerRef(game.code, "Ada"))
     registry.start(game.host_link)
     broadcaster = RecordingBroadcaster()
     adapter = RealtimeAdapter(registry, broadcaster)
@@ -139,7 +139,7 @@ def test_a_draw_before_the_game_starts_is_refused_to_the_sender_only():
 def started_game_with_every_topic_drawn():
     registry = GameRegistry(rng=random.Random(5))
     game = registry.create_game()
-    ticket = registry.join(game.code, "Ada")
+    ticket = registry.join(PlayerRef(game.code, "Ada"))
     registry.start(game.host_link)
     for _ in range(90):
         registry.draw(game.host_link)
@@ -185,7 +185,7 @@ def test_an_untick_of_a_topic_not_on_the_ticket_is_refused():
 def test_a_refused_tick_names_the_reason_and_changes_nothing():
     registry = GameRegistry(rng=random.Random(5))
     game = registry.create_game()
-    ticket = registry.join(game.code, "Ada")
+    ticket = registry.join(PlayerRef(game.code, "Ada"))
     registry.start(game.host_link)
     broadcaster = RecordingBroadcaster()
     adapter = RealtimeAdapter(registry, broadcaster)
@@ -212,19 +212,48 @@ def test_a_dropped_player_can_rejoin_and_gets_their_ticket_and_ticks_back():
     assert rejoined["ticks"] == []
 
 
-def test_a_name_held_by_a_connected_player_is_still_refused():
-    registry = GameRegistry(rng=random.Random(9))
-    game = registry.create_game()
-    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
-    run(adapter.join_game("sid-1", {"code": game.code, "name": "Ada"}))
-
-    ack = run(adapter.join_game("sid-2", {"code": game.code, "name": "Ada"}))
-
-    assert ack == {"ok": False, "error": "name_taken"}
-
 
 def test_a_disconnect_from_an_unknown_session_does_nothing():
     registry = GameRegistry()
     adapter = RealtimeAdapter(registry, RecordingBroadcaster())
 
     assert run(adapter.disconnect("sid-never-joined")) is None
+
+
+def test_a_second_join_on_the_same_socket_is_refused_and_frees_nothing():
+    registry = GameRegistry(rng=random.Random(9))
+    game = registry.create_game()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+    run(adapter.join_game("sid-1", {"code": game.code, "name": "Ada"}))
+
+    ack = run(adapter.join_game("sid-1", {"code": game.code, "name": "Grace"}))
+
+    assert ack == {"ok": False, "error": "already_joined"}
+    assert registry.players(game.code) == ["Ada"]
+
+
+def test_a_socket_that_joined_twice_does_not_lock_its_first_player_out():
+    registry = GameRegistry(rng=random.Random(9))
+    game = registry.create_game()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+    run(adapter.join_game("sid-1", {"code": game.code, "name": "Ada"}))
+    run(adapter.join_game("sid-1", {"code": game.code, "name": "Grace"}))
+
+    run(adapter.disconnect("sid-1"))
+    rejoined = run(adapter.join_game("sid-2", {"code": game.code, "name": "Ada"}))
+
+    assert rejoined["ok"] is True
+
+
+def test_a_rejoin_does_not_announce_a_change_to_the_lobby():
+    registry = GameRegistry(rng=random.Random(9))
+    game = registry.create_game()
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+    run(adapter.join_game("sid-1", {"code": game.code, "name": "Ada"}))
+    run(adapter.disconnect("sid-1"))
+
+    run(adapter.join_game("sid-2", {"code": game.code, "name": "Ada"}))
+
+    lobby_updates = [event for event in broadcaster.emitted if event[0] == "lobby_updated"]
+    assert len(lobby_updates) == 1

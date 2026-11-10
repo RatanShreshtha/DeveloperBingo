@@ -3,6 +3,7 @@ import random
 import pytest
 
 from devbingo_backend.game import (
+    PlayerRef,
     MAX_PLAYERS,
     GameAlreadyStarted,
     GameFull,
@@ -30,7 +31,7 @@ def test_creating_a_game_returns_a_code_and_a_private_host_token(registry):
 def test_joining_returns_the_players_ticket(registry):
     game = registry.create_game()
 
-    ticket = registry.join(game.code, "Ada")
+    ticket = registry.join(PlayerRef(game.code, "Ada"))
 
     assert len(ticket.lines) == 3
     assert sum(cell is not None for line in ticket.lines for cell in line) == 15
@@ -40,7 +41,7 @@ def test_no_two_tickets_in_a_game_are_identical():
     registry = GameRegistry(rng=random.Random(99))
     game = registry.create_game()
 
-    tickets = [registry.join(game.code, f"player-{i}") for i in range(MAX_PLAYERS)]
+    tickets = [registry.join(PlayerRef(game.code, f"player-{i}")) for i in range(MAX_PLAYERS)]
 
     assert len({ticket.lines for ticket in tickets}) == MAX_PLAYERS
 
@@ -48,41 +49,41 @@ def test_no_two_tickets_in_a_game_are_identical():
 def test_players_join_with_a_code_and_a_display_name(registry):
     game = registry.create_game()
 
-    registry.join(game.code, "Ada")
-    registry.join(game.code, "Grace")
+    registry.join(PlayerRef(game.code, "Ada"))
+    registry.join(PlayerRef(game.code, "Grace"))
 
     assert registry.lobby(game.host_link) == ["Ada", "Grace"]
 
 
 def test_a_duplicate_name_is_rejected(registry):
     game = registry.create_game()
-    registry.join(game.code, "Ada")
+    registry.join(PlayerRef(game.code, "Ada"))
 
     with pytest.raises(NameTaken):
-        registry.join(game.code, "Ada")
+        registry.join(PlayerRef(game.code, "Ada"))
 
 
 def test_the_201st_join_is_rejected(registry):
     game = registry.create_game()
     for i in range(MAX_PLAYERS):
-        registry.join(game.code, f"player-{i}")
+        registry.join(PlayerRef(game.code, f"player-{i}"))
 
     with pytest.raises(GameFull):
-        registry.join(game.code, "one-too-many")
+        registry.join(PlayerRef(game.code, "one-too-many"))
 
 
 def test_joins_are_rejected_once_the_game_has_started(registry):
     game = registry.create_game()
-    registry.join(game.code, "Ada")
+    registry.join(PlayerRef(game.code, "Ada"))
     registry.start(game.host_link)
 
     with pytest.raises(GameAlreadyStarted):
-        registry.join(game.code, "Late")
+        registry.join(PlayerRef(game.code, "Late"))
 
 
 def test_joining_an_unknown_game_is_rejected(registry):
     with pytest.raises(GameNotFound):
-        registry.join("NOPE00", "Ada")
+        registry.join(PlayerRef("NOPE00", "Ada"))
 
 
 def test_only_the_host_token_can_read_the_lobby(registry):
