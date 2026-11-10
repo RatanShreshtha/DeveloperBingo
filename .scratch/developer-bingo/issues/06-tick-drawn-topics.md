@@ -6,8 +6,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] A player can tick a drawn topic on their own ticket
-- [ ] A tick on an undrawn topic is rejected and leaves the ticket unchanged
-- [ ] A tick on a topic not on the player's ticket is rejected
-- [ ] A player can untick a topic before any claim is made
-- [ ] Ticks are visible on the player's ticket
+- [x] A player can tick a drawn topic on their own ticket
+- [x] A tick on an undrawn topic is rejected and leaves the ticket unchanged
+- [x] A tick on a topic not on the player's ticket is rejected
+- [x] A player can untick a topic before any claim is made (claims arrive in issue 08, so nothing blocks an untick yet)
+- [x] Ticks are visible on the player's ticket

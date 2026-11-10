@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { createGame, fetchDrawHistory } from '../api/games'
 import {
   drawTopic,
@@ -8,9 +8,12 @@ import {
   onLobbyUpdated,
   onTopicDrawn,
   startGame,
+  tickTopic,
+  untickTopic,
   watchLobby,
   type DrawnTopic,
   type HostLink,
+  type PlayerRef,
   type TicketCells,
 } from '../realtime/socket'
 
@@ -22,6 +25,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_host: 'This host link is not valid for this game',
   not_started: 'The game has not started yet',
   no_topics_left: 'Every topic has already been drawn',
+  not_drawn: 'That topic has not been drawn yet',
+  not_on_ticket: 'That topic is not on your ticket',
+  not_a_player: 'You are not in this game',
 }
 
 function messageFor(code: string): string {
@@ -35,6 +41,10 @@ export const useLobbyStore = defineStore('lobby', () => {
   const ticket = ref<TicketCells | null>(null)
   const started = ref(false)
   const draws = ref<DrawnTopic[]>([])
+  // This player's own identity in the game, and the topics they have ticked.
+  const player = ref<PlayerRef | null>(null)
+  const ticks = ref<string[]>([])
+  const drawnNames = computed(() => draws.value.map((draw) => draw.name))
   // Problems loading the lobby, shown in place of it.
   const error = ref<string | null>(null)
   // Refusals of something the user did, shown next to the controls.
@@ -80,7 +90,27 @@ export const useLobbyStore = defineStore('lobby', () => {
       return false
     }
     ticket.value = result.ticket
+    player.value = { code, name }
+    ticks.value = []
     return true
+  }
+
+  // Ticks the topic if it isn't ticked, otherwise unticks it. The list changes only
+  // once the server agrees.
+  async function toggleTick(topic: string) {
+    const who = player.value
+    if (!who) {
+      return
+    }
+    const isTicked = ticks.value.includes(topic)
+    const send = isTicked ? untickTopic : tickTopic
+    const result = await attempt(() => send(who, topic))
+    if (!result?.ok) {
+      return
+    }
+    ticks.value = isTicked
+      ? ticks.value.filter((known) => known !== topic)
+      : [...ticks.value, topic]
   }
 
   async function watchAsHost(link: HostLink) {
@@ -123,10 +153,14 @@ export const useLobbyStore = defineStore('lobby', () => {
     ticket,
     started,
     draws,
+    drawnNames,
+    player,
+    ticks,
     error,
     actionError,
     create,
     join,
+    toggleTick,
     watchAsHost,
     loadDrawHistory,
     start,

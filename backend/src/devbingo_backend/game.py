@@ -47,12 +47,32 @@ class NoTopicsLeft(GameError):
     pass
 
 
+class NotAPlayer(GameError):
+    pass
+
+
+class TopicNotDrawn(GameError):
+    pass
+
+
+class TopicNotOnTicket(GameError):
+    pass
+
+
 @dataclass(frozen=True)
 class HostLink:
     """The private handle on one game. Whoever holds it can control that game."""
 
     code: str
     token: str
+
+
+@dataclass(frozen=True)
+class PlayerRef:
+    """One player in one game, addressed by the game's code and the player's display name."""
+
+    code: str
+    name: str
 
 
 @dataclass(frozen=True)
@@ -83,6 +103,10 @@ class _Game:
     tickets: dict[str, Ticket] = field(default_factory=dict)
     undrawn: list[Topic] = field(default_factory=list)
     draws: list[Draw] = field(default_factory=list)
+    ticks: dict[str, set[str]] = field(default_factory=dict)
+
+    def drawn_names(self) -> set[str]:
+        return {draw.topic.name for draw in self.draws}
 
     def is_new_ticket(self, candidate: Ticket) -> bool:
         """True when no player in this game already holds an identical ticket."""
@@ -113,6 +137,7 @@ class GameRegistry:
         ticket = self._deal_unique_ticket(game)
         game.players.append(name)
         game.tickets[name] = ticket
+        game.ticks[name] = set()
         return ticket
 
     def _deal_unique_ticket(self, game: _Game) -> Ticket:
@@ -156,6 +181,40 @@ class GameRegistry:
     def draw_history(self, code: str) -> tuple[Draw, ...]:
         """Every draw so far, in order. Public: every player in the room may see them."""
         return tuple(self._find(code).draws)
+
+    def tick(self, player: PlayerRef, topic_name: str) -> None:
+        """Tick a topic on the player's ticket. It must be on the ticket and already drawn."""
+        game, ticket_names = self._player_game(player)
+        if topic_name not in ticket_names:
+            raise TopicNotOnTicket(topic_name)
+        if topic_name not in game.drawn_names():
+            raise TopicNotDrawn(topic_name)
+        game.ticks[player.name].add(topic_name)
+
+    def untick(self, player: PlayerRef, topic_name: str) -> None:
+        """Untick a topic on the player's ticket. Nothing blocks an untick until claims exist (issue 08)."""
+        game, ticket_names = self._player_game(player)
+        if topic_name not in ticket_names:
+            raise TopicNotOnTicket(topic_name)
+        game.ticks[player.name].discard(topic_name)
+
+    def ticks(self, player: PlayerRef) -> frozenset[str]:
+        """The topics this player has ticked."""
+        game, _ = self._player_game(player)
+        return frozenset(game.ticks[player.name])
+
+    def _player_game(self, player: PlayerRef) -> tuple[_Game, set[str]]:
+        """The game, and the topic names on the player's ticket. Refuses anyone not in the game."""
+        game = self._find(player.code)
+        if player.name not in game.tickets:
+            raise NotAPlayer(player.name)
+        names = {
+            cell.name
+            for line in game.tickets[player.name].lines
+            for cell in line
+            if cell is not None
+        }
+        return game, names
 
     def _host_game(self, host: HostLink) -> _Game:
         """The game, once the link proves it belongs to its host."""

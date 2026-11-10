@@ -12,7 +12,11 @@ from devbingo_backend.game import (
     HostLink,
     NameTaken,
     NoTopicsLeft,
+    NotAPlayer,
+    PlayerRef,
     NotHost,
+    TopicNotDrawn,
+    TopicNotOnTicket,
 )
 from devbingo_backend.wire import DrawAnnouncement
 
@@ -39,6 +43,9 @@ _ERROR_CODES: dict[type[GameError], str] = {
     GameAlreadyStarted: "already_started",
     GameNotStarted: "not_started",
     NoTopicsLeft: "no_topics_left",
+    NotAPlayer: "not_a_player",
+    TopicNotDrawn: "not_drawn",
+    TopicNotOnTicket: "not_on_ticket",
 }
 
 
@@ -49,6 +56,10 @@ def _refusal(err: GameError) -> dict[str, Any]:
 
 def _host_link(payload: dict[str, str]) -> HostLink:
     return HostLink(code=payload["code"], token=payload["host_token"])
+
+
+def _player(payload: dict[str, str]) -> PlayerRef:
+    return PlayerRef(code=payload["code"], name=payload["name"])
 
 
 class RealtimeAdapter:
@@ -106,6 +117,23 @@ class RealtimeAdapter:
         await self._broadcaster.emit("topic_drawn", announcement, room=code)
         return {"ok": True, "draw": announcement}
 
+    # Ticks are private, and nothing is broadcast. The acknowledgement says only
+    # whether the change happened: the client keeps its own list, so no ticks are
+    # sent back to anyone.
+
+    async def tick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        return self._change_ticks(payload, self._registry.tick)
+
+    async def untick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        return self._change_ticks(payload, self._registry.untick)
+
+    def _change_ticks(self, payload: dict[str, str], change: Any) -> dict[str, Any]:
+        try:
+            change(_player(payload), payload["topic"])
+        except GameError as err:
+            return _refusal(err)
+        return {"ok": True}
+
 
 class _SocketIOBroadcaster:
     def __init__(self, server: socketio.AsyncServer) -> None:
@@ -143,5 +171,13 @@ def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
     @server.event
     async def draw_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
         return await adapter.draw_topic(sid, data)
+
+    @server.event
+    async def tick_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
+        return await adapter.tick_topic(sid, data)
+
+    @server.event
+    async def untick_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
+        return await adapter.untick_topic(sid, data)
 
     return server

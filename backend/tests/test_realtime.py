@@ -1,7 +1,7 @@
 import asyncio
 import random
 
-from devbingo_backend.game import GameRegistry
+from devbingo_backend.game import GameRegistry, PlayerRef
 from devbingo_backend.realtime import RealtimeAdapter
 
 
@@ -135,3 +135,64 @@ def test_a_draw_before_the_game_starts_is_refused_to_the_sender_only():
     assert ack == {"ok": False, "error": "not_started"}
     assert broadcaster.emitted == []
 
+
+def started_game_with_every_topic_drawn():
+    registry = GameRegistry(rng=random.Random(5))
+    game = registry.create_game()
+    ticket = registry.join(game.code, "Ada")
+    registry.start(game.host_link)
+    for _ in range(90):
+        registry.draw(game.host_link)
+    return registry, game, ticket
+
+
+def test_a_tick_is_acknowledged_without_sending_any_ticks_back():
+    registry, game, ticket = started_game_with_every_topic_drawn()
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+    topic = next(cell for line in ticket.to_cells() for cell in line if cell)
+
+    ack = run(adapter.tick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": topic}))
+
+    assert ack == {"ok": True}
+    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset({topic})
+    assert broadcaster.emitted == []
+
+
+def test_an_untick_is_acknowledged_without_sending_any_ticks_back():
+    registry, game, ticket = started_game_with_every_topic_drawn()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+    topic = next(cell for line in ticket.to_cells() for cell in line if cell)
+    run(adapter.tick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": topic}))
+
+    ack = run(adapter.untick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": topic}))
+
+    assert ack == {"ok": True}
+    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
+
+
+def test_an_untick_of_a_topic_not_on_the_ticket_is_refused():
+    registry, game, ticket = started_game_with_every_topic_drawn()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+    on_ticket = {cell for line in ticket.to_cells() for cell in line if cell}
+    off_ticket = next(name for name in ("Pi", "Zero-day", "Yak shaving") if name not in on_ticket)
+
+    ack = run(adapter.untick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": off_ticket}))
+
+    assert ack == {"ok": False, "error": "not_on_ticket"}
+
+
+def test_a_refused_tick_names_the_reason_and_changes_nothing():
+    registry = GameRegistry(rng=random.Random(5))
+    game = registry.create_game()
+    ticket = registry.join(game.code, "Ada")
+    registry.start(game.host_link)
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+    topic = next(cell for line in ticket.to_cells() for cell in line if cell)
+
+    ack = run(adapter.tick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": topic}))
+
+    assert ack == {"ok": False, "error": "not_drawn"}
+    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
+    assert broadcaster.emitted == []
