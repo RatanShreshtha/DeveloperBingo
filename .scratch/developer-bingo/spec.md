@@ -99,10 +99,10 @@ The engine is built with two injected dependencies, a random source and a clock,
 
 ### Pool rules
 
-- A pool is an ordered list of exactly 90 distinct topics, each with a short explanation.
+- A pool is an ordered list of exactly 90 distinct topics, each with a short explanation. Topic names are distinct when compared case-insensitively, so "Cache" and "cache" count as the same topic.
 - The nine columns are filled from the list in order. Columns 1 to 9 hold 9, 10, 10, 10, 10, 10, 10, 10 and 11 topics respectively.
 - Within a column, topics appear in the same order as in the pool's list. That order is the fixed order on every ticket.
-- The default pool follows the same rules, and it is read-only.
+- The default pool follows the same rules. It is seeded once as a row in the database, and it is read-only: the API offers no way to change it.
 - A pool locks when the first draw happens. Changing it after that is rejected.
 
 ### Ticket rules

@@ -1,8 +1,19 @@
+import os
+import socket
+
 from fastapi.testclient import TestClient
 
-from devbingo_backend.app import create_app
+from devbingo_backend.app import DEFAULT_DATABASE_URL, create_app
 
-DATABASE_URL = "postgresql+psycopg://x@127.0.0.1:1/x"
+DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_DATABASE_URL)
+
+
+def unused_database_url() -> str:
+    """A database URL pointing at a port nothing is listening on."""
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    return f"postgresql+psycopg://bingo:bingo@127.0.0.1:{port}/devbingo"
 
 
 def test_the_default_pool_is_served_as_nine_columns():
@@ -33,3 +44,10 @@ def test_the_default_pool_cannot_be_edited_over_http():
     assert put.status_code == 405
     assert post.status_code == 405
     assert delete.status_code == 405
+
+
+def test_the_default_pool_reports_service_unavailable_when_the_database_is_down():
+    with TestClient(create_app(unused_database_url())) as client:
+        response = client.get("/pools/default")
+
+    assert response.status_code == 503

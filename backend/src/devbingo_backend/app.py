@@ -8,8 +8,8 @@ from fastapi import FastAPI, Header, HTTPException, Response
 from pydantic import BaseModel
 from sqlmodel import create_engine, text
 
-from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
+from devbingo_backend.pool_store import ensure_default_pool, load_default_pool
 from devbingo_backend.realtime import build_socket_server
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
@@ -101,10 +101,16 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     @app.get("/pools/default", response_model=PoolResponse)
     def read_default_pool() -> PoolResponse:
+        try:
+            ensure_default_pool(engine)
+            pool = load_default_pool(engine)
+        except Exception:
+            # Any failure here means the default pool can't be read right now.
+            raise HTTPException(status_code=503, detail="database unavailable") from None
         return PoolResponse(
             columns=[
                 [TopicResponse(name=topic.name, explanation=topic.explanation) for topic in column]
-                for column in DEFAULT_POOL.columns()
+                for column in pool.columns()
             ]
         )
 
