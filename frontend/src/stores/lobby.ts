@@ -1,7 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { createGame } from '../api/games'
-import { joinGame, onLobbyUpdated, watchLobby, type TicketCells } from '../realtime/socket'
+import {
+  drawTopic,
+  joinGame,
+  onGameStarted,
+  onLobbyUpdated,
+  onTopicDrawn,
+  startGame,
+  watchLobby,
+  type DrawnTopic,
+  type TicketCells,
+} from '../realtime/socket'
 
 const ERROR_MESSAGES: Record<string, string> = {
   name_taken: 'That name is already taken in this game',
@@ -9,6 +19,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   already_started: 'This game has already started',
   not_found: 'No game found with that code',
   not_host: 'This host link is not valid for this game',
+  not_started: 'The game has not started yet',
+  no_topics_left: 'Every topic has already been drawn',
 }
 
 function messageFor(code: string): string {
@@ -18,10 +30,18 @@ function messageFor(code: string): string {
 export const useLobbyStore = defineStore('lobby', () => {
   const players = ref<string[]>([])
   const ticket = ref<TicketCells | null>(null)
+  const started = ref(false)
+  const draws = ref<DrawnTopic[]>([])
   const error = ref<string | null>(null)
 
   onLobbyUpdated((names) => {
     players.value = names
+  })
+  onGameStarted(() => {
+    started.value = true
+  })
+  onTopicDrawn((draw) => {
+    draws.value.push(draw)
   })
 
   async function create() {
@@ -50,5 +70,36 @@ export const useLobbyStore = defineStore('lobby', () => {
     }
   }
 
-  return { players, ticket, error, create, join, watchAsHost }
+  async function start(code: string, hostToken: string) {
+    error.value = null
+    const result = await startGame(code, hostToken)
+    if (!result.ok) {
+      error.value = messageFor(result.error)
+      return
+    }
+    started.value = true
+  }
+
+  async function drawNext(code: string, hostToken: string) {
+    error.value = null
+    const result = await drawTopic(code, hostToken)
+    if (!result.ok) {
+      error.value = messageFor(result.error)
+      return
+    }
+    draws.value.push(result.draw)
+  }
+
+  return {
+    players,
+    ticket,
+    started,
+    draws,
+    error,
+    create,
+    join,
+    watchAsHost,
+    start,
+    drawNext,
+  }
 })

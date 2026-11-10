@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useLobbyStore } from '../stores/lobby'
+import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
 
 defineProps<{ code: string }>()
@@ -20,6 +21,7 @@ const store = useLobbyStore()
         </tr>
       </tbody>
     </table>
+    <DrawHistory :draws="store.draws" />
     <LobbyList :players="store.players" />
   </section>
 </template>

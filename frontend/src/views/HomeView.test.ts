@@ -6,12 +6,15 @@ import HomeView from './HomeView.vue'
 
 vi.mock('../api/games', () => ({
   createGame: vi.fn(),
-  startGame: vi.fn(),
 }))
 vi.mock('../realtime/socket', () => ({
   joinGame: vi.fn(),
   watchLobby: vi.fn(),
   onLobbyUpdated: vi.fn(),
+  startGame: vi.fn(),
+  drawTopic: vi.fn(),
+  onGameStarted: vi.fn(),
+  onTopicDrawn: vi.fn(),
 }))
 
 beforeEach(() => {

@@ -7,8 +7,10 @@ from devbingo_backend.game import (
     GameError,
     GameFull,
     GameNotFound,
+    GameNotStarted,
     GameRegistry,
     NameTaken,
+    NoTopicsLeft,
     NotHost,
 )
 
@@ -33,6 +35,8 @@ _ERROR_CODES: dict[type[GameError], str] = {
     NameTaken: "name_taken",
     GameFull: "game_full",
     GameAlreadyStarted: "already_started",
+    GameNotStarted: "not_started",
+    NoTopicsLeft: "no_topics_left",
 }
 
 
@@ -71,6 +75,31 @@ class RealtimeAdapter:
         await self._broadcaster.enter_room(sid, code)
         return {"ok": True, "players": players}
 
+    async def start_game(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        code, host_token = payload["code"], payload["host_token"]
+        try:
+            self._registry.start(code, host_token)
+        except GameError as err:
+            return {"ok": False, "error": _ERROR_CODES[type(err)]}
+
+        await self._broadcaster.emit("game_started", {}, room=code)
+        return {"ok": True}
+
+    async def draw_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        code, host_token = payload["code"], payload["host_token"]
+        try:
+            draw = self._registry.draw(code, host_token)
+        except GameError as err:
+            return {"ok": False, "error": _ERROR_CODES[type(err)]}
+
+        announced = {
+            "position": draw.position,
+            "name": draw.topic.name,
+            "explanation": draw.topic.explanation,
+        }
+        await self._broadcaster.emit("topic_drawn", announced, room=code)
+        return {"ok": True, "draw": announced}
+
 
 class _SocketIOBroadcaster:
     def __init__(self, server: socketio.AsyncServer) -> None:
@@ -100,5 +129,13 @@ def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
     @server.event
     async def watch_lobby(sid: str, data: dict[str, str]) -> dict[str, Any]:
         return await adapter.watch_lobby(sid, data)
+
+    @server.event
+    async def start_game(sid: str, data: dict[str, str]) -> dict[str, Any]:
+        return await adapter.start_game(sid, data)
+
+    @server.event
+    async def draw_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
+        return await adapter.draw_topic(sid, data)
 
     return server

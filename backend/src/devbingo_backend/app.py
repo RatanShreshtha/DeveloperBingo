@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
 import socketio
-from fastapi import FastAPI, Header, HTTPException, Response
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import create_engine, text
 
@@ -85,19 +85,6 @@ def create_app(database_url: str | None = None) -> FastAPI:
         except NotHost:
             raise HTTPException(status_code=403, detail="host token required") from None
         return LobbyResponse(players=players)
-
-    @app.post("/games/{code}/start", status_code=204)
-    def start_game(
-        code: str,
-        x_host_token: Annotated[str, Header()] = "",
-    ) -> Response:
-        try:
-            registry.start(code, x_host_token)
-        except GameNotFound:
-            raise HTTPException(status_code=404, detail="game not found") from None
-        except NotHost:
-            raise HTTPException(status_code=403, detail="host token required") from None
-        return Response(status_code=204)
 
     @app.get("/pools/default", response_model=PoolResponse)
     def read_default_pool() -> PoolResponse:
