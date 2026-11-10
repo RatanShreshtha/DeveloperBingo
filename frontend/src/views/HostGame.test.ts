@@ -11,7 +11,7 @@ vi.mock('../api/pools', () => ({
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 beforeEach(() => {
-  vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'] })
+  vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'], prizes: { early_five: null } })
   vi.mocked(startGame).mockReset()
   vi.mocked(drawTopic).mockReset()
 })

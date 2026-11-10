@@ -9,13 +9,17 @@ export type DrawnTopic = components['schemas']['DrawAnnouncement']
 
 // Shapes the server sends only over the socket, hand-typed for now.
 export type TicketCells = (string | null)[][]
+// Each prize, and who has won it, or null while it is still open.
+export type PrizeBoard = Record<string, string | null>
+export type PrizeAward = { prize: string; winner: string }
 // A rejoin also gets back the ticks the player already had.
 export type JoinResult =
-  | { ok: true; ticket: TicketCells; ticks: string[] }
+  | { ok: true; ticket: TicketCells; ticks: string[]; prizes: PrizeBoard }
   | { ok: false; error: string }
 export type WatchResult =
-  | { ok: true; players: string[] }
+  | { ok: true; players: string[]; prizes: PrizeBoard }
   | { ok: false; error: string }
+export type ClaimResult = { ok: true } | { ok: false; error: string }
 export type StartResult = { ok: true } | { ok: false; error: string }
 export type DrawResult = { ok: true; draw: DrawnTopic } | { ok: false; error: string }
 // One player in one game, as the server addresses them: the game code and their display name.
@@ -63,6 +67,21 @@ export function tickTopic(player: PlayerRef, topic: string): Promise<TickResult>
 
 export function untickTopic(player: PlayerRef, topic: string): Promise<TickResult> {
   return connection().emitWithAck('untick_topic', tickPayload(player, topic)) as Promise<TickResult>
+}
+
+// A claim that wins is announced to the whole room, and a refused one answers only the claimant.
+export function claimPrize(player: PlayerRef, prize: string): Promise<ClaimResult> {
+  return connection().emitWithAck('claim_prize', {
+    code: player.code,
+    name: player.name,
+    prize,
+  }) as Promise<ClaimResult>
+}
+
+export function onPrizeAwarded(handler: (award: PrizeAward) => void): void {
+  connection().on('prize_awarded', (data: PrizeAward) => {
+    handler(data)
+  })
 }
 
 export function onLobbyUpdated(handler: (players: string[]) => void): void {

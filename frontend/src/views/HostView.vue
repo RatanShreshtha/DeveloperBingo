@@ -5,6 +5,7 @@ import type { HostLink } from '../realtime/socket'
 import { useLobbyStore } from '../stores/lobby'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
+import PrizeBoard from './PrizeBoard.vue'
 import PoolColumns from './PoolColumns.vue'
 
 const props = defineProps<{ code: string; token: string | undefined }>()
@@ -43,6 +44,7 @@ onMounted(async () => {
         </button>
       </div>
       <p v-if="store.actionError" role="alert">{{ store.actionError }}</p>
+      <PrizeBoard :prizes="store.prizes" />
       <DrawHistory :draws="store.draws" />
       <LobbyList :players="store.players" />
     </template>

@@ -7,6 +7,7 @@ from typing import Literal
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.pool import Topic
+from devbingo_backend.prizes import Prize, is_won
 from devbingo_backend.ticket import Ticket, build_ticket
 
 MAX_PLAYERS = 200
@@ -56,6 +57,14 @@ class TopicNotDrawn(GameError):
 
 
 class TopicNotOnTicket(GameError):
+    pass
+
+
+class ClaimNotValid(GameError):
+    pass
+
+
+class PrizeAlreadyAwarded(GameError):
     pass
 
 
@@ -110,6 +119,10 @@ class _Game:
     tickets: dict[str, Ticket] = field(default_factory=dict)
     ticks: dict[str, set[str]] = field(default_factory=dict)
     connected: set[str] = field(default_factory=set)
+    # The name each player was first given, for the lobby and for announcing winners.
+    display_names: dict[str, str] = field(default_factory=dict)
+    # The winner of each prize, by display name. A prize is awarded at most once.
+    awards: dict[Prize, str] = field(default_factory=dict)
     undrawn: list[Topic] = field(default_factory=list)
     draws: list[Draw] = field(default_factory=list)
 
@@ -153,6 +166,7 @@ class GameRegistry:
         game.players.append(player.name.strip())
         game.tickets[key] = ticket
         game.ticks[key] = set()
+        game.display_names[key] = player.name.strip()
         game.connected.add(key)
         return ticket
 
@@ -226,6 +240,24 @@ class GameRegistry:
         """The topics this player has ticked."""
         game, key, _ = self._player_game(player)
         return frozenset(game.ticks[key])
+
+    def claim(self, player: PlayerRef, prize: Prize) -> None:
+        """Claim a prize. The claim is checked against what the player has ticked and what has
+        been drawn. A valid claim awards the prize, which can be awarded only once a game."""
+        game, key, _ = self._player_game(player)
+        if game.status != "started":
+            raise GameNotStarted(player.code)
+        if prize in game.awards:
+            raise PrizeAlreadyAwarded(prize)
+        ticked_and_drawn = game.ticks[key] & game.drawn_names()
+        if not is_won(prize, ticked_and_drawn):
+            raise ClaimNotValid(prize)
+        game.awards[prize] = game.display_names[key]
+
+    def prize_board(self, code: str) -> dict[Prize, str | None]:
+        """Each prize and who has won it, or None while it is still open."""
+        game = self._find(code)
+        return {prize: game.awards.get(prize) for prize in Prize}
 
     def _player_game(self, player: PlayerRef) -> tuple[_Game, str, set[str]]:
         """The game, the player's key, and the topic names on their ticket. Refuses anyone not in the game."""

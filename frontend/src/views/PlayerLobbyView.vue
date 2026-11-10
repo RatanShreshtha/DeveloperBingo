@@ -3,6 +3,7 @@ import { onMounted } from 'vue'
 import { useLobbyStore } from '../stores/lobby'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
+import PrizeBoard from './PrizeBoard.vue'
 
 const props = defineProps<{ code: string }>()
 const store = useLobbyStore()
@@ -37,6 +38,14 @@ onMounted(() => {
         </tr>
       </tbody>
     </table>
+    <p v-if="store.actionError" role="alert">{{ store.actionError }}</p>
+    <button
+      type="button"
+      data-test="claim-early-five"
+      :disabled="store.prizes.early_five !== null"
+      @click="store.claimPrize('early_five')"
+    >Claim Early five</button>
+    <PrizeBoard :prizes="store.prizes" />
     <DrawHistory :draws="store.draws" />
     <LobbyList :players="store.players" />
   </section>
