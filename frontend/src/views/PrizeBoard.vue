@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { EARLY_FIVE } from '../prizes'
 import type { PrizeBoard } from '../realtime/socket'
 
 defineProps<{ prizes: PrizeBoard }>()
 
-// The words a player reads for each prize. Keys match the prize names the server sends.
+// The words a player reads for each prize, keyed by the prize's wire name.
 const LABELS: Record<string, string> = {
-  early_five: 'Early five',
+  [EARLY_FIVE]: 'Early five',
 }
 
 function label(prize: string): string {
@@ -17,8 +18,8 @@ function label(prize: string): string {
   <section>
     <h2>Prizes</h2>
     <ul>
-      <li v-for="(winner, prize) in prizes" :key="prize">
-        {{ label(prize) }}: {{ winner ? `won by ${winner}` : 'still open' }}
+      <li v-for="(awardedTo, prize) in prizes" :key="prize">
+        {{ label(prize) }}: {{ awardedTo ? `awarded to ${awardedTo}` : 'still open' }}
       </li>
     </ul>
   </section>

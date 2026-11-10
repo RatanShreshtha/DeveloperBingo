@@ -11,11 +11,11 @@ class Prize(StrEnum):
 EARLY_FIVE_TOPICS = 5
 
 
-def is_won(prize: Prize, ticked_and_drawn: Set[str]) -> bool:
-    """Whether a player's ticked, drawn topics satisfy the prize.
+def satisfies(prize: Prize, ticked_and_drawn: Set[str]) -> bool:
+    """Whether the topics given form the pattern the prize needs.
 
     The caller passes only topics that are both ticked and drawn, so this checks
-    the pattern alone.
+    the pattern alone, not whether the claim is allowed.
     """
     if prize is Prize.EARLY_FIVE:
         return len(ticked_and_drawn) >= EARLY_FIVE_TOPICS

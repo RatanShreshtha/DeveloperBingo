@@ -7,7 +7,7 @@ from typing import Literal
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.pool import Topic
-from devbingo_backend.prizes import Prize, is_won
+from devbingo_backend.prizes import Prize, satisfies
 from devbingo_backend.ticket import Ticket, build_ticket
 
 MAX_PLAYERS = 200
@@ -119,9 +119,9 @@ class _Game:
     tickets: dict[str, Ticket] = field(default_factory=dict)
     ticks: dict[str, set[str]] = field(default_factory=dict)
     connected: set[str] = field(default_factory=set)
-    # The name each player was first given, for the lobby and for announcing winners.
+    # The name each player was first given, for the lobby and for announcements.
     display_names: dict[str, str] = field(default_factory=dict)
-    # The winner of each prize, by display name. A prize is awarded at most once.
+    # The display name of the player each prize was awarded to. A prize is awarded at most once.
     awards: dict[Prize, str] = field(default_factory=dict)
     undrawn: list[Topic] = field(default_factory=list)
     draws: list[Draw] = field(default_factory=list)
@@ -250,12 +250,12 @@ class GameRegistry:
         if prize in game.awards:
             raise PrizeAlreadyAwarded(prize)
         ticked_and_drawn = game.ticks[key] & game.drawn_names()
-        if not is_won(prize, ticked_and_drawn):
+        if not satisfies(prize, ticked_and_drawn):
             raise ClaimNotValid(prize)
         game.awards[prize] = game.display_names[key]
 
     def prize_board(self, code: str) -> dict[Prize, str | None]:
-        """Each prize and who has won it, or None while it is still open."""
+        """Each prize and the player it was awarded to, or None while it is still open."""
         game = self._find(code)
         return {prize: game.awards.get(prize) for prize in Prize}
 

@@ -9,7 +9,7 @@ export type DrawnTopic = components['schemas']['DrawAnnouncement']
 
 // Shapes the server sends only over the socket, hand-typed for now.
 export type TicketCells = (string | null)[][]
-// Each prize, and who has won it, or null while it is still open.
+// Each prize, and who it was awarded to, or null while it is still open.
 export type PrizeBoard = Record<string, string | null>
 export type PrizeAward = { prize: string; winner: string }
 // A rejoin also gets back the ticks the player already had.
@@ -57,25 +57,21 @@ export function drawTopic(link: HostLink): Promise<DrawResult> {
 }
 
 // A player's ticks are private, so each call answers only the sender, and no ticks come back.
-function tickPayload(player: PlayerRef, topic: string) {
-  return { code: player.code, name: player.name, topic }
+function playerPayload(player: PlayerRef) {
+  return { code: player.code, name: player.name }
 }
 
 export function tickTopic(player: PlayerRef, topic: string): Promise<TickResult> {
-  return connection().emitWithAck('tick_topic', tickPayload(player, topic)) as Promise<TickResult>
+  return connection().emitWithAck('tick_topic', { ...playerPayload(player), topic }) as Promise<TickResult>
 }
 
 export function untickTopic(player: PlayerRef, topic: string): Promise<TickResult> {
-  return connection().emitWithAck('untick_topic', tickPayload(player, topic)) as Promise<TickResult>
+  return connection().emitWithAck('untick_topic', { ...playerPayload(player), topic }) as Promise<TickResult>
 }
 
-// A claim that wins is announced to the whole room, and a refused one answers only the claimant.
+// A valid claim is announced to the whole room, and a refused one answers only the claimant.
 export function claimPrize(player: PlayerRef, prize: string): Promise<ClaimResult> {
-  return connection().emitWithAck('claim_prize', {
-    code: player.code,
-    name: player.name,
-    prize,
-  }) as Promise<ClaimResult>
+  return connection().emitWithAck('claim_prize', { ...playerPayload(player), prize }) as Promise<ClaimResult>
 }
 
 export function onPrizeAwarded(handler: (award: PrizeAward) => void): void {

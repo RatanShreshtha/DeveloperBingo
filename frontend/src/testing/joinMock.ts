@@ -1,4 +1,5 @@
 import type { JoinResult, PrizeBoard, TicketCells } from '../realtime/socket'
+import { EARLY_FIVE } from '../prizes'
 
 /**
  * A successful join, as the server acknowledges it. Tests use this so that adding a
@@ -7,7 +8,7 @@ import type { JoinResult, PrizeBoard, TicketCells } from '../realtime/socket'
 export function joinedResult(
   ticket: TicketCells,
   ticks: string[] = [],
-  prizes: PrizeBoard = { early_five: null },
+  prizes: PrizeBoard = { [EARLY_FIVE]: null },
 ): JoinResult {
   return { ok: true, ticket, ticks, prizes }
 }

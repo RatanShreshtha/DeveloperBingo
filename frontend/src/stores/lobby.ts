@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { createGame, fetchDrawHistory } from '../api/games'
+import { EARLY_FIVE } from '../prizes'
 import {
   claimPrize as sendClaim,
   drawTopic,
@@ -32,8 +33,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_drawn: 'That topic has not been drawn yet',
   not_on_ticket: 'That topic is not on your ticket',
   not_a_player: 'You are not in this game',
-  not_won: 'This claim does not win the prize yet',
-  prize_taken: 'Someone has already won this prize',
+  not_won: 'This claim does not complete the prize yet',
+  prize_taken: 'Someone has already been awarded this prize',
   unknown_prize: 'That prize does not exist',
 }
 
@@ -52,8 +53,8 @@ export const useLobbyStore = defineStore('lobby', () => {
   const player = ref<PlayerRef | null>(null)
   const ticks = ref<string[]>([])
   const drawnNames = computed(() => draws.value.map((draw) => draw.name))
-  // Who has won each prize, or null while it is still open.
-  const prizes = ref<PrizeBoard>({ early_five: null })
+  // Who each prize was awarded to, or null while it is still open.
+  const prizes = ref<PrizeBoard>({ [EARLY_FIVE]: null })
   // Problems loading the lobby, shown in place of it.
   const error = ref<string | null>(null)
   // Refusals of something the user did, shown next to the controls.
@@ -108,7 +109,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     return true
   }
 
-  // Claims a prize. A winning claim is announced to the room, which updates the board.
+  // Claims a prize. A valid claim is announced to the room, which updates the board.
   async function claimPrize(prize: string) {
     const who = player.value
     if (!who) {

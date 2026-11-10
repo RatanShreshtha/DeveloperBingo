@@ -60,7 +60,7 @@ def _refusal(err: GameError) -> dict[str, Any]:
 
 
 def _prize_board(board: dict[Prize, str | None]) -> dict[str, str | None]:
-    """The prize board in the wire's terms: prize names as strings, winners by name."""
+    """The prize board in the wire's terms: prize names as strings, and the name each prize was awarded to."""
     return {prize.value: winner for prize, winner in board.items()}
 
 

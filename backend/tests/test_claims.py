@@ -36,7 +36,7 @@ def tick_n(registry, game, ticket, name, count):
         registry.tick(player, topic)
 
 
-def test_five_ticked_and_drawn_topics_win_early_five(started_with_every_topic_drawn):
+def test_five_ticked_and_drawn_topics_award_early_five(started_with_every_topic_drawn):
     registry, game, ada_ticket, _ = started_with_every_topic_drawn
     tick_n(registry, game, ada_ticket, "Ada", 5)
 
@@ -70,7 +70,7 @@ def test_the_prize_is_awarded_once_per_game(started_with_every_topic_drawn):
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == "Ada"
 
 
-def test_a_prize_remains_open_until_someone_wins_it(started_with_every_topic_drawn):
+def test_a_prize_remains_open_until_someone_claims_it(started_with_every_topic_drawn):
     registry, game, _, _ = started_with_every_topic_drawn
 
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] is None

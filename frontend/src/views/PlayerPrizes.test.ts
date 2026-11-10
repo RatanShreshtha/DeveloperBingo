@@ -17,6 +17,7 @@ function setUpPlayer() {
   const store = useLobbyStore()
   store.player = { code: 'ABC123', name: 'Ada' }
   store.ticket = [['Algorithm', null, 'JSON']]
+  store.started = true
   return store
 }
 
@@ -32,18 +33,26 @@ describe('PlayerLobbyView prizes', () => {
     expect(claimPrize).toHaveBeenCalledWith({ code: 'ABC123', name: 'Ada' }, 'early_five')
   })
 
-  it('shows early five as still open until someone wins it', () => {
+  it('shows early five as still open until someone is awarded it', () => {
     setUpPlayer()
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     expect(wrapper.text()).toContain('Early five: still open')
   })
 
-  it('shows who has won early five', () => {
+  it('hides the claim button until the game starts', () => {
+    const store = setUpPlayer()
+    store.started = false
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+    expect(wrapper.find('[data-test="claim-early-five"]').exists()).toBe(false)
+  })
+
+  it('shows who early five was awarded to', () => {
     const store = setUpPlayer()
     store.prizes = { early_five: 'Grace' }
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    expect(wrapper.text()).toContain('Early five: won by Grace')
+    expect(wrapper.text()).toContain('Early five: awarded to Grace')
   })
 })

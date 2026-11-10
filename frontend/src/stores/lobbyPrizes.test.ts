@@ -22,7 +22,7 @@ describe('lobby store prizes', () => {
     expect(store.prizes).toEqual({ early_five: null })
   })
 
-  it('shows who won a prize when the room announces it', () => {
+  it('shows who was awarded a prize when the room announces it', () => {
     const store = useLobbyStore()
     const announced = vi.mocked(onPrizeAwarded).mock.calls[0][0]
 
@@ -57,17 +57,17 @@ describe('lobby store prizes', () => {
 
     await store.claimPrize('early_five')
 
-    expect(store.actionError).toBe('This claim does not win the prize yet')
+    expect(store.actionError).toBe('This claim does not complete the prize yet')
     expect(store.prizes.early_five).toBeNull()
   })
 
-  it('says a prize is taken when someone else has won it', async () => {
+  it('says a prize is taken when someone else has been awarded it', async () => {
     vi.mocked(claimPrize).mockResolvedValue({ ok: false, error: 'prize_taken' })
     const store = useLobbyStore()
     await store.join('ABC123', 'Ada')
 
     await store.claimPrize('early_five')
 
-    expect(store.actionError).toBe('Someone has already won this prize')
+    expect(store.actionError).toBe('Someone has already been awarded this prize')
   })
 })
