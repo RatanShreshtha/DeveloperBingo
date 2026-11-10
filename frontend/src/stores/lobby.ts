@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { createGame } from '../api/games'
-import { joinGame, onLobbyUpdated, watchLobby } from '../realtime/socket'
+import { joinGame, onLobbyUpdated, watchLobby, type TicketCells } from '../realtime/socket'
 
 const ERROR_MESSAGES: Record<string, string> = {
   name_taken: 'That name is already taken in this game',
@@ -17,6 +17,7 @@ function messageFor(code: string): string {
 
 export const useLobbyStore = defineStore('lobby', () => {
   const players = ref<string[]>([])
+  const ticket = ref<TicketCells | null>(null)
   const error = ref<string | null>(null)
 
   onLobbyUpdated((names) => {
@@ -29,11 +30,13 @@ export const useLobbyStore = defineStore('lobby', () => {
 
   async function join(code: string, name: string): Promise<boolean> {
     error.value = null
+    ticket.value = null
     const result = await joinGame(code, name)
     if (!result.ok) {
       error.value = messageFor(result.error)
       return false
     }
+    ticket.value = result.ticket
     return true
   }
 
@@ -47,5 +50,5 @@ export const useLobbyStore = defineStore('lobby', () => {
     }
   }
 
-  return { players, error, create, join, watchAsHost }
+  return { players, ticket, error, create, join, watchAsHost }
 })

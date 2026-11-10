@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Each ticket has three lines of five topics
-- [ ] Each column on a ticket holds one to three topics, and no column is empty
-- [ ] Each ticket has exactly fifteen topics
-- [ ] Topics within a column follow the pool's order, top to bottom
-- [ ] No two tickets in a game are identical
-- [ ] The player sees their own ticket
+- [x] Each ticket has three lines of five topics
+- [x] Each column on a ticket holds one to three topics, and no column is empty
+- [x] Each ticket has exactly fifteen topics
+- [x] Topics within a column follow the pool's order, top to bottom
+- [x] No two tickets in a game are identical
+- [x] The player sees their own ticket
