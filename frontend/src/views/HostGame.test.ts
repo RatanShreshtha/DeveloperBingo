@@ -4,9 +4,7 @@ import { drawTopic, startGame, watchLobby } from '../realtime/socket'
 import { makePlugins } from './testRouter'
 import HostView from './HostView.vue'
 
-vi.mock('../api/games', () => ({
-  createGame: vi.fn(),
-}))
+vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 vi.mock('../api/pools', () => ({
   fetchDefaultPool: vi.fn(async () => ({ columns: [] })),
 }))
@@ -38,7 +36,7 @@ describe('HostView game flow', () => {
 
     await startTheGame(wrapper)
 
-    expect(startGame).toHaveBeenCalledWith('ABC123', 'secret-token')
+    expect(startGame).toHaveBeenCalledWith({ code: 'ABC123', token: 'secret-token' })
     expect(wrapper.find('[data-test="start-game"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="draw-topic"]').exists()).toBe(true)
   })
@@ -55,7 +53,7 @@ describe('HostView game flow', () => {
     await wrapper.get('[data-test="draw-topic"]').trigger('click')
     await flushPromises()
 
-    expect(drawTopic).toHaveBeenCalledWith('ABC123', 'secret-token')
+    expect(drawTopic).toHaveBeenCalledWith({ code: 'ABC123', token: 'secret-token' })
     expect(wrapper.text()).toContain('Algorithm')
     expect(wrapper.text()).toContain('A finite sequence of steps.')
   })

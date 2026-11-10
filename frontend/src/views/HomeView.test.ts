@@ -4,9 +4,7 @@ import { createGame } from '../api/games'
 import { makePlugins } from './testRouter'
 import HomeView from './HomeView.vue'
 
-vi.mock('../api/games', () => ({
-  createGame: vi.fn(),
-}))
+vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 beforeEach(() => {

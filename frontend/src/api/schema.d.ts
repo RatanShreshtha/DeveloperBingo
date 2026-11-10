@@ -55,17 +55,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/games/{code}/start": {
+    "/games/{code}/draws": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Read Draw History
+         * @description Every draw so far, in order. Public, so a player who arrives late can catch up.
+         */
+        get: operations["read_draw_history_games__code__draws_get"];
         put?: never;
-        /** Start Game */
-        post: operations["start_game_games__code__start_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -99,6 +102,23 @@ export interface components {
             code: string;
             /** Host Token */
             host_token: string;
+        };
+        /**
+         * DrawAnnouncement
+         * @description A draw as players see it: its place in the game, the topic and its explanation.
+         */
+        DrawAnnouncement: {
+            /** Position */
+            position: number;
+            /** Name */
+            name: string;
+            /** Explanation */
+            explanation: string;
+        };
+        /** DrawHistoryResponse */
+        DrawHistoryResponse: {
+            /** Draws */
+            draws: components["schemas"]["DrawAnnouncement"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -230,12 +250,10 @@ export interface operations {
             };
         };
     };
-    start_game_games__code__start_post: {
+    read_draw_history_games__code__draws_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-host-token"?: string;
-            };
+            header?: never;
             path: {
                 code: string;
             };
@@ -244,11 +262,13 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DrawHistoryResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -48,23 +48,27 @@ class NoTopicsLeft(GameError):
 
 
 @dataclass(frozen=True)
+class HostLink:
+    """The private handle on one game. Whoever holds it can control that game."""
+
+    code: str
+    token: str
+
+
+@dataclass(frozen=True)
 class CreatedGame:
     code: str
     host_token: str
+
+    @property
+    def host_link(self) -> HostLink:
+        return HostLink(code=self.code, token=self.host_token)
 
 
 @dataclass(frozen=True)
 class Draw:
     position: int
     topic: Topic
-
-    def announcement(self) -> dict[str, str | int]:
-        """The draw as players see it: its place, name and explanation."""
-        return {
-            "position": self.position,
-            "name": self.topic.name,
-            "explanation": self.topic.explanation,
-        }
 
 
 def _hash_token(token: str) -> str:
@@ -121,17 +125,15 @@ class GameRegistry:
         """Names in the lobby. Public: every player in the room may see them."""
         return list(self._find(code).players)
 
-    def lobby(self, code: str, host_token: str) -> list[str]:
-        game = self._find(code)
-        self._require_host(game, host_token)
+    def lobby(self, host: HostLink) -> list[str]:
+        game = self._host_game(host)
         return list(game.players)
 
-    def start(self, code: str, host_token: str) -> None:
+    def start(self, host: HostLink) -> None:
         """Start the game: joining closes and the pool locks."""
-        game = self._find(code)
-        self._require_host(game, host_token)
+        game = self._host_game(host)
         if game.status != "lobby":
-            raise GameAlreadyStarted(code)
+            raise GameAlreadyStarted(host.code)
         game.status = "started"
         game.undrawn = list(DEFAULT_POOL.topics)
 
@@ -139,14 +141,13 @@ class GameRegistry:
         """The pool locks when the game starts and stays locked."""
         return self._find(code).status == "started"
 
-    def draw(self, code: str, host_token: str) -> Draw:
+    def draw(self, host: HostLink) -> Draw:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final."""
-        game = self._find(code)
-        self._require_host(game, host_token)
+        game = self._host_game(host)
         if game.status != "started":
-            raise GameNotStarted(code)
+            raise GameNotStarted(host.code)
         if not game.undrawn:
-            raise NoTopicsLeft(code)
+            raise NoTopicsLeft(host.code)
         topic = game.undrawn.pop(self._rng.randrange(len(game.undrawn)))
         draw = Draw(position=len(game.draws) + 1, topic=topic)
         game.draws.append(draw)
@@ -156,16 +157,18 @@ class GameRegistry:
         """Every draw so far, in order. Public: every player in the room may see them."""
         return tuple(self._find(code).draws)
 
+    def _host_game(self, host: HostLink) -> _Game:
+        """The game, once the link proves it belongs to its host."""
+        game = self._find(host.code)
+        if not hmac.compare_digest(game.host_token_hash, _hash_token(host.token)):
+            raise NotHost()
+        return game
+
     def _find(self, code: str) -> _Game:
         try:
             return self._games[code]
         except KeyError:
             raise GameNotFound(code) from None
-
-    @staticmethod
-    def _require_host(game: _Game, host_token: str) -> None:
-        if not hmac.compare_digest(game.host_token_hash, _hash_token(host_token)):
-            raise NotHost()
 
     def _new_code(self) -> str:
         while True:

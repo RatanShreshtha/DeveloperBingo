@@ -8,6 +8,7 @@ from devbingo_backend.game import (
     GameFull,
     GameNotFound,
     GameRegistry,
+    HostLink,
     NameTaken,
     NotHost,
 )
@@ -50,7 +51,7 @@ def test_players_join_with_a_code_and_a_display_name(registry):
     registry.join(game.code, "Ada")
     registry.join(game.code, "Grace")
 
-    assert registry.lobby(game.code, game.host_token) == ["Ada", "Grace"]
+    assert registry.lobby(game.host_link) == ["Ada", "Grace"]
 
 
 def test_a_duplicate_name_is_rejected(registry):
@@ -73,7 +74,7 @@ def test_the_201st_join_is_rejected(registry):
 def test_joins_are_rejected_once_the_game_has_started(registry):
     game = registry.create_game()
     registry.join(game.code, "Ada")
-    registry.start(game.code, game.host_token)
+    registry.start(game.host_link)
 
     with pytest.raises(GameAlreadyStarted):
         registry.join(game.code, "Late")
@@ -88,11 +89,11 @@ def test_only_the_host_token_can_read_the_lobby(registry):
     game = registry.create_game()
 
     with pytest.raises(NotHost):
-        registry.lobby(game.code, "not-the-host-token")
+        registry.lobby(HostLink(game.code, "not-the-host-token"))
 
 
 def test_only_the_host_token_can_start_the_game(registry):
     game = registry.create_game()
 
     with pytest.raises(NotHost):
-        registry.start(game.code, "not-the-host-token")
+        registry.start(HostLink(game.code, "not-the-host-token"))

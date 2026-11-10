@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { createGame } from '../api/games'
+import { createGame, fetchDrawHistory } from '../api/games'
 import {
   drawTopic,
-  getDrawHistory,
   joinGame,
   onGameStarted,
   onLobbyUpdated,
@@ -11,6 +10,7 @@ import {
   startGame,
   watchLobby,
   type DrawnTopic,
+  type HostLink,
   type TicketCells,
 } from '../realtime/socket'
 
@@ -83,9 +83,9 @@ export const useLobbyStore = defineStore('lobby', () => {
     return true
   }
 
-  async function watchAsHost(code: string, hostToken: string) {
+  async function watchAsHost(link: HostLink) {
     error.value = null
-    const result = await watchLobby(code, hostToken)
+    const result = await watchLobby(link)
     if (result.ok) {
       players.value = result.players
     } else {
@@ -94,26 +94,25 @@ export const useLobbyStore = defineStore('lobby', () => {
   }
 
   async function loadDrawHistory(code: string) {
-    error.value = null
-    const result = await getDrawHistory(code)
-    if (!result.ok) {
-      error.value = messageFor(result.error)
-      return
+    try {
+      const history = await fetchDrawHistory(code)
+      draws.value = [...history.draws]
+      if (history.draws.length > 0) {
+        started.value = true
+      }
+    } catch {
+      error.value = 'Could not load the draw history'
     }
-    draws.value = [...result.draws]
-    if (result.draws.length > 0) {
+  }
+
+  async function start(link: HostLink) {
+    if (await attempt(() => startGame(link))) {
       started.value = true
     }
   }
 
-  async function start(code: string, hostToken: string) {
-    if (await attempt(() => startGame(code, hostToken))) {
-      started.value = true
-    }
-  }
-
-  async function drawNext(code: string, hostToken: string) {
-    const result = await attempt(() => drawTopic(code, hostToken))
+  async function drawNext(link: HostLink) {
+    const result = await attempt(() => drawTopic(link))
     if (result?.ok) {
       recordDraw(result.draw)
     }

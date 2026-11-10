@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { fetchDefaultPool, type TopicResponse } from '../api/pools'
+import type { HostLink } from '../realtime/socket'
 import { useLobbyStore } from '../stores/lobby'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
@@ -11,12 +12,12 @@ const store = useLobbyStore()
 const pool = ref<TopicResponse[][] | null>(null)
 const poolError = ref(false)
 
-function hostToken(): string {
-  return props.token ?? ''
+function hostLink(): HostLink {
+  return { code: props.code, token: props.token ?? '' }
 }
 
 onMounted(async () => {
-  store.watchAsHost(props.code, hostToken())
+  store.watchAsHost(hostLink())
   store.loadDrawHistory(props.code)
   try {
     pool.value = (await fetchDefaultPool()).columns
@@ -32,12 +33,12 @@ onMounted(async () => {
     <p v-if="store.error" role="alert">{{ store.error }}</p>
     <template v-else>
       <div v-if="!store.started">
-        <button type="button" data-test="start-game" @click="store.start(code, hostToken())">
+        <button type="button" data-test="start-game" @click="store.start(hostLink())">
           Start game
         </button>
       </div>
       <div v-else>
-        <button type="button" data-test="draw-topic" @click="store.drawNext(code, hostToken())">
+        <button type="button" data-test="draw-topic" @click="store.drawNext(hostLink())">
           Draw topic
         </button>
       </div>

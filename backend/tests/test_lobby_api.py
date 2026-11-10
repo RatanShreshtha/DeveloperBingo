@@ -55,3 +55,20 @@ def test_an_unknown_game_code_is_not_found():
     assert response.status_code == 404
 
 
+def test_the_draw_history_is_public_and_empty_before_any_draw():
+    with TestClient(create_app("postgresql+psycopg://x@127.0.0.1:1/x")) as client:
+        game = create_game(client)
+
+        response = client.get(f"/games/{game['code']}/draws")
+
+    assert response.status_code == 200
+    assert response.json() == {"draws": []}
+
+
+def test_the_draw_history_of_an_unknown_game_is_not_found():
+    with TestClient(create_app("postgresql+psycopg://x@127.0.0.1:1/x")) as client:
+        response = client.get("/games/NOPE00/draws")
+
+    assert response.status_code == 404
+
+

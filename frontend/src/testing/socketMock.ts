@@ -1,5 +1,4 @@
 import { vi } from 'vitest'
-import type { DrawHistoryResult } from '../realtime/socket'
 
 /**
  * Every function the socket module exports, as mocks. Test files pull this in
@@ -12,7 +11,6 @@ export function socketModuleMock() {
     onLobbyUpdated: vi.fn(),
     startGame: vi.fn(),
     drawTopic: vi.fn(),
-    getDrawHistory: vi.fn(async (): Promise<DrawHistoryResult> => ({ ok: true, draws: [] })),
     onGameStarted: vi.fn(),
     onTopicDrawn: vi.fn(),
   }

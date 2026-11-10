@@ -1,11 +1,10 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { drawTopic, getDrawHistory, onGameStarted, onTopicDrawn, startGame } from '../realtime/socket'
+import { fetchDrawHistory } from '../api/games'
+import { drawTopic, onGameStarted, onTopicDrawn, startGame } from '../realtime/socket'
 import { useLobbyStore } from './lobby'
 
-vi.mock('../api/games', () => ({
-  createGame: vi.fn(),
-}))
+vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 const firstDraw = { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }
@@ -21,9 +20,9 @@ describe('lobby store game flow', () => {
     vi.mocked(startGame).mockResolvedValue({ ok: true })
     const store = useLobbyStore()
 
-    await store.start('ABC123', 'secret-token')
+    await store.start({ code: 'ABC123', token: 'secret-token' })
 
-    expect(startGame).toHaveBeenCalledWith('ABC123', 'secret-token')
+    expect(startGame).toHaveBeenCalledWith({ code: 'ABC123', token: 'secret-token' })
     expect(store.started).toBe(true)
   })
 
@@ -31,7 +30,7 @@ describe('lobby store game flow', () => {
     vi.mocked(startGame).mockResolvedValue({ ok: false, error: 'not_host' })
     const store = useLobbyStore()
 
-    await store.start('ABC123', 'wrong-token')
+    await store.start({ code: 'ABC123', token: 'wrong-token' })
 
     expect(store.started).toBe(false)
     expect(store.actionError).toBe('This host link is not valid for this game')
@@ -42,7 +41,7 @@ describe('lobby store game flow', () => {
     vi.mocked(drawTopic).mockResolvedValue({ ok: true, draw: firstDraw })
     const store = useLobbyStore()
 
-    await store.drawNext('ABC123', 'secret-token')
+    await store.drawNext({ code: 'ABC123', token: 'secret-token' })
 
     expect(store.draws).toEqual([firstDraw])
   })
@@ -52,7 +51,7 @@ describe('lobby store game flow', () => {
     const store = useLobbyStore()
     const announced = vi.mocked(onTopicDrawn).mock.calls[0][0]
 
-    await store.drawNext('ABC123', 'secret-token')
+    await store.drawNext({ code: 'ABC123', token: 'secret-token' })
     announced(firstDraw)
 
     expect(store.draws).toEqual([firstDraw])
@@ -78,12 +77,12 @@ describe('lobby store game flow', () => {
   })
 
   it('loads the draw history for someone catching up', async () => {
-    vi.mocked(getDrawHistory).mockResolvedValue({ ok: true, draws: [firstDraw] })
+    vi.mocked(fetchDrawHistory).mockResolvedValue({ draws: [firstDraw] })
     const store = useLobbyStore()
 
     await store.loadDrawHistory('ABC123')
 
-    expect(getDrawHistory).toHaveBeenCalledWith('ABC123')
+    expect(fetchDrawHistory).toHaveBeenCalledWith('ABC123')
     expect(store.draws).toEqual([firstDraw])
     expect(store.started).toBe(true)
   })
@@ -92,7 +91,7 @@ describe('lobby store game flow', () => {
     vi.mocked(drawTopic).mockResolvedValue({ ok: false, error: 'no_topics_left' })
     const store = useLobbyStore()
 
-    await store.drawNext('ABC123', 'secret-token')
+    await store.drawNext({ code: 'ABC123', token: 'secret-token' })
 
     expect(store.actionError).toBe('Every topic has already been drawn')
     expect(store.error).toBeNull()
