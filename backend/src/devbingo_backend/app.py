@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlmodel import create_engine, text
 
 from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
+from devbingo_backend.pool_store import ensure_default_pool, load_default_pool
 from devbingo_backend.realtime import build_socket_server
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
@@ -26,6 +27,15 @@ class CreateGameResponse(BaseModel):
 
 class LobbyResponse(BaseModel):
     players: list[str]
+
+
+class TopicResponse(BaseModel):
+    name: str
+    explanation: str
+
+
+class PoolResponse(BaseModel):
+    columns: list[list[TopicResponse]]
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
@@ -88,6 +98,21 @@ def create_app(database_url: str | None = None) -> FastAPI:
         except NotHost:
             raise HTTPException(status_code=403, detail="host token required") from None
         return Response(status_code=204)
+
+    @app.get("/pools/default", response_model=PoolResponse)
+    def read_default_pool() -> PoolResponse:
+        try:
+            ensure_default_pool(engine)
+            pool = load_default_pool(engine)
+        except Exception:
+            # Any failure here means the default pool can't be read right now.
+            raise HTTPException(status_code=503, detail="database unavailable") from None
+        return PoolResponse(
+            columns=[
+                [TopicResponse(name=topic.name, explanation=topic.explanation) for topic in column]
+                for column in pool.columns()
+            ]
+        )
 
     socket_server = build_socket_server(registry)
     app.mount("/socket.io", socketio.ASGIApp(socket_server))

@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] A pool with 89 or 91 topics is rejected
-- [ ] A pool with duplicate topics is rejected
-- [ ] A topic without an explanation is rejected
-- [ ] Columns hold 9, 10 × 7 and 11 topics in list order
-- [ ] The default pool is seeded and cannot be edited
-- [ ] The host can see the default pool's columns and topics
+- [x] A pool with 89 or 91 topics is rejected
+- [x] A pool with duplicate topics is rejected
+- [x] A topic without an explanation is rejected
+- [x] Columns hold 9, 10 × 7 and 11 topics in list order
+- [x] The default pool is seeded and cannot be edited
+- [x] The host can see the default pool's columns and topics

@@ -131,6 +131,24 @@
           }
         }
       }
+    },
+    "/pools/default": {
+      "get": {
+        "summary": "Read Default Pool",
+        "operationId": "read_default_pool_pools_default_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -207,6 +225,43 @@
           "players"
         ],
         "title": "LobbyResponse"
+      },
+      "PoolResponse": {
+        "properties": {
+          "columns": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/TopicResponse"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "columns"
+        ],
+        "title": "PoolResponse"
+      },
+      "TopicResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "explanation"
+        ],
+        "title": "TopicResponse"
       },
       "ValidationError": {
         "properties": {
