@@ -3,21 +3,22 @@ from dataclasses import dataclass
 
 from devbingo_backend.pool import Pool, Topic
 
-TICKET_ROWS = 3
+TICKET_LINES = 3
 TICKET_COLUMNS = 9
-TOPICS_PER_ROW = 5
+TOPICS_PER_LINE = 5
 TOPICS_PER_TICKET = 15
 MAX_TOPICS_PER_COLUMN = 3
 
 
 @dataclass(frozen=True)
 class Ticket:
-    """A tambola-style board: three rows of nine cells, some of them empty."""
+    """A tambola-style ticket: three lines of nine cells, some of them empty."""
 
-    rows: tuple[tuple[Topic | None, ...], ...]
+    lines: tuple[tuple[Topic | None, ...], ...]
 
-    def names(self) -> list[list[str | None]]:
-        return [[cell.name if cell else None for cell in row] for row in self.rows]
+    def to_cells(self) -> list[list[str | None]]:
+        """The ticket as topic names, with empty cells as None."""
+        return [[cell.name if cell else None for cell in line] for line in self.lines]
 
 
 def _column_counts(rng: random.Random) -> list[int]:
@@ -36,22 +37,22 @@ def build_ticket(pool: Pool, rng: random.Random) -> Ticket:
     pool_columns = pool.columns()
     while True:
         counts = _column_counts(rng)
-        # For each column, the rows its topics sit in.
-        column_rows = [rng.sample(range(TICKET_ROWS), count) for count in counts]
-        row_totals = [0] * TICKET_ROWS
-        for rows in column_rows:
-            for row in rows:
-                row_totals[row] += 1
-        if all(total == TOPICS_PER_ROW for total in row_totals):
+        # For each column, the lines its topics sit in.
+        column_lines = [rng.sample(range(TICKET_LINES), count) for count in counts]
+        line_totals = [0] * TICKET_LINES
+        for lines in column_lines:
+            for line in lines:
+                line_totals[line] += 1
+        if all(total == TOPICS_PER_LINE for total in line_totals):
             break
 
-    grid: list[list[Topic | None]] = [[None] * TICKET_COLUMNS for _ in range(TICKET_ROWS)]
-    for column, rows in enumerate(column_rows):
+    grid: list[list[Topic | None]] = [[None] * TICKET_COLUMNS for _ in range(TICKET_LINES)]
+    for column, lines in enumerate(column_lines):
         column_topics = pool_columns[column]
-        chosen = rng.sample(column_topics, len(rows))
+        drawn = rng.sample(column_topics, len(lines))
         # Topics keep the pool's order from the top of the column downwards.
-        chosen.sort(key=column_topics.index)
-        for row, topic in zip(sorted(rows), chosen):
-            grid[row][column] = topic
+        drawn.sort(key=column_topics.index)
+        for line, topic in zip(sorted(lines), drawn):
+            grid[line][column] = topic
 
-    return Ticket(tuple(tuple(row) for row in grid))
+    return Ticket(tuple(tuple(line) for line in grid))

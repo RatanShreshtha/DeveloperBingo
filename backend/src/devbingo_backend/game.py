@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.pool import Pool
 from devbingo_backend.ticket import Ticket, build_ticket
 
 MAX_PLAYERS = 200
@@ -56,13 +55,16 @@ class _Game:
     players: list[str] = field(default_factory=list)
     tickets: dict[str, Ticket] = field(default_factory=dict)
 
+    def is_new_ticket(self, candidate: Ticket) -> bool:
+        """True when no player in this game already holds an identical ticket."""
+        return all(candidate.lines != held.lines for held in self.tickets.values())
+
 
 class GameRegistry:
     """In-memory store of live games. Holds all lobby and start rules."""
 
-    def __init__(self, pool: Pool = DEFAULT_POOL, rng: random.Random | None = None) -> None:
+    def __init__(self, rng: random.Random | None = None) -> None:
         self._games: dict[str, _Game] = {}
-        self._pool = pool
         self._rng = rng or random.Random()
 
     def create_game(self) -> CreatedGame:
@@ -85,10 +87,9 @@ class GameRegistry:
         return ticket
 
     def _deal_unique_ticket(self, game: _Game) -> Ticket:
-        dealt = {ticket.rows for ticket in game.tickets.values()}
         while True:
-            ticket = build_ticket(self._pool, self._rng)
-            if ticket.rows not in dealt:
+            ticket = build_ticket(DEFAULT_POOL, self._rng)
+            if game.is_new_ticket(ticket):
                 return ticket
 
     def players(self, code: str) -> list[str]:

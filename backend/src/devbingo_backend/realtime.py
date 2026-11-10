@@ -59,7 +59,7 @@ class RealtimeAdapter:
             {"players": self._registry.players(code)},
             room=code,
         )
-        return {"ok": True, "ticket": ticket.names()}
+        return {"ok": True, "ticket": ticket.to_cells()}
 
     async def watch_lobby(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         code, host_token = payload["code"], payload["host_token"]

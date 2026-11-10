@@ -31,8 +31,8 @@ def test_joining_returns_the_players_ticket(registry):
 
     ticket = registry.join(game.code, "Ada")
 
-    assert len(ticket.rows) == 3
-    assert sum(cell is not None for row in ticket.rows for cell in row) == 15
+    assert len(ticket.lines) == 3
+    assert sum(cell is not None for line in ticket.lines for cell in line) == 15
 
 
 def test_no_two_tickets_in_a_game_are_identical():
@@ -41,7 +41,7 @@ def test_no_two_tickets_in_a_game_are_identical():
 
     tickets = [registry.join(game.code, f"player-{i}") for i in range(MAX_PLAYERS)]
 
-    assert len({ticket.rows for ticket in tickets}) == MAX_PLAYERS
+    assert len({ticket.lines for ticket in tickets}) == MAX_PLAYERS
 
 
 def test_players_join_with_a_code_and_a_display_name(registry):

@@ -33,7 +33,7 @@ def test_a_join_becomes_an_engine_command_and_a_room_broadcast():
 
     assert ack["ok"] is True
     assert len(ack["ticket"]) == 3
-    assert all(len(row) == 9 for row in ack["ticket"])
+    assert all(len(line) == 9 for line in ack["ticket"])
     assert registry.lobby(game.code, game.host_token) == ["Ada"]
     assert broadcaster.entered == [("sid-1", game.code)]
     assert broadcaster.emitted == [

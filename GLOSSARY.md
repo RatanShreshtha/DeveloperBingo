@@ -41,7 +41,7 @@ One of nine fixed groups that partition the pool. Each ticket holds one to three
 _Avoid_: Bucket, range
 
 **Line**:
-A complete row of five topics on one ticket. The top, middle and bottom lines are three separate prizes.
+A complete line of five topics on one ticket. The top, middle and bottom lines are three separate prizes.
 _Avoid_: Row, strip
 
 **Early five**:
