@@ -13,7 +13,9 @@ export function socketModuleMock() {
     drawTopic: vi.fn(),
     tickTopic: vi.fn(),
     untickTopic: vi.fn(),
+    claimPrize: vi.fn(),
     onGameStarted: vi.fn(),
     onTopicDrawn: vi.fn(),
+    onPrizeAwarded: vi.fn(),
   }
 }

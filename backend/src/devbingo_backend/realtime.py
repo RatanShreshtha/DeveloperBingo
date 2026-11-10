@@ -3,6 +3,7 @@ from typing import Any, Protocol
 import socketio
 
 from devbingo_backend.game import (
+    ClaimNotValid,
     GameAlreadyStarted,
     GameError,
     GameFull,
@@ -13,11 +14,13 @@ from devbingo_backend.game import (
     NameTaken,
     NoTopicsLeft,
     NotAPlayer,
-    PlayerRef,
     NotHost,
+    PlayerRef,
+    PrizeAlreadyAwarded,
     TopicNotDrawn,
     TopicNotOnTicket,
 )
+from devbingo_backend.prizes import Prize
 from devbingo_backend.wire import DrawAnnouncement
 
 
@@ -46,12 +49,19 @@ _ERROR_CODES: dict[type[GameError], str] = {
     NotAPlayer: "not_a_player",
     TopicNotDrawn: "not_drawn",
     TopicNotOnTicket: "not_on_ticket",
+    ClaimNotValid: "not_won",
+    PrizeAlreadyAwarded: "prize_taken",
 }
 
 
 def _refusal(err: GameError) -> dict[str, Any]:
     """The acknowledgement that tells only the sender why a request was refused."""
     return {"ok": False, "error": _ERROR_CODES[type(err)]}
+
+
+def _prize_board(board: dict[Prize, str | None]) -> dict[str, str | None]:
+    """The prize board in the wire's terms: prize names as strings, and the name each prize was awarded to."""
+    return {prize.value: winner for prize, winner in board.items()}
 
 
 def _host_link(payload: dict[str, str]) -> HostLink:
@@ -100,6 +110,7 @@ class RealtimeAdapter:
             "ok": True,
             "ticket": ticket.to_cells(),
             "ticks": sorted(self._registry.ticks(player)),
+            "prizes": _prize_board(self._registry.prize_board(player.code)),
         }
 
     async def disconnect(self, sid: str) -> None:
@@ -115,7 +126,11 @@ class RealtimeAdapter:
             return _refusal(err)
 
         await self._broadcaster.enter_room(sid, payload["code"])
-        return {"ok": True, "players": players}
+        return {
+            "ok": True,
+            "players": players,
+            "prizes": _prize_board(self._registry.prize_board(payload["code"])),
+        }
 
     async def start_game(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         code = payload["code"]
@@ -141,6 +156,26 @@ class RealtimeAdapter:
     # Ticks are private, and nothing is broadcast. The acknowledgement says only
     # whether the change happened: the client keeps its own list, so no ticks are
     # sent back to anyone.
+
+    async def claim_prize(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        """A valid claim is announced to the whole room. A refused one is told to the claimant only."""
+        code = payload["code"]
+        try:
+            prize = Prize(payload["prize"])
+        except ValueError:
+            return {"ok": False, "error": "unknown_prize"}
+        try:
+            self._registry.claim(_player(payload), prize)
+        except GameError as err:
+            return _refusal(err)
+
+        winner = self._registry.prize_board(code)[prize]
+        await self._broadcaster.emit(
+            "prize_awarded",
+            {"prize": prize.value, "winner": winner},
+            room=code,
+        )
+        return {"ok": True}
 
     async def tick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         return self._change_ticks(payload, self._registry.tick)
@@ -196,6 +231,10 @@ def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
     @server.event
     async def draw_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
         return await adapter.draw_topic(sid, data)
+
+    @server.event
+    async def claim_prize(sid: str, data: dict[str, str]) -> dict[str, Any]:
+        return await adapter.claim_prize(sid, data)
 
     @server.event
     async def tick_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:

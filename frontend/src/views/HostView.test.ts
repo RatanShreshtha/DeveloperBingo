@@ -22,7 +22,7 @@ beforeEach(() => {
 
 describe('HostView', () => {
   it('shows the default pool as columns of topics with their explanations', async () => {
-    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: [] })
+    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: [], prizes: { early_five: null } })
 
     const wrapper = mount(HostView, {
       props: { code: 'ABC123', token: 'secret-token' },
@@ -38,7 +38,7 @@ describe('HostView', () => {
   })
 
   it('shows the players the server reports for the lobby', async () => {
-    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'] })
+    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'], prizes: { early_five: null } })
 
     const wrapper = mount(HostView, {
       props: { code: 'ABC123', token: 'secret-token' },
@@ -51,7 +51,7 @@ describe('HostView', () => {
   })
 
   it('updates the list when a lobby update arrives', async () => {
-    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'] })
+    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'], prizes: { early_five: null } })
     let notify: (players: string[]) => void = () => {}
     vi.mocked(onLobbyUpdated).mockImplementation((handler) => {
       notify = handler

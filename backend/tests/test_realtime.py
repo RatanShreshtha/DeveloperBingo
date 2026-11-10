@@ -67,7 +67,9 @@ def test_the_host_can_watch_the_lobby_with_the_host_token():
         "sid-host", {"code": game.code, "host_token": game.host_token}
     ))
 
-    assert ack == {"ok": True, "players": ["Ada"]}
+    assert ack["ok"] is True
+    assert ack["players"] == ["Ada"]
+    assert ack["prizes"] == {"early_five": None}
     assert broadcaster.entered == [("sid-host", game.code)]
 
 
@@ -257,3 +259,72 @@ def test_a_rejoin_does_not_announce_a_change_to_the_lobby():
 
     lobby_updates = [event for event in broadcaster.emitted if event[0] == "lobby_updated"]
     assert len(lobby_updates) == 1
+
+
+def started_game_with_five_ticks_for_ada():
+    registry = GameRegistry(rng=random.Random(5))
+    game = registry.create_game()
+    ticket = registry.join(PlayerRef(game.code, "Ada"))
+    registry.start(game.host_link)
+    for _ in range(90):
+        registry.draw(game.host_link)
+    topics = sorted({cell.name for line in ticket.lines for cell in line if cell})
+    for topic in topics[:5]:
+        registry.tick(PlayerRef(game.code, "Ada"), topic)
+    return registry, game
+
+
+def test_a_valid_claim_is_acknowledged_and_announced_to_the_room():
+    registry, game = started_game_with_five_ticks_for_ada()
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+
+    ack = run(adapter.claim_prize("sid-ada", {"code": game.code, "name": "Ada", "prize": "early_five"}))
+
+    assert ack == {"ok": True}
+    assert broadcaster.emitted == [
+        ("prize_awarded", game.code, {"prize": "early_five", "winner": "Ada"}),
+    ]
+
+
+def test_a_refused_claim_is_told_to_the_claimant_only():
+    registry = GameRegistry(rng=random.Random(5))
+    game = registry.create_game()
+    registry.join(PlayerRef(game.code, "Ada"))
+    registry.start(game.host_link)
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+
+    ack = run(adapter.claim_prize("sid-ada", {"code": game.code, "name": "Ada", "prize": "early_five"}))
+
+    assert ack == {"ok": False, "error": "not_won"}
+    assert broadcaster.emitted == []
+
+
+def test_a_second_claim_for_an_awarded_prize_is_refused():
+    registry, game = started_game_with_five_ticks_for_ada()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+    run(adapter.claim_prize("sid-ada", {"code": game.code, "name": "Ada", "prize": "early_five"}))
+
+    ack = run(adapter.claim_prize("sid-ada", {"code": game.code, "name": "Ada", "prize": "early_five"}))
+
+    assert ack == {"ok": False, "error": "prize_taken"}
+
+
+def test_an_unknown_prize_is_refused():
+    registry, game = started_game_with_five_ticks_for_ada()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+
+    ack = run(adapter.claim_prize("sid-ada", {"code": game.code, "name": "Ada", "prize": "jackpot"}))
+
+    assert ack == {"ok": False, "error": "unknown_prize"}
+
+
+def test_the_join_acknowledgement_shows_which_prizes_remain():
+    registry = GameRegistry(rng=random.Random(5))
+    game = registry.create_game()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+
+    ack = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
+
+    assert ack["prizes"] == {"early_five": None}
