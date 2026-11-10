@@ -17,6 +17,7 @@ export type WatchResult =
   | { ok: false; error: string }
 export type StartResult = { ok: true } | { ok: false; error: string }
 export type DrawResult = { ok: true; draw: DrawnTopic } | { ok: false; error: string }
+export type TickResult = { ok: true; ticked: string[] } | { ok: false; error: string }
 
 let socket: Socket | null = null
 
@@ -45,6 +46,15 @@ export function startGame(link: HostLink): Promise<StartResult> {
 
 export function drawTopic(link: HostLink): Promise<DrawResult> {
   return connection().emitWithAck('draw_topic', hostPayload(link)) as Promise<DrawResult>
+}
+
+// A player's ticks are private to them, so each call answers only the sender.
+export function tickTopic(code: string, name: string, topic: string): Promise<TickResult> {
+  return connection().emitWithAck('tick_topic', { code, name, topic }) as Promise<TickResult>
+}
+
+export function untickTopic(code: string, name: string, topic: string): Promise<TickResult> {
+  return connection().emitWithAck('untick_topic', { code, name, topic }) as Promise<TickResult>
 }
 
 export function onLobbyUpdated(handler: (players: string[]) => void): void {

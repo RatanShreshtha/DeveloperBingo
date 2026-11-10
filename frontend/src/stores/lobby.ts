@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { createGame, fetchDrawHistory } from '../api/games'
 import {
   drawTopic,
@@ -8,6 +8,8 @@ import {
   onLobbyUpdated,
   onTopicDrawn,
   startGame,
+  tickTopic,
+  untickTopic,
   watchLobby,
   type DrawnTopic,
   type HostLink,
@@ -22,6 +24,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_host: 'This host link is not valid for this game',
   not_started: 'The game has not started yet',
   no_topics_left: 'Every topic has already been drawn',
+  not_drawn: 'That topic has not been drawn yet',
+  not_on_ticket: 'That topic is not on your ticket',
+  not_a_player: 'You are not in this game',
 }
 
 function messageFor(code: string): string {
@@ -35,6 +40,11 @@ export const useLobbyStore = defineStore('lobby', () => {
   const ticket = ref<TicketCells | null>(null)
   const started = ref(false)
   const draws = ref<DrawnTopic[]>([])
+  // This player's own identity in the game, and the topics they have ticked.
+  const playerCode = ref<string | null>(null)
+  const playerName = ref<string | null>(null)
+  const ticked = ref<string[]>([])
+  const drawnNames = computed(() => draws.value.map((draw) => draw.name))
   // Problems loading the lobby, shown in place of it.
   const error = ref<string | null>(null)
   // Refusals of something the user did, shown next to the controls.
@@ -80,7 +90,22 @@ export const useLobbyStore = defineStore('lobby', () => {
       return false
     }
     ticket.value = result.ticket
+    playerCode.value = code
+    playerName.value = name
+    ticked.value = []
     return true
+  }
+
+  // Ticks the topic if it isn't ticked, otherwise unticks it. The server decides.
+  async function toggleTick(topic: string) {
+    if (!playerCode.value || !playerName.value) {
+      return
+    }
+    const call = ticked.value.includes(topic) ? untickTopic : tickTopic
+    const result = await attempt(() => call(playerCode.value!, playerName.value!, topic))
+    if (result?.ok) {
+      ticked.value = result.ticked
+    }
   }
 
   async function watchAsHost(link: HostLink) {
@@ -123,10 +148,15 @@ export const useLobbyStore = defineStore('lobby', () => {
     ticket,
     started,
     draws,
+    drawnNames,
+    playerCode,
+    playerName,
+    ticked,
     error,
     actionError,
     create,
     join,
+    toggleTick,
     watchAsHost,
     loadDrawHistory,
     start,

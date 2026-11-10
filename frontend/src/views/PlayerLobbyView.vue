@@ -24,7 +24,16 @@ onMounted(() => {
             v-for="(cell, columnIndex) in line"
             :key="columnIndex"
             data-test="ticket-cell"
-          >{{ cell ?? '' }}</td>
+          >
+            <button
+              v-if="cell"
+              type="button"
+              data-test="tick-cell"
+              :aria-pressed="store.ticked.includes(cell)"
+              :disabled="!store.drawnNames.includes(cell)"
+              @click="store.toggleTick(cell)"
+            >{{ cell }}<span v-if="store.ticked.includes(cell)" aria-hidden="true"> ✓</span></button>
+          </td>
         </tr>
       </tbody>
     </table>

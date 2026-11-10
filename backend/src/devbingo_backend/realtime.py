@@ -12,7 +12,10 @@ from devbingo_backend.game import (
     HostLink,
     NameTaken,
     NoTopicsLeft,
+    NotAPlayer,
     NotHost,
+    TopicNotDrawn,
+    TopicNotOnTicket,
 )
 from devbingo_backend.wire import DrawAnnouncement
 
@@ -39,6 +42,9 @@ _ERROR_CODES: dict[type[GameError], str] = {
     GameAlreadyStarted: "already_started",
     GameNotStarted: "not_started",
     NoTopicsLeft: "no_topics_left",
+    NotAPlayer: "not_a_player",
+    TopicNotDrawn: "not_drawn",
+    TopicNotOnTicket: "not_on_ticket",
 }
 
 
@@ -106,6 +112,22 @@ class RealtimeAdapter:
         await self._broadcaster.emit("topic_drawn", announcement, room=code)
         return {"ok": True, "draw": announcement}
 
+    # Ticks are private to the player, so their acknowledgements go to the sender only.
+
+    async def tick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        try:
+            ticked = self._registry.tick(payload["code"], payload["name"], payload["topic"])
+        except GameError as err:
+            return _refusal(err)
+        return {"ok": True, "ticked": sorted(ticked)}
+
+    async def untick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        try:
+            ticked = self._registry.untick(payload["code"], payload["name"], payload["topic"])
+        except GameError as err:
+            return _refusal(err)
+        return {"ok": True, "ticked": sorted(ticked)}
+
 
 class _SocketIOBroadcaster:
     def __init__(self, server: socketio.AsyncServer) -> None:
@@ -143,5 +165,13 @@ def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
     @server.event
     async def draw_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
         return await adapter.draw_topic(sid, data)
+
+    @server.event
+    async def tick_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
+        return await adapter.tick_topic(sid, data)
+
+    @server.event
+    async def untick_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
+        return await adapter.untick_topic(sid, data)
 
     return server

@@ -135,3 +135,52 @@ def test_a_draw_before_the_game_starts_is_refused_to_the_sender_only():
     assert ack == {"ok": False, "error": "not_started"}
     assert broadcaster.emitted == []
 
+
+def started_game_with_every_topic_drawn():
+    registry = GameRegistry(rng=random.Random(5))
+    game = registry.create_game()
+    ticket = registry.join(game.code, "Ada")
+    registry.start(game.host_link)
+    for _ in range(90):
+        registry.draw(game.host_link)
+    return registry, game, ticket
+
+
+def test_a_tick_is_acknowledged_to_the_sender_only():
+    registry, game, ticket = started_game_with_every_topic_drawn()
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+    topic = next(c for row in ticket.to_cells() for c in row if c)
+
+    ack = run(adapter.tick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": topic}))
+
+    assert ack == {"ok": True, "ticked": [topic]}
+    assert broadcaster.emitted == []
+
+
+def test_an_untick_is_acknowledged_with_the_remaining_ticks():
+    registry, game, ticket = started_game_with_every_topic_drawn()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+    topic = next(c for row in ticket.to_cells() for c in row if c)
+    run(adapter.tick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": topic}))
+
+    ack = run(adapter.untick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": topic}))
+
+    assert ack == {"ok": True, "ticked": []}
+
+
+def test_a_refused_tick_names_the_reason_and_changes_nothing():
+    registry = GameRegistry(rng=random.Random(5))
+    game = registry.create_game()
+    ticket = registry.join(game.code, "Ada")
+    registry.start(game.host_link)
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+    topic = next(c for row in ticket.to_cells() for c in row if c)
+
+    ack = run(adapter.tick_topic("sid-ada", {"code": game.code, "name": "Ada", "topic": topic}))
+
+    assert ack == {"ok": False, "error": "not_drawn"}
+    assert registry.ticks(game.code, "Ada") == frozenset()
+    assert broadcaster.emitted == []
+

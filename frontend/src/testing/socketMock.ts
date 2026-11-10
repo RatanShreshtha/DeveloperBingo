@@ -11,6 +11,8 @@ export function socketModuleMock() {
     onLobbyUpdated: vi.fn(),
     startGame: vi.fn(),
     drawTopic: vi.fn(),
+    tickTopic: vi.fn(),
+    untickTopic: vi.fn(),
     onGameStarted: vi.fn(),
     onTopicDrawn: vi.fn(),
   }
