@@ -19,6 +19,7 @@ import {
 
 const ERROR_MESSAGES: Record<string, string> = {
   name_taken: 'That name is already taken in this game',
+  already_joined: 'You have already joined a game from this window',
   game_full: 'This game is full',
   already_started: 'This game has already started',
   not_found: 'No game found with that code',
@@ -91,7 +92,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     }
     ticket.value = result.ticket
     player.value = { code, name }
-    ticks.value = []
+    ticks.value = result.ticks
     return true
   }
 

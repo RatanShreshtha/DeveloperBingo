@@ -28,6 +28,10 @@ _Avoid_: Caller, admin, moderator
 A participant who holds a ticket and ticks off drawn topics.
 _Avoid_: User, contestant
 
+**Connected player**:
+A player whose socket is live in the game. A player who drops keeps their place and ticks, and can rejoin by name.
+_Avoid_: Online player, live player, dropped player (use "dropped" only for a player who is not connected)
+
 **Claim**:
 A player's assertion that they have won a prize, checked against the draws.
 _Avoid_: Bingo, call, shout

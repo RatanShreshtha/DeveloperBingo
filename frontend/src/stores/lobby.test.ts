@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { joinGame } from '../realtime/socket'
 import { useLobbyStore } from './lobby'
+import { joinedResult } from '../testing/joinMock'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
@@ -19,7 +20,7 @@ beforeEach(() => {
 
 describe('lobby store', () => {
   it('keeps the ticket the server dealt when the player joins', async () => {
-    vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket })
+    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket))
     const store = useLobbyStore()
 
     const joined = await store.join('ABC123', 'Ada')

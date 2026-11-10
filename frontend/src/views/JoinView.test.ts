@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { joinGame } from '../realtime/socket'
 import { makePlugins, makeRouter } from './testRouter'
+import { joinedResult } from '../testing/joinMock'
 import JoinView from './JoinView.vue'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
@@ -21,7 +22,7 @@ async function fillAndSubmit(wrapper: ReturnType<typeof mount>, code: string, na
 
 describe('JoinView', () => {
   it('moves the player to the lobby after joining', async () => {
-    vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket: [[null]] })
+    vi.mocked(joinGame).mockResolvedValue(joinedResult([[null]]))
     const router = makeRouter()
     const wrapper = mount(JoinView, { global: { plugins: [createPinia(), router] } })
 

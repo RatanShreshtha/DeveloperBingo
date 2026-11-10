@@ -9,8 +9,9 @@ export type DrawnTopic = components['schemas']['DrawAnnouncement']
 
 // Shapes the server sends only over the socket, hand-typed for now.
 export type TicketCells = (string | null)[][]
+// A rejoin also gets back the ticks the player already had.
 export type JoinResult =
-  | { ok: true; ticket: TicketCells }
+  | { ok: true; ticket: TicketCells; ticks: string[] }
   | { ok: false; error: string }
 export type WatchResult =
   | { ok: true; players: string[] }

@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { joinGame, tickTopic, untickTopic } from '../realtime/socket'
 import { useLobbyStore } from './lobby'
+import { joinedResult } from '../testing/joinMock'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
@@ -13,7 +14,7 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.mocked(tickTopic).mockReset()
   vi.mocked(untickTopic).mockReset()
-  vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket })
+  vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket))
 })
 
 async function joinAsAda() {
@@ -23,6 +24,15 @@ async function joinAsAda() {
 }
 
 describe('lobby store ticks', () => {
+  it('restores the ticks the server returns when a dropped player rejoins', async () => {
+    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket, ['Algorithm']))
+    const store = useLobbyStore()
+
+    await store.join('ABC123', 'Ada')
+
+    expect(store.ticks).toEqual(['Algorithm'])
+  })
+
   it('remembers who the player is when they join', async () => {
     const store = await joinAsAda()
 

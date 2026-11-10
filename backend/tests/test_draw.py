@@ -4,6 +4,7 @@ import pytest
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
+    PlayerRef,
     GameAlreadyStarted,
     GameNotStarted,
     GameRegistry,
@@ -17,7 +18,7 @@ from devbingo_backend.game import (
 def started():
     registry = GameRegistry(rng=random.Random(7))
     game = registry.create_game()
-    registry.join(game.code, "Ada")
+    registry.join(PlayerRef(game.code, "Ada"))
     registry.start(game.host_link)
     return registry, game
 
