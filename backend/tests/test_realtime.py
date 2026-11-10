@@ -1,4 +1,5 @@
 import asyncio
+import random
 
 from devbingo_backend.game import GameRegistry
 from devbingo_backend.realtime import RealtimeAdapter
@@ -133,3 +134,29 @@ def test_a_draw_before_the_game_starts_is_refused_to_the_sender_only():
 
     assert ack == {"ok": False, "error": "not_started"}
     assert broadcaster.emitted == []
+
+
+def test_a_player_can_read_the_draw_history_back_in_order():
+    registry = GameRegistry(rng=random.Random(3))
+    game = registry.create_game()
+    registry.join(game.code, "Ada")
+    registry.start(game.code, game.host_token)
+    registry.draw(game.code, game.host_token)
+    registry.draw(game.code, game.host_token)
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+
+    ack = run(adapter.get_draw_history("sid-player", {"code": game.code}))
+
+    assert ack["ok"] is True
+    assert [draw["position"] for draw in ack["draws"]] == [1, 2]
+    assert all(draw["explanation"] for draw in ack["draws"])
+    assert broadcaster.emitted == []
+
+
+def test_reading_the_history_of_an_unknown_game_is_refused():
+    adapter = RealtimeAdapter(GameRegistry(), RecordingBroadcaster())
+
+    ack = run(adapter.get_draw_history("sid-player", {"code": "NOPE00"}))
+
+    assert ack == {"ok": False, "error": "not_found"}

@@ -17,6 +17,7 @@ function hostToken(): string {
 
 onMounted(async () => {
   store.watchAsHost(props.code, hostToken())
+  store.loadDrawHistory(props.code)
   try {
     pool.value = (await fetchDefaultPool()).columns
   } catch {
@@ -29,18 +30,21 @@ onMounted(async () => {
   <section>
     <p>Game code: <strong>{{ code }}</strong></p>
     <p v-if="store.error" role="alert">{{ store.error }}</p>
-    <div v-if="!store.started">
-      <button type="button" data-test="start-game" @click="store.start(code, hostToken())">
-        Start game
-      </button>
-    </div>
-    <div v-else>
-      <button type="button" data-test="draw-topic" @click="store.drawNext(code, hostToken())">
-        Draw topic
-      </button>
-    </div>
-    <DrawHistory :draws="store.draws" />
-    <LobbyList :players="store.players" />
+    <template v-else>
+      <div v-if="!store.started">
+        <button type="button" data-test="start-game" @click="store.start(code, hostToken())">
+          Start game
+        </button>
+      </div>
+      <div v-else>
+        <button type="button" data-test="draw-topic" @click="store.drawNext(code, hostToken())">
+          Draw topic
+        </button>
+      </div>
+      <p v-if="store.actionError" role="alert">{{ store.actionError }}</p>
+      <DrawHistory :draws="store.draws" />
+      <LobbyList :players="store.players" />
+    </template>
     <PoolColumns v-if="pool" :columns="pool" />
     <p v-else-if="poolError" role="alert">Could not load the default pool.</p>
   </section>

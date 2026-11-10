@@ -6,15 +6,7 @@ import { useLobbyStore } from './lobby'
 vi.mock('../api/games', () => ({
   createGame: vi.fn(),
 }))
-vi.mock('../realtime/socket', () => ({
-  joinGame: vi.fn(),
-  watchLobby: vi.fn(),
-  onLobbyUpdated: vi.fn(),
-  startGame: vi.fn(),
-  drawTopic: vi.fn(),
-  onGameStarted: vi.fn(),
-  onTopicDrawn: vi.fn(),
-}))
+vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 const ticket = [
   ['Algorithm', null, 'JSON', null, null, 'Monad', null, null, 'Pi'],

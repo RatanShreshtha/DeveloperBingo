@@ -40,6 +40,11 @@ _ERROR_CODES: dict[type[GameError], str] = {
 }
 
 
+def _refusal(err: GameError) -> dict[str, Any]:
+    """The acknowledgement that tells only the sender why a request was refused."""
+    return {"ok": False, "error": _ERROR_CODES[type(err)]}
+
+
 class RealtimeAdapter:
     """Turns socket events into engine calls and engine state into room broadcasts.
 
@@ -55,7 +60,7 @@ class RealtimeAdapter:
         try:
             ticket = self._registry.join(code, name)
         except GameError as err:
-            return {"ok": False, "error": _ERROR_CODES[type(err)]}
+            return _refusal(err)
 
         await self._broadcaster.enter_room(sid, code)
         await self._broadcaster.emit(
@@ -70,7 +75,7 @@ class RealtimeAdapter:
         try:
             players = self._registry.lobby(code, host_token)
         except GameError as err:
-            return {"ok": False, "error": _ERROR_CODES[type(err)]}
+            return _refusal(err)
 
         await self._broadcaster.enter_room(sid, code)
         return {"ok": True, "players": players}
@@ -80,7 +85,7 @@ class RealtimeAdapter:
         try:
             self._registry.start(code, host_token)
         except GameError as err:
-            return {"ok": False, "error": _ERROR_CODES[type(err)]}
+            return _refusal(err)
 
         await self._broadcaster.emit("game_started", {}, room=code)
         return {"ok": True}
@@ -90,15 +95,18 @@ class RealtimeAdapter:
         try:
             draw = self._registry.draw(code, host_token)
         except GameError as err:
-            return {"ok": False, "error": _ERROR_CODES[type(err)]}
+            return _refusal(err)
 
-        announced = {
-            "position": draw.position,
-            "name": draw.topic.name,
-            "explanation": draw.topic.explanation,
-        }
-        await self._broadcaster.emit("topic_drawn", announced, room=code)
-        return {"ok": True, "draw": announced}
+        await self._broadcaster.emit("topic_drawn", draw.announcement(), room=code)
+        return {"ok": True, "draw": draw.announcement()}
+
+    async def get_draw_history(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+        """Read the draws back for anyone catching up. Nothing is broadcast."""
+        try:
+            draws = self._registry.draw_history(payload["code"])
+        except GameError as err:
+            return _refusal(err)
+        return {"ok": True, "draws": [draw.announcement() for draw in draws]}
 
 
 class _SocketIOBroadcaster:
@@ -137,5 +145,9 @@ def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
     @server.event
     async def draw_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
         return await adapter.draw_topic(sid, data)
+
+    @server.event
+    async def get_draw_history(sid: str, data: dict[str, str]) -> dict[str, Any]:
+        return await adapter.get_draw_history(sid, data)
 
     return server

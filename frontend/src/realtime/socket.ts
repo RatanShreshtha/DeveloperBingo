@@ -10,6 +10,9 @@ export type WatchResult =
 export type DrawnTopic = { position: number; name: string; explanation: string }
 export type StartResult = { ok: true } | { ok: false; error: string }
 export type DrawResult = { ok: true; draw: DrawnTopic } | { ok: false; error: string }
+export type DrawHistoryResult =
+  | { ok: true; draws: DrawnTopic[] }
+  | { ok: false; error: string }
 
 let socket: Socket | null = null
 
@@ -43,6 +46,10 @@ export function drawTopic(code: string, hostToken: string): Promise<DrawResult> 
     code,
     host_token: hostToken,
   }) as Promise<DrawResult>
+}
+
+export function getDrawHistory(code: string): Promise<DrawHistoryResult> {
+  return connection().emitWithAck('get_draw_history', { code }) as Promise<DrawHistoryResult>
 }
 
 export function onLobbyUpdated(handler: (players: string[]) => void): void {

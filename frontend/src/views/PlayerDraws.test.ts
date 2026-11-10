@@ -7,22 +7,14 @@ import PlayerLobbyView from './PlayerLobbyView.vue'
 vi.mock('../api/games', () => ({
   createGame: vi.fn(),
 }))
-vi.mock('../realtime/socket', () => ({
-  joinGame: vi.fn(),
-  watchLobby: vi.fn(),
-  onLobbyUpdated: vi.fn(),
-  startGame: vi.fn(),
-  drawTopic: vi.fn(),
-  onGameStarted: vi.fn(),
-  onTopicDrawn: vi.fn(),
-}))
+vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 beforeEach(() => {
   setActivePinia(createPinia())
 })
 
 describe('PlayerLobbyView draws', () => {
-  it('shows the draw history in order and the latest explanation', () => {
+  it('shows every drawn topic with its explanation, in order', () => {
     const store = useLobbyStore()
     store.draws = [
       { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' },
@@ -34,7 +26,23 @@ describe('PlayerLobbyView draws', () => {
     const history = wrapper.findAll('[data-test="draw-history"] li').map((li) => li.text())
     expect(history).toHaveLength(2)
     expect(history[0]).toContain('Algorithm')
+    expect(history[0]).toContain('A finite sequence of steps.')
     expect(history[1]).toContain('JSON')
-    expect(wrapper.text()).toContain('A lightweight data format.')
+    expect(history[1]).toContain('A lightweight data format.')
+  })
+
+  it('says the game is still waiting to start before the host starts it', () => {
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+    expect(wrapper.text()).toContain('Waiting for the host to start the game.')
+  })
+
+  it('says the game has started once it has', () => {
+    const store = useLobbyStore()
+    store.started = true
+
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+    expect(wrapper.text()).toContain('The game has started.')
   })
 })

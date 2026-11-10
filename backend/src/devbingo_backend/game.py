@@ -58,6 +58,14 @@ class Draw:
     position: int
     topic: Topic
 
+    def announcement(self) -> dict[str, str | int]:
+        """The draw as players see it: its place, name and explanation."""
+        return {
+            "position": self.position,
+            "name": self.topic.name,
+            "explanation": self.topic.explanation,
+        }
+
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
