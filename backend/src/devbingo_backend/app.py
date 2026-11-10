@@ -4,13 +4,14 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
 import socketio
-from fastapi import FastAPI, Header, HTTPException, Response
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import create_engine, text
 
-from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
+from devbingo_backend.game import GameNotFound, GameRegistry, HostLink, NotHost
 from devbingo_backend.pool_store import ensure_default_pool, load_default_pool
 from devbingo_backend.realtime import build_socket_server
+from devbingo_backend.wire import DrawAnnouncement, DrawHistoryResponse
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
 
@@ -79,25 +80,23 @@ def create_app(database_url: str | None = None) -> FastAPI:
         x_host_token: Annotated[str, Header()] = "",
     ) -> LobbyResponse:
         try:
-            players = registry.lobby(code, x_host_token)
+            players = registry.lobby(HostLink(code=code, token=x_host_token))
         except GameNotFound:
             raise HTTPException(status_code=404, detail="game not found") from None
         except NotHost:
             raise HTTPException(status_code=403, detail="host token required") from None
         return LobbyResponse(players=players)
 
-    @app.post("/games/{code}/start", status_code=204)
-    def start_game(
-        code: str,
-        x_host_token: Annotated[str, Header()] = "",
-    ) -> Response:
+    @app.get("/games/{code}/draws", response_model=DrawHistoryResponse)
+    def read_draw_history(code: str) -> DrawHistoryResponse:
+        """Every draw so far, in order. Public, so a player who arrives late can catch up."""
         try:
-            registry.start(code, x_host_token)
+            draws = registry.draw_history(code)
         except GameNotFound:
             raise HTTPException(status_code=404, detail="game not found") from None
-        except NotHost:
-            raise HTTPException(status_code=403, detail="host token required") from None
-        return Response(status_code=204)
+        return DrawHistoryResponse(
+            draws=[DrawAnnouncement.from_draw(draw) for draw in draws],
+        )
 
     @app.get("/pools/default", response_model=PoolResponse)
     def read_default_pool() -> PoolResponse:

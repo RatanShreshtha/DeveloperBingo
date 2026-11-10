@@ -90,10 +90,11 @@
         }
       }
     },
-    "/games/{code}/start": {
-      "post": {
-        "summary": "Start Game",
-        "operationId": "start_game_games__code__start_post",
+    "/games/{code}/draws": {
+      "get": {
+        "summary": "Read Draw History",
+        "description": "Every draw so far, in order. Public, so a player who arrives late can catch up.",
+        "operationId": "read_draw_history_games__code__draws_get",
         "parameters": [
           {
             "name": "code",
@@ -103,21 +104,18 @@
               "type": "string",
               "title": "Code"
             }
-          },
-          {
-            "name": "x-host-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Host-Token"
-            }
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successful Response"
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrawHistoryResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -170,6 +168,46 @@
           "host_token"
         ],
         "title": "CreateGameResponse"
+      },
+      "DrawAnnouncement": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position",
+          "name",
+          "explanation"
+        ],
+        "title": "DrawAnnouncement",
+        "description": "A draw as players see it: its place in the game, the topic and its explanation."
+      },
+      "DrawHistoryResponse": {
+        "properties": {
+          "draws": {
+            "items": {
+              "$ref": "#/components/schemas/DrawAnnouncement"
+            },
+            "type": "array",
+            "title": "Draws"
+          }
+        },
+        "type": "object",
+        "required": [
+          "draws"
+        ],
+        "title": "DrawHistoryResponse"
       },
       "HTTPValidationError": {
         "properties": {

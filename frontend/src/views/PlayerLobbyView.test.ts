@@ -4,15 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLobbyStore } from '../stores/lobby'
 import PlayerLobbyView from './PlayerLobbyView.vue'
 
-vi.mock('../api/games', () => ({
-  createGame: vi.fn(),
-  startGame: vi.fn(),
-}))
-vi.mock('../realtime/socket', () => ({
-  joinGame: vi.fn(),
-  watchLobby: vi.fn(),
-  onLobbyUpdated: vi.fn(),
-}))
+vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
+vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 beforeEach(() => {
   setActivePinia(createPinia())

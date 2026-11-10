@@ -4,15 +4,8 @@ import { createGame } from '../api/games'
 import { makePlugins } from './testRouter'
 import HomeView from './HomeView.vue'
 
-vi.mock('../api/games', () => ({
-  createGame: vi.fn(),
-  startGame: vi.fn(),
-}))
-vi.mock('../realtime/socket', () => ({
-  joinGame: vi.fn(),
-  watchLobby: vi.fn(),
-  onLobbyUpdated: vi.fn(),
-}))
+vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
+vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 beforeEach(() => {
   vi.mocked(createGame).mockReset()

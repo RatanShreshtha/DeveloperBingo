@@ -4,15 +4,8 @@ import { onLobbyUpdated, watchLobby } from '../realtime/socket'
 import { makePlugins } from './testRouter'
 import HostView from './HostView.vue'
 
-vi.mock('../api/games', () => ({
-  createGame: vi.fn(),
-  startGame: vi.fn(),
-}))
-vi.mock('../realtime/socket', () => ({
-  joinGame: vi.fn(),
-  watchLobby: vi.fn(),
-  onLobbyUpdated: vi.fn(),
-}))
+vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
+vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 vi.mock('../api/pools', () => ({
   fetchDefaultPool: vi.fn(async () => ({
     columns: [
@@ -53,7 +46,7 @@ describe('HostView', () => {
     })
     await flushPromises()
 
-    expect(watchLobby).toHaveBeenCalledWith('ABC123', 'secret-token')
+    expect(watchLobby).toHaveBeenCalledWith({ code: 'ABC123', token: 'secret-token' })
     expect(wrapper.text()).toContain('Ada')
   })
 

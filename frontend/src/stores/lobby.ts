@@ -1,7 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { createGame } from '../api/games'
-import { joinGame, onLobbyUpdated, watchLobby, type TicketCells } from '../realtime/socket'
+import { createGame, fetchDrawHistory } from '../api/games'
+import {
+  drawTopic,
+  joinGame,
+  onGameStarted,
+  onLobbyUpdated,
+  onTopicDrawn,
+  startGame,
+  watchLobby,
+  type DrawnTopic,
+  type HostLink,
+  type TicketCells,
+} from '../realtime/socket'
 
 const ERROR_MESSAGES: Record<string, string> = {
   name_taken: 'That name is already taken in this game',
@@ -9,20 +20,52 @@ const ERROR_MESSAGES: Record<string, string> = {
   already_started: 'This game has already started',
   not_found: 'No game found with that code',
   not_host: 'This host link is not valid for this game',
+  not_started: 'The game has not started yet',
+  no_topics_left: 'Every topic has already been drawn',
 }
 
 function messageFor(code: string): string {
   return ERROR_MESSAGES[code] ?? 'Something went wrong. Please try again.'
 }
 
+type Refusable = { ok: true } | { ok: false; error: string }
+
 export const useLobbyStore = defineStore('lobby', () => {
   const players = ref<string[]>([])
   const ticket = ref<TicketCells | null>(null)
+  const started = ref(false)
+  const draws = ref<DrawnTopic[]>([])
+  // Problems loading the lobby, shown in place of it.
   const error = ref<string | null>(null)
+  // Refusals of something the user did, shown next to the controls.
+  const actionError = ref<string | null>(null)
 
   onLobbyUpdated((names) => {
     players.value = names
   })
+  onGameStarted(() => {
+    started.value = true
+  })
+  onTopicDrawn(recordDraw)
+
+  // Draws come both from our own ack and from the room broadcast, which
+  // reaches the host too. Positions are unique per game, so keep the first.
+  function recordDraw(draw: DrawnTopic) {
+    if (!draws.value.some((known) => known.position === draw.position)) {
+      draws.value.push(draw)
+    }
+  }
+
+  // Runs a host action, returning its result, or null after showing why it was refused.
+  async function attempt<T extends Refusable>(call: () => Promise<T>): Promise<T | null> {
+    actionError.value = null
+    const result = await call()
+    if (!result.ok) {
+      actionError.value = messageFor((result as { error: string }).error)
+      return null
+    }
+    return result
+  }
 
   async function create() {
     return createGame()
@@ -40,9 +83,9 @@ export const useLobbyStore = defineStore('lobby', () => {
     return true
   }
 
-  async function watchAsHost(code: string, hostToken: string) {
+  async function watchAsHost(link: HostLink) {
     error.value = null
-    const result = await watchLobby(code, hostToken)
+    const result = await watchLobby(link)
     if (result.ok) {
       players.value = result.players
     } else {
@@ -50,5 +93,43 @@ export const useLobbyStore = defineStore('lobby', () => {
     }
   }
 
-  return { players, ticket, error, create, join, watchAsHost }
+  async function loadDrawHistory(code: string) {
+    try {
+      const history = await fetchDrawHistory(code)
+      draws.value = [...history.draws]
+      if (history.draws.length > 0) {
+        started.value = true
+      }
+    } catch {
+      error.value = 'Could not load the draw history'
+    }
+  }
+
+  async function start(link: HostLink) {
+    if (await attempt(() => startGame(link))) {
+      started.value = true
+    }
+  }
+
+  async function drawNext(link: HostLink) {
+    const result = await attempt(() => drawTopic(link))
+    if (result?.ok) {
+      recordDraw(result.draw)
+    }
+  }
+
+  return {
+    players,
+    ticket,
+    started,
+    draws,
+    error,
+    actionError,
+    create,
+    join,
+    watchAsHost,
+    loadDrawHistory,
+    start,
+    drawNext,
+  }
 })

@@ -55,18 +55,20 @@ def test_an_unknown_game_code_is_not_found():
     assert response.status_code == 404
 
 
-def test_only_the_host_token_can_start_the_game():
+def test_the_draw_history_is_public_and_empty_before_any_draw():
     with TestClient(create_app("postgresql+psycopg://x@127.0.0.1:1/x")) as client:
         game = create_game(client)
 
-        refused = client.post(
-            f"/games/{game['code']}/start",
-            headers={HOST_HEADER: "not-the-host-token"},
-        )
-        started = client.post(
-            f"/games/{game['code']}/start",
-            headers={HOST_HEADER: game["host_token"]},
-        )
+        response = client.get(f"/games/{game['code']}/draws")
 
-    assert refused.status_code == 403
-    assert started.status_code == 204
+    assert response.status_code == 200
+    assert response.json() == {"draws": []}
+
+
+def test_the_draw_history_of_an_unknown_game_is_not_found():
+    with TestClient(create_app("postgresql+psycopg://x@127.0.0.1:1/x")) as client:
+        response = client.get("/games/NOPE00/draws")
+
+    assert response.status_code == 404
+
+

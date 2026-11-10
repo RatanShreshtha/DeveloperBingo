@@ -3,15 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { joinGame } from '../realtime/socket'
 import { useLobbyStore } from './lobby'
 
-vi.mock('../api/games', () => ({
-  createGame: vi.fn(),
-  startGame: vi.fn(),
-}))
-vi.mock('../realtime/socket', () => ({
-  joinGame: vi.fn(),
-  watchLobby: vi.fn(),
-  onLobbyUpdated: vi.fn(),
-}))
+vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
+vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 const ticket = [
   ['Algorithm', null, 'JSON', null, null, 'Monad', null, null, 'Pi'],

@@ -5,15 +5,8 @@ import { joinGame } from '../realtime/socket'
 import { makePlugins, makeRouter } from './testRouter'
 import JoinView from './JoinView.vue'
 
-vi.mock('../api/games', () => ({
-  createGame: vi.fn(),
-  startGame: vi.fn(),
-}))
-vi.mock('../realtime/socket', () => ({
-  joinGame: vi.fn(),
-  watchLobby: vi.fn(),
-  onLobbyUpdated: vi.fn(),
-}))
+vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
+vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 beforeEach(() => {
   vi.mocked(joinGame).mockReset()

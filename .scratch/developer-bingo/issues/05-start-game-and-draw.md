@@ -6,10 +6,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] Starting the game locks the pool and closes joining
-- [ ] A draw picks uniformly at random from topics not yet drawn
-- [ ] A topic is never drawn twice in a game
-- [ ] Draws cannot happen before the game starts or after it ends
-- [ ] Draws are final, with no undo
-- [ ] Every player sees the draw history in order, live
-- [ ] Every player sees each drawn topic's explanation
+- [ ] Starting the game locks the pool and closes joining (joining closes and the pool is recorded as locked; there is no pool-selection step yet, so nothing can change the pool to test against until ticket 14)
+- [x] A draw picks uniformly at random from topics not yet drawn
+- [x] A topic is never drawn twice in a game
+- [ ] Draws cannot happen before the game starts or after it ends (before start: done; after end: waits for ticket 13)
+- [x] Draws are final, with no undo
+- [x] Every player sees the draw history in order, live
+- [x] Every player sees each drawn topic's explanation
