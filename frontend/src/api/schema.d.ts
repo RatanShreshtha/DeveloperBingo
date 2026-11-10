@@ -123,13 +123,13 @@ export interface components {
             /** Players */
             players: string[];
         };
-        /** PoolOut */
-        PoolOut: {
+        /** PoolResponse */
+        PoolResponse: {
             /** Columns */
-            columns: components["schemas"]["TopicOut"][][];
+            columns: components["schemas"]["TopicResponse"][][];
         };
-        /** TopicOut */
-        TopicOut: {
+        /** TopicResponse */
+        TopicResponse: {
             /** Name */
             name: string;
             /** Explanation */
@@ -276,7 +276,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PoolOut"];
+                    "application/json": components["schemas"]["PoolResponse"];
                 };
             };
         };

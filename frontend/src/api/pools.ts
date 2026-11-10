@@ -1,7 +1,7 @@
 import type { components } from './schema'
 
-export type PoolResponse = components['schemas']['PoolOut']
-export type TopicResponse = components['schemas']['TopicOut']
+export type PoolResponse = components['schemas']['PoolResponse']
+export type TopicResponse = components['schemas']['TopicResponse']
 
 export async function fetchDefaultPool(): Promise<PoolResponse> {
   const response = await fetch('/pools/default')

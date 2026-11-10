@@ -142,7 +142,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PoolOut"
+                  "$ref": "#/components/schemas/PoolResponse"
                 }
               }
             }
@@ -226,12 +226,12 @@
         ],
         "title": "LobbyResponse"
       },
-      "PoolOut": {
+      "PoolResponse": {
         "properties": {
           "columns": {
             "items": {
               "items": {
-                "$ref": "#/components/schemas/TopicOut"
+                "$ref": "#/components/schemas/TopicResponse"
               },
               "type": "array"
             },
@@ -243,9 +243,9 @@
         "required": [
           "columns"
         ],
-        "title": "PoolOut"
+        "title": "PoolResponse"
       },
-      "TopicOut": {
+      "TopicResponse": {
         "properties": {
           "name": {
             "type": "string",
@@ -261,7 +261,7 @@
           "name",
           "explanation"
         ],
-        "title": "TopicOut"
+        "title": "TopicResponse"
       },
       "ValidationError": {
         "properties": {

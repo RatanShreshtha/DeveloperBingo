@@ -29,13 +29,13 @@ class LobbyResponse(BaseModel):
     players: list[str]
 
 
-class TopicOut(BaseModel):
+class TopicResponse(BaseModel):
     name: str
     explanation: str
 
 
-class PoolOut(BaseModel):
-    columns: list[list[TopicOut]]
+class PoolResponse(BaseModel):
+    columns: list[list[TopicResponse]]
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
@@ -99,11 +99,11 @@ def create_app(database_url: str | None = None) -> FastAPI:
             raise HTTPException(status_code=403, detail="host token required") from None
         return Response(status_code=204)
 
-    @app.get("/pools/default", response_model=PoolOut)
-    def read_default_pool() -> PoolOut:
-        return PoolOut(
+    @app.get("/pools/default", response_model=PoolResponse)
+    def read_default_pool() -> PoolResponse:
+        return PoolResponse(
             columns=[
-                [TopicOut(name=topic.name, explanation=topic.explanation) for topic in column]
+                [TopicResponse(name=topic.name, explanation=topic.explanation) for topic in column]
                 for column in DEFAULT_POOL.columns()
             ]
         )

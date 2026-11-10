@@ -29,7 +29,7 @@ class Topic:
 
 @dataclass(frozen=True)
 class Pool:
-    """A validated, immutable set of topics. Build one with build_pool."""
+    """A validated, immutable pool of topics. Build one with build_pool."""
 
     topics: tuple[Topic, ...]
 
