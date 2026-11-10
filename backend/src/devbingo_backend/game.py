@@ -104,6 +104,7 @@ class _Game:
     undrawn: list[Topic] = field(default_factory=list)
     draws: list[Draw] = field(default_factory=list)
     ticks: dict[str, set[str]] = field(default_factory=dict)
+    online: set[str] = field(default_factory=set)
 
     def drawn_names(self) -> set[str]:
         return {draw.topic.name for draw in self.draws}
@@ -127,18 +128,31 @@ class GameRegistry:
         return CreatedGame(code=code, host_token=host_token)
 
     def join(self, code: str, name: str) -> Ticket:
+        """Join the game. A name held by a player who has dropped restores that player;
+        a name held by a connected player is refused; any other name is a new join."""
         game = self._find(code)
+        if name in game.players:
+            if name in game.online:
+                raise NameTaken(name)
+            game.online.add(name)
+            return game.tickets[name]
         if game.status != "lobby":
             raise GameAlreadyStarted(code)
-        if name in game.players:
-            raise NameTaken(name)
         if len(game.players) >= MAX_PLAYERS:
             raise GameFull(code)
         ticket = self._deal_unique_ticket(game)
         game.players.append(name)
         game.tickets[name] = ticket
         game.ticks[name] = set()
+        game.online.add(name)
         return ticket
+
+    def disconnect(self, player: PlayerRef) -> None:
+        """The player has dropped. They keep their place and their ticks, and can rejoin by name."""
+        game = self._find(player.code)
+        if player.name not in game.players:
+            raise NotAPlayer(player.name)
+        game.online.discard(player.name)
 
     def _deal_unique_ticket(self, game: _Game) -> Ticket:
         while True:

@@ -13,7 +13,7 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.mocked(tickTopic).mockReset()
   vi.mocked(untickTopic).mockReset()
-  vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket })
+  vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket, ticks: [] })
 })
 
 async function joinAsAda() {
@@ -23,6 +23,15 @@ async function joinAsAda() {
 }
 
 describe('lobby store ticks', () => {
+  it('restores the ticks the server returns when a dropped player rejoins', async () => {
+    vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket, ticks: ['Algorithm'] })
+    const store = useLobbyStore()
+
+    await store.join('ABC123', 'Ada')
+
+    expect(store.ticks).toEqual(['Algorithm'])
+  })
+
   it('remembers who the player is when they join', async () => {
     const store = await joinAsAda()
 

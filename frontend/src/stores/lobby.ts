@@ -91,7 +91,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     }
     ticket.value = result.ticket
     player.value = { code, name }
-    ticks.value = []
+    ticks.value = result.ticks
     return true
   }
 

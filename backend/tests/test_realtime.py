@@ -196,3 +196,35 @@ def test_a_refused_tick_names_the_reason_and_changes_nothing():
     assert ack == {"ok": False, "error": "not_drawn"}
     assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
     assert broadcaster.emitted == []
+
+
+def test_a_dropped_player_can_rejoin_and_gets_their_ticket_and_ticks_back():
+    registry = GameRegistry(rng=random.Random(9))
+    game = registry.create_game()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+    first = run(adapter.join_game("sid-1", {"code": game.code, "name": "Ada"}))
+    run(adapter.disconnect("sid-1"))
+
+    rejoined = run(adapter.join_game("sid-2", {"code": game.code, "name": "Ada"}))
+
+    assert rejoined["ok"] is True
+    assert rejoined["ticket"] == first["ticket"]
+    assert rejoined["ticks"] == []
+
+
+def test_a_name_held_by_a_connected_player_is_still_refused():
+    registry = GameRegistry(rng=random.Random(9))
+    game = registry.create_game()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+    run(adapter.join_game("sid-1", {"code": game.code, "name": "Ada"}))
+
+    ack = run(adapter.join_game("sid-2", {"code": game.code, "name": "Ada"}))
+
+    assert ack == {"ok": False, "error": "name_taken"}
+
+
+def test_a_disconnect_from_an_unknown_session_does_nothing():
+    registry = GameRegistry()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+
+    assert run(adapter.disconnect("sid-never-joined")) is None

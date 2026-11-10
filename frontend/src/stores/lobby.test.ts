@@ -19,7 +19,7 @@ beforeEach(() => {
 
 describe('lobby store', () => {
   it('keeps the ticket the server dealt when the player joins', async () => {
-    vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket })
+    vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket, ticks: [] })
     const store = useLobbyStore()
 
     const joined = await store.join('ABC123', 'Ada')
