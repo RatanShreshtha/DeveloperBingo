@@ -28,7 +28,7 @@ async function fillAndSubmit(wrapper: ReturnType<typeof mount>, code: string, na
 
 describe('JoinView', () => {
   it('moves the player to the lobby after joining', async () => {
-    vi.mocked(joinGame).mockResolvedValue({ ok: true })
+    vi.mocked(joinGame).mockResolvedValue({ ok: true, ticket: [[null]] })
     const router = makeRouter()
     const wrapper = mount(JoinView, { global: { plugins: [createPinia(), router] } })
 

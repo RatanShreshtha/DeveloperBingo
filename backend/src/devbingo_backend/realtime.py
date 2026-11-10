@@ -49,7 +49,7 @@ class RealtimeAdapter:
     async def join_game(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         code, name = payload["code"], payload["name"]
         try:
-            self._registry.join(code, name)
+            ticket = self._registry.join(code, name)
         except GameError as err:
             return {"ok": False, "error": _ERROR_CODES[type(err)]}
 
@@ -59,7 +59,7 @@ class RealtimeAdapter:
             {"players": self._registry.players(code)},
             room=code,
         )
-        return {"ok": True}
+        return {"ok": True, "ticket": ticket.to_cells()}
 
     async def watch_lobby(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         code, host_token = payload["code"], payload["host_token"]

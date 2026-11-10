@@ -1,3 +1,5 @@
+import random
+
 import pytest
 
 from devbingo_backend.game import (
@@ -22,6 +24,24 @@ def test_creating_a_game_returns_a_code_and_a_private_host_token(registry):
     assert created.code
     assert created.host_token
     assert created.host_token != created.code
+
+
+def test_joining_returns_the_players_ticket(registry):
+    game = registry.create_game()
+
+    ticket = registry.join(game.code, "Ada")
+
+    assert len(ticket.lines) == 3
+    assert sum(cell is not None for line in ticket.lines for cell in line) == 15
+
+
+def test_no_two_tickets_in_a_game_are_identical():
+    registry = GameRegistry(rng=random.Random(99))
+    game = registry.create_game()
+
+    tickets = [registry.join(game.code, f"player-{i}") for i in range(MAX_PLAYERS)]
+
+    assert len({ticket.lines for ticket in tickets}) == MAX_PLAYERS
 
 
 def test_players_join_with_a_code_and_a_display_name(registry):

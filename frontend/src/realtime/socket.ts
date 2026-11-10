@@ -1,6 +1,9 @@
 import { io, type Socket } from 'socket.io-client'
 
-export type JoinResult = { ok: true } | { ok: false; error: string }
+export type TicketCells = (string | null)[][]
+export type JoinResult =
+  | { ok: true; ticket: TicketCells }
+  | { ok: false; error: string }
 export type WatchResult =
   | { ok: true; players: string[] }
   | { ok: false; error: string }
