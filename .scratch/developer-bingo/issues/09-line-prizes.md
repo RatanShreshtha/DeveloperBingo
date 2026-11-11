@@ -2,7 +2,7 @@
 
 **What to build:** The three line prizes. A line is valid when all five of its topics are ticked and drawn. Each line prize is awarded once per game.
 
-**Blocked by:** 08 (Claim Early five)
+**Blocked by:** 08 (Claim Early five), 17 (Deepen claims and engine outcomes)
 
 **Status:** ready-for-agent
 

@@ -68,7 +68,7 @@ A web app for a tambola-style bingo game. A host creates a game and players join
 43. As a host, I want the app to fill the nine columns from my pool's list in order, so that I don't have to assign topics to columns by hand.
 44. As a host, I want to save a custom pool to a shared library, so that I can reuse it in later games.
 45. As a host, I want to pick any saved pool from the shared library, so that I can run a game without rebuilding the pool.
-46. As a host, I want the pool to lock once the first draw happens, so that the topics can't change during a game.
+46. As a host, I want a game's pool fixed once I create the game, so that the topics can't change under the players' tickets.
 
 ### Records and history
 
@@ -92,10 +92,10 @@ A web app for a tambola-style bingo game. A host creates a game and players join
 
 The Game Engine exposes two groups of operations:
 
-- **Commands**: create a game, join a game, set the pool, start the game, draw, tick a topic, untick a topic, claim a prize, end the game.
+- **Commands**: create a game (with its pool), join a game, start the game, draw, tick a topic, untick a topic, claim a prize, end the game.
 - **Queries**: a player's ticket view, the draw history, the prize board, the lobby list.
 
-The engine is built with two injected dependencies, a random source and a clock, so that tests can control randomness and timing.
+The engine is built with one injected dependency, a random source, so that tests can control randomness. It holds no clock: timing, such as closing a settlement window, comes in as a command.
 
 ### Pool rules
 
@@ -103,7 +103,7 @@ The engine is built with two injected dependencies, a random source and a clock,
 - The nine columns are filled from the list in order. Columns 1 to 9 hold 9, 10, 10, 10, 10, 10, 10, 10 and 11 topics respectively.
 - Within a column, topics appear in the same order as in the pool's list. That order is the fixed order on every ticket.
 - The default pool follows the same rules. It is seeded once as a row in the database, and it is read-only: the API offers no way to change it.
-- A pool locks when the first draw happens. Changing it after that is rejected.
+- A game's pool is chosen when the game is created and is fixed from then on. Tickets are dealt from it as players join, so it cannot change after that.
 
 ### Ticket rules
 
@@ -164,12 +164,12 @@ The engine is built with two injected dependencies, a random source and a clock,
 
 ### What makes a good test
 
-Tests check behaviour through the Game Engine's public commands and queries. They don't assert on internal state, storage layout or message formatting. A good test starts from a game in a known state, runs commands with a controlled random source and clock, and asserts on what the game allows, what it rejects and what it reports.
+Tests check behaviour through the Game Engine's public commands and queries. They don't assert on internal state, storage layout or message formatting. A good test starts from a game in a known state, runs commands with a controlled random source, and asserts on what the game allows, what it rejects and what it reports.
 
 ### Seams
 
 - **Primary seam: the Game Engine's command and query interface.** Almost all tests use it. It has no networking or database code in its path, so tests run fast and without setup.
-- **Injected randomness and time.** The random source and clock are injected at construction, so tests can fix draw order and settlement timing. This is a new seam, but it sits at the same point as the engine itself, so it adds no new layer.
+- **Injected randomness; no clock in the engine.** The random source is injected at construction, so tests can fix draw order. The engine holds no clock: closing a settlement window is a command. When a claim opens a window, the engine says so in its result, and the Realtime Adapter schedules the close after the configured length. Tests close the window directly, with no waiting.
 - **A thin transport test.** One integration test per message type checks that the Realtime Adapter turns a socket event into the matching engine command and broadcasts the result. It doesn't test rules.
 
 ### Modules to test
@@ -177,7 +177,7 @@ Tests check behaviour through the Game Engine's public commands and queries. The
 - **Game Engine**: every rule in the Pool, Ticket, Draw, Tick, Claim and Lobby sections above.
 - **Ticket Builder**: the ticket invariants, over many generated tickets. Test that every ticket meets them, that no two tickets in a game are identical, and that the column rules hold.
 - **Prize Evaluator**: each of the six prize patterns, with positive and negative cases. Four corners gets its own cases for tickets where the top and bottom lines start or end in different columns.
-- **Pool Library**: validation of 90 distinct topics, the explanation requirement, the read-only default and the lock on first draw.
+- **Pool Library**: validation of 90 distinct topics, the explanation requirement, and the read-only default.
 - **History Store**: a finished game's draws, claims and winners round-trip correctly.
 - **Realtime Adapter**: the transport test described above.
 

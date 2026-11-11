@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from devbingo_backend.names import name_key
+
 COLUMN_SIZES: tuple[int, ...] = (9, 10, 10, 10, 10, 10, 10, 10, 11)
 POOL_SIZE = sum(COLUMN_SIZES)
 
@@ -51,7 +53,7 @@ def build_pool(topics: Sequence[Topic]) -> Pool:
     for topic in topics:
         if not topic.name.strip() or not topic.explanation.strip():
             raise EmptyTopicError(f"topic {topic.name!r} needs a name and an explanation")
-        key = topic.name.strip().casefold()
+        key = name_key(topic.name)
         if key in seen:
             raise DuplicateTopicError(f"topic {topic.name!r} appears more than once")
         seen.add(key)

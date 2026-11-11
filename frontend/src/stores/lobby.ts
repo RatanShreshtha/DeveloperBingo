@@ -57,7 +57,7 @@ export const useLobbyStore = defineStore('lobby', () => {
   const prizes = ref<PrizeBoard>({ [EARLY_FIVE]: null })
   // Problems loading the lobby, shown in place of it.
   const error = ref<string | null>(null)
-  // Refusals of something the user did, shown next to the controls.
+  // Refusals of something the player or host did, shown next to the controls.
   const actionError = ref<string | null>(null)
 
   onLobbyUpdated((names) => {

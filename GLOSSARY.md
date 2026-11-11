@@ -40,6 +40,14 @@ _Avoid_: Bingo, call, shout
 An award a claim can win. Each prize is awarded at most once per game.
 _Avoid_: Reward, win
 
+**Prize board**:
+Every prize in a game, with who each one was awarded to, or that it is still open.
+_Avoid_: Leaderboard, scoreboard
+
+**Settlement window**:
+The short period, opened by the first valid claim for a prize, during which every valid claim for that prize wins it together. Draws are held until it closes.
+_Avoid_: Grace period, tie window
+
 **Column**:
 One of nine fixed groups that partition the pool. Each ticket holds one to three topics from each column, shown in the column's fixed order.
 _Avoid_: Bucket, range

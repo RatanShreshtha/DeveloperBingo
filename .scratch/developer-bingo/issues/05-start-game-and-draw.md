@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] Starting the game locks the pool and closes joining (joining closes and the pool is recorded as locked; there is no pool-selection step yet, so nothing can change the pool to test against until ticket 14)
+- [ ] Starting the game locks the pool and closes joining (joining closes and the pool is recorded as locked; there is no pool-selection step yet, so nothing can change the pool to test against until ticket 14) — superseded: a game's pool is now fixed when the game is created (see spec.md Pool rules and ticket 20)
 - [x] A draw picks uniformly at random from topics not yet drawn
 - [x] A topic is never drawn twice in a game
 - [ ] Draws cannot happen before the game starts or after it ends (before start: done; after end: waits for ticket 13)

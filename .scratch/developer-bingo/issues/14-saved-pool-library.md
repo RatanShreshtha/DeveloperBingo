@@ -2,7 +2,7 @@
 
 **What to build:** The host copies the default pool, edits it, saves it to a shared library, and picks a saved pool for a game.
 
-**Blocked by:** 03 (Pool model and the default pool)
+**Blocked by:** 03 (Pool model and the default pool), 20 (Pool per game)
 
 **Status:** ready-for-agent
 

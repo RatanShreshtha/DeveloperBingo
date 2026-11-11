@@ -2,7 +2,7 @@
 
 **What to build:** The four-corners prize. It is valid when the outermost topic on each side of the top line and of the bottom line is ticked and drawn.
 
-**Blocked by:** 08 (Claim Early five)
+**Blocked by:** 08 (Claim Early five), 17 (Deepen claims and engine outcomes)
 
 **Status:** ready-for-agent
 
