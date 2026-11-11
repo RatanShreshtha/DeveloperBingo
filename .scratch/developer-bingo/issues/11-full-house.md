@@ -2,7 +2,7 @@
 
 **What to build:** The full-house prize. It is valid when all fifteen topics on the ticket are ticked and drawn. Winning it is the trigger for ending the game.
 
-**Blocked by:** 08 (Claim Early five)
+**Blocked by:** 08 (Claim Early five), 17 (Deepen claims and engine outcomes)
 
 **Status:** ready-for-agent
 
