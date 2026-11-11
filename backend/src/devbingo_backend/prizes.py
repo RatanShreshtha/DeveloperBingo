@@ -28,6 +28,7 @@ _RULES: dict[Prize, Callable[[Ticket, Set[str]], bool]] = {
     Prize.MIDDLE_LINE: lambda ticket, on_ticket: ticket.line(1) <= on_ticket,
     Prize.BOTTOM_LINE: lambda ticket, on_ticket: ticket.line(2) <= on_ticket,
     Prize.FULL_HOUSE: lambda ticket, on_ticket: on_ticket == ticket.topic_names(),
+    Prize.FOUR_CORNERS: lambda ticket, on_ticket: ticket.four_corners() <= on_ticket,
 }
 
 
