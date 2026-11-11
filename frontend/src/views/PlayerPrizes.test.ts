@@ -29,7 +29,7 @@ describe('PlayerLobbyView prizes', () => {
     setUpPlayer()
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    await wrapper.get('[data-test="claim-early-five"]').trigger('click')
+    await wrapper.get('[data-test="claim-early_five"]').trigger('click')
     await flushPromises()
 
     expect(claimPrize).toHaveBeenCalledWith('early_five')
@@ -47,7 +47,7 @@ describe('PlayerLobbyView prizes', () => {
     store.started = false
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    expect(wrapper.find('[data-test="claim-early-five"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="claim-early_five"]').exists()).toBe(false)
   })
 
   it('shows who early five was awarded to', () => {

@@ -1,7 +1,7 @@
 import asyncio
 import random
 
-from helpers import start_and_draw_everything
+from helpers import start_and_draw_everything, wire_board_of
 
 from devbingo_backend.game import GameRegistry, PlayerRef
 from devbingo_backend.prizes import Prize
@@ -72,7 +72,7 @@ def test_the_host_can_watch_the_lobby_with_the_host_token():
 
     assert ack["ok"] is True
     assert ack["players"] == ["Ada"]
-    assert ack["prizes"] == [{"prize": "early_five", "awarded_to": []}]
+    assert ack["prizes"] == wire_board_of()
     assert broadcaster.entered == [("sid-host", game.code)]
 
 
@@ -329,7 +329,7 @@ def test_the_join_acknowledgement_shows_which_prizes_remain():
 
     ack = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
 
-    assert ack["prizes"] == [{"prize": "early_five", "awarded_to": []}]
+    assert ack["prizes"] == wire_board_of()
 
 
 def test_a_socket_that_never_joined_is_refused_a_claim_and_nothing_changes():
