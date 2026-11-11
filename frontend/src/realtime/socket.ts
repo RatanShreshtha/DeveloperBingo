@@ -97,3 +97,11 @@ export function onTopicDrawn(handler: (draw: DrawnTopic) => void): void {
     handler(data)
   })
 }
+
+// Fires each time the connection comes back after a drop. The server forgets who a
+// socket was when it drops, so the player must join again to act.
+export function onReconnect(handler: () => void): void {
+  connection().io.on('reconnect', () => {
+    handler()
+  })
+}

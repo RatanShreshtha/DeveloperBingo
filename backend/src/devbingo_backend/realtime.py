@@ -69,8 +69,7 @@ def _host_link(payload: dict[str, str]) -> HostLink:
     return HostLink(code=payload["code"], token=payload["host_token"])
 
 
-def _player(payload: dict[str, str]) -> PlayerRef:
-    return PlayerRef(code=payload["code"], name=payload["name"])
+_NOT_JOINED = {"ok": False, "error": "not_joined"}
 
 
 class RealtimeAdapter:
@@ -90,7 +89,7 @@ class RealtimeAdapter:
         # first player connected for ever, so it is refused.
         if sid in self._sessions:
             return {"ok": False, "error": "already_joined"}
-        player = _player(payload)
+        player = PlayerRef(code=payload["code"], name=payload["name"])
         try:
             lobby_size = len(self._registry.players(player.code))
             ticket = self._registry.join(player)
@@ -156,13 +155,17 @@ class RealtimeAdapter:
 
     async def claim_prize(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         """A valid claim is announced to the whole room. A refused one is told to the claimant only."""
-        code = payload["code"]
+        # The claimant is whoever joined on this socket, never a name sent in the message.
+        player = self._sessions.get(sid)
+        if player is None:
+            return _NOT_JOINED
+        code = player.code
         try:
             prize = Prize(payload["prize"])
         except ValueError:
             return {"ok": False, "error": "unknown_prize"}
         try:
-            self._registry.claim(_player(payload), prize)
+            self._registry.claim(player, prize)
         except GameError as err:
             return _refusal(err)
 
@@ -179,14 +182,19 @@ class RealtimeAdapter:
     # sent back to anyone.
 
     async def tick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
-        return self._change_ticks(payload, self._registry.tick)
+        return self._change_ticks(sid, payload, self._registry.tick)
 
     async def untick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
-        return self._change_ticks(payload, self._registry.untick)
+        return self._change_ticks(sid, payload, self._registry.untick)
 
-    def _change_ticks(self, payload: dict[str, str], change: Callable[[PlayerRef, str], None]) -> dict[str, Any]:
+    def _change_ticks(
+        self, sid: str, payload: dict[str, str], change: Callable[[PlayerRef, str], None]
+    ) -> dict[str, Any]:
+        player = self._sessions.get(sid)
+        if player is None:
+            return _NOT_JOINED
         try:
-            change(_player(payload), payload["topic"])
+            change(player, payload["topic"])
         except GameError as err:
             return _refusal(err)
         return {"ok": True}
