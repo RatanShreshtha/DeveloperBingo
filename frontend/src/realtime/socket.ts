@@ -10,6 +10,7 @@ export type PlayerRef = Schemas['JoinPayload']
 export type DrawnTopic = Schemas['DrawAnnouncement']
 export type PrizeBoardEntry = Schemas['PrizeBoardEntry']
 export type PrizeAward = Schemas['PrizeAwarded']
+export type GameEnd = Schemas['GameEnded']
 export type ErrorCode = Schemas['ErrorCode']
 export type Refusal = Schemas['Refusal']
 
@@ -17,6 +18,7 @@ export type JoinAck = Schemas['JoinAck']
 export type JoinResult = JoinAck | Refusal
 export type WatchResult = Schemas['WatchAck'] | Refusal
 export type StartResult = Schemas['Accepted'] | Refusal
+export type EndResult = Schemas['Accepted'] | Refusal
 export type DrawResult = Schemas['DrawAck'] | Refusal
 // A tick changes only the player's own list, so the server says only whether it happened.
 export type TickResult = Schemas['Accepted'] | Refusal
@@ -28,6 +30,7 @@ type Commands = {
   watch_lobby: [HostLink, WatchResult]
   start_game: [HostLink, StartResult]
   draw_topic: [HostLink, DrawResult]
+  end_game: [HostLink, EndResult]
   tick_topic: [Schemas['TickPayload'], TickResult]
   untick_topic: [Schemas['TickPayload'], TickResult]
   claim_prize: [Schemas['ClaimPayload'], ClaimResult]
@@ -37,6 +40,7 @@ type Commands = {
 type Announcements = {
   lobby_updated: Schemas['LobbyUpdated']
   game_started: Schemas['GameStarted']
+  game_ended: GameEnd
   topic_drawn: DrawnTopic
   prize_awarded: PrizeAward
 }
@@ -70,6 +74,10 @@ export function startGame(link: HostLink): Promise<StartResult> {
   return send('start_game', link)
 }
 
+export function endGame(link: HostLink): Promise<EndResult> {
+  return send('end_game', link)
+}
+
 export function drawTopic(link: HostLink): Promise<DrawResult> {
   return send('draw_topic', link)
 }
@@ -98,6 +106,10 @@ export function onLobbyUpdated(handler: (players: string[]) => void): void {
 
 export function onGameStarted(handler: () => void): void {
   listen('game_started', () => handler())
+}
+
+export function onGameEnded(handler: (end: GameEnd) => void): void {
+  listen('game_ended', handler)
 }
 
 export function onTopicDrawn(handler: (draw: DrawnTopic) => void): void {

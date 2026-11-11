@@ -2,13 +2,14 @@ import hashlib
 import hmac
 import random
 import secrets
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
     AlreadyJoined,
     ClaimNotValid,
+    GameAlreadyEnded,
     GameAlreadyStarted,
     GameError,
     GameFull,
@@ -78,7 +79,7 @@ class _Player:
 @dataclass
 class _Game:
     host_token_hash: str
-    status: Literal["lobby", "started"] = "lobby"
+    status: Literal["lobby", "started", "ended"] = "lobby"
     # Keyed by name_key(name), so one player has one entry. In the order players joined.
     players: dict[str, _Player] = field(default_factory=dict)
     settlement: ClaimSettlement = field(default_factory=ClaimSettlement)
@@ -111,6 +112,8 @@ class GameRegistry:
         a connected player is refused; any other name is a new join while the lobby is open.
         Names match without regard to case, so "Ada" and "ada" are the same player."""
         game = self._find(player.code)
+        if game.status == "ended":
+            raise GameAlreadyEnded(player.code)
         key = name_key(player.name)
         member = game.players.get(key)
         if member is not None:
@@ -152,18 +155,29 @@ class GameRegistry:
     def start(self, host: HostLink) -> None:
         """Start the game: joining closes and the pool locks."""
         game = self._host_game(host)
+        if game.status == "ended":
+            raise GameAlreadyEnded(host.code)
         if game.status != "lobby":
             raise GameAlreadyStarted(host.code)
         game.status = "started"
         game.undrawn = list(DEFAULT_POOL.topics)
 
+    def end(self, host: HostLink) -> None:
+        """The host ends the game, at any time. No draws or claims are accepted after it ends."""
+        game = self._host_game(host)
+        if game.status == "ended":
+            raise GameAlreadyEnded(host.code)
+        game.status = "ended"
+
     def is_pool_locked(self, code: str) -> bool:
-        """The pool locks when the game starts and stays locked."""
-        return self._find(code).status == "started"
+        """The pool locks when the game starts and stays locked, including after it ends."""
+        return self._find(code).status != "lobby"
 
     def draw(self, host: HostLink) -> Draw:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final."""
         game = self._host_game(host)
+        if game.status == "ended":
+            raise GameAlreadyEnded(host.code)
         if game.status != "started":
             raise GameNotStarted(host.code)
         if not game.undrawn:
@@ -201,12 +215,18 @@ class GameRegistry:
 
     def claim(self, player: PlayerRef, prize: Prize) -> Awarded:
         """Claim a prize. The claim is checked against what the player has ticked and what has
-        been drawn. A valid claim awards the prize."""
+        been drawn. A valid claim awards the prize. Awarding the full house ends the game."""
         game, member = self._player_game(player)
+        if game.status == "ended":
+            raise GameAlreadyEnded(player.code)
         if game.status != "started":
             raise GameNotStarted(player.code)
         ticked_and_drawn = member.ticks & game.drawn_names()
-        return game.settlement.claim(prize, member.name, member.ticket, ticked_and_drawn)
+        awarded = game.settlement.claim(prize, member.name, member.ticket, ticked_and_drawn)
+        if prize is Prize.FULL_HOUSE:
+            game.status = "ended"
+            return replace(awarded, ends_game=True)
+        return awarded
 
     def prize_board(self, code: str) -> dict[Prize, list[str]]:
         """Each prize and the names of the players it was awarded to. Empty while it is still open."""

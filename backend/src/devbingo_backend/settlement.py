@@ -12,6 +12,8 @@ class Awarded:
 
     prize: Prize
     awarded_to: tuple[str, ...]
+    # True when this prize is the one that ends the game.
+    ends_game: bool = False
 
 
 @dataclass

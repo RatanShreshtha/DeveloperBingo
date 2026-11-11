@@ -6,8 +6,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] Claiming the full house ends the game
-- [ ] The host can end the game at any time
-- [ ] Draws are refused after the game ends
-- [ ] Claims are refused after the game ends
-- [ ] All players are told the game has ended
+- [x] Claiming the full house ends the game
+- [x] The host can end the game at any time
+- [x] Draws are refused after the game ends
+- [x] Claims are refused after the game ends
+- [x] All players are told the game has ended

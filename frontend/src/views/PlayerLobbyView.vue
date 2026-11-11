@@ -17,7 +17,10 @@ onMounted(() => {
 <template>
   <section>
     <p>Game code: <strong>{{ code }}</strong></p>
-    <p v-if="store.started">The game has started.</p>
+    <p v-if="store.ended">
+      {{ store.endReason === 'full_house' ? 'The game is over: the full house was claimed.' : 'The host ended the game.' }}
+    </p>
+    <p v-else-if="store.started">The game has started.</p>
     <p v-else>Waiting for the host to start the game.</p>
     <table v-if="store.ticket" class="ticket" aria-label="Your ticket">
       <tbody>
@@ -40,7 +43,7 @@ onMounted(() => {
       </tbody>
     </table>
     <p v-if="store.actionError" role="alert">{{ store.actionError }}</p>
-    <template v-if="store.started">
+    <template v-if="store.started && !store.ended">
       <button
         v-for="entry in store.prizes"
         :key="entry.prize"

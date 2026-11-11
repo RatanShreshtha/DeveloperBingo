@@ -5,6 +5,7 @@ import pytest
 from helpers import names_on, start_and_draw_everything
 
 from devbingo_backend.game import (
+    GameAlreadyEnded,
     GameNotStarted,
     GameRegistry,
     NotAPlayer,
@@ -74,7 +75,9 @@ def test_each_prize_is_awarded_once_per_game(started_with_every_topic_drawn, pri
     tick(registry, game, "Grace", PRIZE_TOPICS[prize](grace_ticket))
     registry.claim(PlayerRef(game.code, "Ada"), prize)
 
-    with pytest.raises(PrizeAlreadyAwarded):
+    # Awarding the full house also ends the game, so a second claim meets that first.
+    refusal = GameAlreadyEnded if prize is Prize.FULL_HOUSE else PrizeAlreadyAwarded
+    with pytest.raises(refusal):
         registry.claim(PlayerRef(game.code, "Grace"), prize)
 
     assert registry.prize_board(game.code)[prize] == ["Ada"]

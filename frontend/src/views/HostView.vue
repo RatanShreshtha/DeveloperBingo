@@ -33,14 +33,28 @@ onMounted(async () => {
     <p>Game code: <strong>{{ code }}</strong></p>
     <p v-if="store.error" role="alert">{{ store.error }}</p>
     <template v-else>
-      <div v-if="!store.started">
-        <button type="button" data-test="start-game" @click="store.start(hostLink())">
+      <p v-if="store.ended">
+        {{ store.endReason === 'full_house' ? 'The game is over: the full house was claimed.' : 'You ended the game.' }}
+      </p>
+      <div v-else>
+        <button
+          v-if="!store.started"
+          type="button"
+          data-test="start-game"
+          @click="store.start(hostLink())"
+        >
           Start game
         </button>
-      </div>
-      <div v-else>
-        <button type="button" data-test="draw-topic" @click="store.drawNext(hostLink())">
+        <button
+          v-else
+          type="button"
+          data-test="draw-topic"
+          @click="store.drawNext(hostLink())"
+        >
           Draw topic
+        </button>
+        <button type="button" data-test="end-game" @click="store.end(hostLink())">
+          End game
         </button>
       </div>
       <p v-if="store.actionError" role="alert">{{ store.actionError }}</p>

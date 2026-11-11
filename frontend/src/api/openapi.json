@@ -397,6 +397,7 @@
           "name_taken",
           "game_full",
           "already_started",
+          "game_ended",
           "not_started",
           "no_topics_left",
           "not_a_player",
@@ -411,6 +412,24 @@
         ],
         "title": "ErrorCode",
         "type": "string"
+      },
+      "GameEnded": {
+        "description": "The game is over: someone claimed the full house, or the host ended it.",
+        "properties": {
+          "reason": {
+            "enum": [
+              "full_house",
+              "host"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "GameEnded",
+        "type": "object"
       },
       "GameStarted": {
         "properties": {},

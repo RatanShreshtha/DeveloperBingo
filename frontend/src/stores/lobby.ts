@@ -5,7 +5,9 @@ import type { Prize } from '../prizes'
 import {
   claimPrize as sendClaim,
   drawTopic,
+  endGame,
   joinGame,
+  onGameEnded,
   onGameStarted,
   onLobbyUpdated,
   onPrizeAwarded,
@@ -17,6 +19,7 @@ import {
   watchLobby,
   type DrawnTopic,
   type ErrorCode,
+  type GameEnd,
   type HostLink,
   type JoinAck,
   type PlayerRef,
@@ -30,6 +33,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   already_joined: 'You have already joined a game from this window',
   game_full: 'This game is full',
   already_started: 'This game has already started',
+  game_ended: 'The game has ended',
   not_found: 'No game found with that code',
   not_host: 'This host link is not valid for this game',
   not_started: 'The game has not started yet',
@@ -54,6 +58,9 @@ export const useLobbyStore = defineStore('lobby', () => {
   const players = ref<string[]>([])
   const ticket = ref<JoinAck['ticket'] | null>(null)
   const started = ref(false)
+  // Set once the game is over, with why: someone claimed the full house, or the host ended it.
+  const ended = ref(false)
+  const endReason = ref<GameEnd['reason'] | null>(null)
   const draws = ref<DrawnTopic[]>([])
   // This player's own identity in the game, and the topics they have ticked.
   const player = ref<PlayerRef | null>(null)
@@ -74,6 +81,9 @@ export const useLobbyStore = defineStore('lobby', () => {
   onGameStarted(() => {
     started.value = true
   })
+  onGameEnded((end) => {
+    recordEnd(end.reason)
+  })
   onTopicDrawn(recordDraw)
   onReconnect(rejoin)
   onPrizeAwarded((award) => {
@@ -81,6 +91,11 @@ export const useLobbyStore = defineStore('lobby', () => {
       entry.prize === award.prize ? { ...entry, awarded_to: award.awarded_to } : entry,
     )
   })
+
+  function recordEnd(reason: GameEnd['reason']) {
+    ended.value = true
+    endReason.value = reason
+  }
 
   // Draws come both from our own ack and from the room broadcast, which
   // reaches the host too. Positions are unique per game, so keep the first.
@@ -194,6 +209,12 @@ export const useLobbyStore = defineStore('lobby', () => {
     }
   }
 
+  async function end(link: HostLink) {
+    if (await attempt(() => endGame(link))) {
+      recordEnd('host')
+    }
+  }
+
   async function drawNext(link: HostLink) {
     const result = await attempt(() => drawTopic(link))
     if (result?.ok) {
@@ -205,6 +226,8 @@ export const useLobbyStore = defineStore('lobby', () => {
     players,
     ticket,
     started,
+    ended,
+    endReason,
     draws,
     drawnNames,
     player,
@@ -220,6 +243,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     watchAsHost,
     loadDrawHistory,
     start,
+    end,
     drawNext,
   }
 })
