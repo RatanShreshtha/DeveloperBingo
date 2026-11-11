@@ -16,6 +16,10 @@ class Ticket:
 
     lines: tuple[tuple[Topic | None, ...], ...]
 
+    def topic_names(self) -> set[str]:
+        """The names of the fifteen topics on the ticket."""
+        return {cell.name for line in self.lines for cell in line if cell is not None}
+
     def to_cells(self) -> list[list[str | None]]:
         """The ticket as topic names, with empty cells as None."""
         return [[cell.name if cell else None for cell in line] for line in self.lines]

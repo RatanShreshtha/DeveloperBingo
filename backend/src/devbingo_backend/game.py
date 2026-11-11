@@ -112,17 +112,22 @@ def _hash_token(token: str) -> str:
 
 
 @dataclass
+class _Player:
+    """One player in a game: how the lobby shows them, their ticket, their ticks, and whether
+    their socket is live."""
+
+    name: str
+    ticket: Ticket
+    connected: bool = True
+    ticks: set[str] = field(default_factory=set)
+
+
+@dataclass
 class _Game:
     host_token_hash: str
     status: Literal["lobby", "started"] = "lobby"
-    # Display names, in the order players joined, as the lobby shows them.
-    players: list[str] = field(default_factory=list)
-    # Everything below is keyed by name_key(name), so one player has one entry.
-    tickets: dict[str, Ticket] = field(default_factory=dict)
-    ticks: dict[str, set[str]] = field(default_factory=dict)
-    connected: set[str] = field(default_factory=set)
-    # The name each player was first given, for the lobby and for announcements.
-    display_names: dict[str, str] = field(default_factory=dict)
+    # Keyed by name_key(name), so one player has one entry. In the order players joined.
+    players: dict[str, _Player] = field(default_factory=dict)
     # The display name of the player each prize was awarded to. A prize is awarded at most once.
     awards: dict[Prize, str] = field(default_factory=dict)
     undrawn: list[Topic] = field(default_factory=list)
@@ -133,7 +138,7 @@ class _Game:
 
     def is_new_ticket(self, candidate: Ticket) -> bool:
         """True when no player in this game already holds an identical ticket."""
-        return all(candidate.lines != held.lines for held in self.tickets.values())
+        return all(candidate.lines != held.ticket.lines for held in self.players.values())
 
 
 class GameRegistry:
@@ -155,30 +160,27 @@ class GameRegistry:
         Names match without regard to case, so "Ada" and "ada" are the same player."""
         game = self._find(player.code)
         key = name_key(player.name)
-        if key in game.tickets:
-            if key in game.connected:
+        member = game.players.get(key)
+        if member is not None:
+            if member.connected:
                 raise NameTaken(player.name)
-            game.connected.add(key)
-            return game.tickets[key]
+            member.connected = True
+            return member.ticket
         if game.status != "lobby":
             raise GameAlreadyStarted(player.code)
         if len(game.players) >= MAX_PLAYERS:
             raise GameFull(player.code)
         ticket = self._deal_unique_ticket(game)
-        game.players.append(player.name.strip())
-        game.tickets[key] = ticket
-        game.ticks[key] = set()
-        game.display_names[key] = player.name.strip()
-        game.connected.add(key)
+        game.players[key] = _Player(name=player.name.strip(), ticket=ticket)
         return ticket
 
     def disconnect(self, player: PlayerRef) -> None:
         """The player has dropped. They keep their place and their ticks, and can rejoin by name."""
         game = self._find(player.code)
-        key = name_key(player.name)
-        if key not in game.tickets:
+        member = game.players.get(name_key(player.name))
+        if member is None:
             raise NotAPlayer(player.name)
-        game.connected.discard(key)
+        member.connected = False
 
     def _deal_unique_ticket(self, game: _Game) -> Ticket:
         while True:
@@ -188,7 +190,7 @@ class GameRegistry:
 
     def players(self, code: str) -> list[str]:
         """Names in the lobby. Public: every player in the room may see them."""
-        return list(self._find(code).players)
+        return [member.name for member in self._find(code).players.values()]
 
     def lobby(self, host: HostLink) -> list[str]:
         """Names in the lobby, for the host. The same list as players(), after checking the host link."""
@@ -225,57 +227,51 @@ class GameRegistry:
 
     def tick(self, player: PlayerRef, topic_name: str) -> None:
         """Tick a topic on the player's ticket. It must be on the ticket and already drawn."""
-        game, key, ticket_names = self._player_game(player)
-        if topic_name not in ticket_names:
+        game, member = self._player_game(player)
+        if topic_name not in member.ticket.topic_names():
             raise TopicNotOnTicket(topic_name)
         if topic_name not in game.drawn_names():
             raise TopicNotDrawn(topic_name)
-        game.ticks[key].add(topic_name)
+        member.ticks.add(topic_name)
 
     def untick(self, player: PlayerRef, topic_name: str) -> None:
         """Untick a topic on the player's ticket. Nothing blocks an untick yet: issue 12 refuses it
         while the player has a claim waiting in a settlement window."""
-        game, key, ticket_names = self._player_game(player)
-        if topic_name not in ticket_names:
+        _, member = self._player_game(player)
+        if topic_name not in member.ticket.topic_names():
             raise TopicNotOnTicket(topic_name)
-        game.ticks[key].discard(topic_name)
+        member.ticks.discard(topic_name)
 
     def ticks(self, player: PlayerRef) -> frozenset[str]:
         """The topics this player has ticked."""
-        game, key, _ = self._player_game(player)
-        return frozenset(game.ticks[key])
+        _, member = self._player_game(player)
+        return frozenset(member.ticks)
 
     def claim(self, player: PlayerRef, prize: Prize) -> None:
         """Claim a prize. The claim is checked against what the player has ticked and what has
         been drawn. A valid claim awards the prize, which can be awarded only once a game."""
-        game, key, _ = self._player_game(player)
+        game, member = self._player_game(player)
         if game.status != "started":
             raise GameNotStarted(player.code)
         if prize in game.awards:
             raise PrizeAlreadyAwarded(prize)
-        ticked_and_drawn = game.ticks[key] & game.drawn_names()
+        ticked_and_drawn = member.ticks & game.drawn_names()
         if not satisfies(prize, ticked_and_drawn):
             raise ClaimNotValid(prize)
-        game.awards[prize] = game.display_names[key]
+        game.awards[prize] = member.name
 
     def prize_board(self, code: str) -> dict[Prize, str | None]:
         """Each prize and the player it was awarded to, or None while it is still open."""
         game = self._find(code)
         return {prize: game.awards.get(prize) for prize in Prize}
 
-    def _player_game(self, player: PlayerRef) -> tuple[_Game, str, set[str]]:
-        """The game, the player's key, and the topic names on their ticket. Refuses anyone not in the game."""
+    def _player_game(self, player: PlayerRef) -> tuple[_Game, _Player]:
+        """The game and the player's record. Refuses anyone not in the game."""
         game = self._find(player.code)
-        key = name_key(player.name)
-        if key not in game.tickets:
+        member = game.players.get(name_key(player.name))
+        if member is None:
             raise NotAPlayer(player.name)
-        names = {
-            cell.name
-            for line in game.tickets[key].lines
-            for cell in line
-            if cell is not None
-        }
-        return game, key, names
+        return game, member
 
     def _host_game(self, host: HostLink) -> _Game:
         """The game, once the link proves it belongs to its host."""
