@@ -501,9 +501,14 @@
         "type": "object"
       },
       "Prize": {
-        "description": "The prizes a game can award. The value is the name the wire uses.",
+        "description": "The prizes a game can award, in the order the prize board lists them.\n\nThe value is the name the wire uses.",
         "enum": [
-          "early_five"
+          "early_five",
+          "top_line",
+          "middle_line",
+          "bottom_line",
+          "four_corners",
+          "full_house"
         ],
         "title": "Prize",
         "type": "string"

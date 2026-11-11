@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] Four corners is valid when all four outermost topics are ticked and drawn
-- [ ] Four corners is refused when any one of the four is not ticked
-- [ ] Tickets whose top and bottom lines start and end in different columns are handled correctly
-- [ ] Four corners is awarded once per game
+- [x] Four corners is valid when all four outermost topics are ticked and drawn
+- [x] Four corners is refused when any one of the four is not ticked
+- [x] Tickets whose top and bottom lines start and end in different columns are handled correctly
+- [x] Four corners is awarded once per game

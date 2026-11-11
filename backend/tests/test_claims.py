@@ -25,46 +25,71 @@ def started_with_every_topic_drawn():
     return registry, game, ada_ticket, grace_ticket
 
 
-def tick_n(registry, game, ticket, name, count):
-    player = PlayerRef(game.code, name)
-    for topic in names_on(ticket)[:count]:
-        registry.tick(player, topic)
+def tick(registry, game, name, topics):
+    for topic in topics:
+        registry.tick(PlayerRef(game.code, name), topic)
 
 
-def test_five_ticked_and_drawn_topics_award_early_five(started_with_every_topic_drawn):
+# The topics a ticket needs ticked to earn each prize, in a fixed order.
+LINE_PRIZES = [(Prize.TOP_LINE, 0), (Prize.MIDDLE_LINE, 1), (Prize.BOTTOM_LINE, 2)]
+PRIZE_TOPICS = {
+    Prize.EARLY_FIVE: lambda ticket: names_on(ticket)[:5],
+    **{prize: (lambda ticket, line=line: sorted(ticket.line(line))) for prize, line in LINE_PRIZES},
+    Prize.FOUR_CORNERS: lambda ticket: sorted(ticket.four_corners()),
+    Prize.FULL_HOUSE: lambda ticket: names_on(ticket),
+}
+ALL_PRIZES = list(PRIZE_TOPICS)
+
+
+@pytest.mark.parametrize("prize", ALL_PRIZES)
+def test_a_complete_pattern_wins_its_prize(started_with_every_topic_drawn, prize):
     registry, game, ada_ticket, _ = started_with_every_topic_drawn
-    tick_n(registry, game, ada_ticket, "Ada", 5)
+    tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket))
 
-    outcome = registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+    outcome = registry.claim(PlayerRef(game.code, "Ada"), prize)
 
-    assert outcome.prize is Prize.EARLY_FIVE
+    assert outcome.prize is prize
     assert outcome.awarded_to == ("Ada",)
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada"]
+    assert registry.prize_board(game.code)[prize] == ["Ada"]
 
 
-def test_fewer_than_five_ticks_is_not_a_valid_early_five(started_with_every_topic_drawn):
+@pytest.mark.parametrize("prize", ALL_PRIZES)
+def test_an_incomplete_pattern_is_refused_and_changes_nothing(started_with_every_topic_drawn, prize):
     registry, game, ada_ticket, _ = started_with_every_topic_drawn
-    tick_n(registry, game, ada_ticket, "Ada", 4)
+    tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket)[:-1])
     board_before = registry.prize_board(game.code)
     ticks_before = registry.ticks(PlayerRef(game.code, "Ada"))
 
     with pytest.raises(ClaimNotValid):
-        registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+        registry.claim(PlayerRef(game.code, "Ada"), prize)
 
     assert registry.prize_board(game.code) == board_before
     assert registry.ticks(PlayerRef(game.code, "Ada")) == ticks_before
 
 
-def test_the_prize_is_awarded_once_per_game(started_with_every_topic_drawn):
+@pytest.mark.parametrize("prize", ALL_PRIZES)
+def test_each_prize_is_awarded_once_per_game(started_with_every_topic_drawn, prize):
     registry, game, ada_ticket, grace_ticket = started_with_every_topic_drawn
-    tick_n(registry, game, ada_ticket, "Ada", 5)
-    tick_n(registry, game, grace_ticket, "Grace", 5)
-    registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+    tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket))
+    tick(registry, game, "Grace", PRIZE_TOPICS[prize](grace_ticket))
+    registry.claim(PlayerRef(game.code, "Ada"), prize)
 
     with pytest.raises(PrizeAlreadyAwarded):
-        registry.claim(PlayerRef(game.code, "Grace"), Prize.EARLY_FIVE)
+        registry.claim(PlayerRef(game.code, "Grace"), prize)
 
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada"]
+    assert registry.prize_board(game.code)[prize] == ["Ada"]
+
+
+def test_one_player_can_win_several_line_prizes(started_with_every_topic_drawn):
+    registry, game, ada_ticket, _ = started_with_every_topic_drawn
+    for prize, _ in LINE_PRIZES:
+        tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket))
+
+    for prize, _ in LINE_PRIZES:
+        registry.claim(PlayerRef(game.code, "Ada"), prize)
+
+    board = registry.prize_board(game.code)
+    assert [board[prize] for prize, _ in LINE_PRIZES] == [["Ada"], ["Ada"], ["Ada"]]
 
 
 def test_a_prize_remains_open_until_someone_claims_it(started_with_every_topic_drawn):

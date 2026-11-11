@@ -29,7 +29,7 @@ describe('PlayerLobbyView prizes', () => {
     setUpPlayer()
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    await wrapper.get('[data-test="claim-early-five"]').trigger('click')
+    await wrapper.get('[data-test="claim-early_five"]').trigger('click')
     await flushPromises()
 
     expect(claimPrize).toHaveBeenCalledWith('early_five')
@@ -47,7 +47,7 @@ describe('PlayerLobbyView prizes', () => {
     store.started = false
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    expect(wrapper.find('[data-test="claim-early-five"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="claim-early_five"]').exists()).toBe(false)
   })
 
   it('shows who early five was awarded to', () => {
@@ -56,5 +56,48 @@ describe('PlayerLobbyView prizes', () => {
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     expect(wrapper.text()).toContain('Early five: awarded to Grace')
+  })
+
+  describe('with every prize on the board', () => {
+    const labels = {
+      top_line: 'Claim Top line',
+      middle_line: 'Claim Middle line',
+      bottom_line: 'Claim Bottom line',
+      four_corners: 'Claim Four corners',
+      full_house: 'Claim Full house',
+      early_five: 'Claim Early five',
+    } as const
+    const prizes = Object.keys(labels) as (keyof typeof labels)[]
+
+    function mountWithFullBoard(awarded: Partial<Record<keyof typeof labels, string[]>> = {}) {
+      const store = setUpPlayer()
+      store.prizes = prizes.map((prize) => ({ prize, awarded_to: awarded[prize] ?? [] }))
+      return mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+    }
+
+    it('shows a labelled claim button for each prize', () => {
+      const wrapper = mountWithFullBoard()
+
+      for (const prize of prizes) {
+        expect(wrapper.get(`[data-test="claim-${prize}"]`).text()).toBe(labels[prize])
+      }
+    })
+
+    it.each(prizes)('claims %s by its wire name when its button is clicked', async (prize) => {
+      vi.mocked(claimPrize).mockResolvedValue({ ok: true })
+      const wrapper = mountWithFullBoard()
+
+      await wrapper.get(`[data-test="claim-${prize}"]`).trigger('click')
+      await flushPromises()
+
+      expect(claimPrize).toHaveBeenCalledWith(prize)
+    })
+
+    it('disables the button of a prize already awarded', () => {
+      const wrapper = mountWithFullBoard({ top_line: ['Grace'] })
+
+      expect(wrapper.get('[data-test="claim-top_line"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.get('[data-test="claim-middle_line"]').attributes('disabled')).toBeUndefined()
+    })
   })
 })

@@ -234,10 +234,12 @@ export interface components {
         };
         /**
          * Prize
-         * @description The prizes a game can award. The value is the name the wire uses.
+         * @description The prizes a game can award, in the order the prize board lists them.
+         *
+         *     The value is the name the wire uses.
          * @enum {string}
          */
-        Prize: "early_five";
+        Prize: "early_five" | "top_line" | "middle_line" | "bottom_line" | "four_corners" | "full_house";
         /** PrizeAwarded */
         PrizeAwarded: {
             prize: components["schemas"]["Prize"];

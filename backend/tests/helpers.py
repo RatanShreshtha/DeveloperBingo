@@ -3,6 +3,7 @@
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import GameRegistry
 from devbingo_backend.pool import Topic
+from devbingo_backend.prizes import Prize
 from devbingo_backend.ticket import Ticket
 from devbingo_backend.wire import HostLink
 
@@ -35,3 +36,13 @@ def draw_everything(registry: GameRegistry, game: HostLink) -> None:
 def start_and_draw_everything(registry: GameRegistry, game: HostLink) -> None:
     registry.start(game)
     draw_everything(registry, game)
+
+
+def board_of(**awarded_to: list[str]) -> dict[Prize, list[str]]:
+    """The prize board with every prize open, except those given as `prize_name=[names]`."""
+    return {prize: awarded_to.get(prize.value, []) for prize in Prize}
+
+
+def wire_board_of(**awarded_to: list[str]) -> list[dict]:
+    """The prize board as the wire carries it: every prize in order, with who holds it."""
+    return [{"prize": prize.value, "awarded_to": awarded_to.get(prize.value, [])} for prize in Prize]
