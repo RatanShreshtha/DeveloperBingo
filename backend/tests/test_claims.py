@@ -87,3 +87,38 @@ def test_only_players_in_the_game_can_claim(started_with_every_topic_drawn):
 
     with pytest.raises(NotAPlayer):
         registry.claim(PlayerRef(game.code, "Nobody"), Prize.EARLY_FIVE)
+
+
+def test_all_fifteen_ticked_and_drawn_topics_award_full_house(started_with_every_topic_drawn):
+    registry, game, ada_ticket, _ = started_with_every_topic_drawn
+    tick_n(registry, game, ada_ticket, "Ada", 15)
+
+    outcome = registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+
+    assert outcome.awarded_to == ("Ada",)
+    assert registry.prize_board(game.code)[Prize.FULL_HOUSE] == ["Ada"]
+
+
+def test_a_partly_complete_ticket_is_not_a_valid_full_house(started_with_every_topic_drawn):
+    registry, game, ada_ticket, _ = started_with_every_topic_drawn
+    tick_n(registry, game, ada_ticket, "Ada", 14)
+    board_before = registry.prize_board(game.code)
+    ticks_before = registry.ticks(PlayerRef(game.code, "Ada"))
+
+    with pytest.raises(ClaimNotValid):
+        registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+
+    assert registry.prize_board(game.code) == board_before
+    assert registry.ticks(PlayerRef(game.code, "Ada")) == ticks_before
+
+
+def test_full_house_is_awarded_once_per_game(started_with_every_topic_drawn):
+    registry, game, ada_ticket, grace_ticket = started_with_every_topic_drawn
+    tick_n(registry, game, ada_ticket, "Ada", 15)
+    tick_n(registry, game, grace_ticket, "Grace", 15)
+    registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+
+    with pytest.raises(PrizeAlreadyAwarded):
+        registry.claim(PlayerRef(game.code, "Grace"), Prize.FULL_HOUSE)
+
+    assert registry.prize_board(game.code)[Prize.FULL_HOUSE] == ["Ada"]
