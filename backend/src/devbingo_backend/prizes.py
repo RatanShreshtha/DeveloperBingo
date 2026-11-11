@@ -24,6 +24,7 @@ EARLY_FIVE_TOPICS = 5
 # drawn. A prize with no rule here cannot be earned yet.
 _RULES: dict[Prize, Callable[[Ticket, Set[str]], bool]] = {
     Prize.EARLY_FIVE: lambda ticket, on_ticket: len(on_ticket) >= EARLY_FIVE_TOPICS,
+    Prize.FOUR_CORNERS: lambda ticket, on_ticket: ticket.four_corners() <= on_ticket,
 }
 
 

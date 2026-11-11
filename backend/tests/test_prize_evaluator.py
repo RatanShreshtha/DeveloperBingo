@@ -11,13 +11,25 @@ TICKET = ticket_of(
     ]
 )
 
+# Its top line runs a2..a6 and its bottom line c0..c8, so the corners are not in matching columns.
+STAGGERED = ticket_of(
+    [
+        [None, None, "a2", "a3", None, "a5", "a6", None, None],
+        [None, "b1", None, None, "b4", None, None, "b7", None],
+        ["c0", None, "c2", None, "c4", None, "c6", None, "c8"],
+    ]
+)
+
 # (what the player has ticked and drawn, the prizes that earns)
 CASES = [
     pytest.param(set(), set(), id="nothing ticked earns nothing"),
     pytest.param({"a0", "a2", "a4", "a6"}, set(), id="four topics are not enough for early five"),
     pytest.param({"a0", "a2", "a4", "a6", "a8"}, {Prize.EARLY_FIVE}, id="five on one line"),
     pytest.param({"a0", "b1", "c3", "c5", "b7"}, {Prize.EARLY_FIVE}, id="five scattered across lines"),
-    pytest.param(set(TICKET.topic_names()), {Prize.EARLY_FIVE}, id="a full ticket still earns early five"),
+    pytest.param({"a0", "a8", "c0", "c8"}, {Prize.FOUR_CORNERS}, id="the four corners"),
+    pytest.param({"a0", "a8", "c0"}, set(), id="one corner missing"),
+    pytest.param({"a2", "a6", "c1", "c5", "b1"}, {Prize.EARLY_FIVE}, id="inner topics are not corners"),
+    pytest.param(set(TICKET.topic_names()), {Prize.EARLY_FIVE, Prize.FOUR_CORNERS}, id="a full ticket earns early five and four corners"),
     pytest.param(
         {"a0", "a2", "a4", "a6", "zz1", "zz2"},
         set(),
@@ -29,3 +41,16 @@ CASES = [
 @pytest.mark.parametrize(("ticked_and_drawn", "earned"), CASES)
 def test_the_prizes_a_ticket_earns(ticked_and_drawn, earned):
     assert prizes_earned(TICKET, ticked_and_drawn) == earned
+
+
+STAGGERED_CASES = [
+    pytest.param({"a2", "a6", "c0", "c8"}, {Prize.FOUR_CORNERS}, id="corners follow each line's own ends"),
+    pytest.param({"a2", "a6", "c0"}, set(), id="one staggered corner missing"),
+    pytest.param({"a2", "a6", "c2", "c6"}, set(), id="the columns of the top corners do not make bottom corners"),
+    pytest.param({"a2", "a6", "c0", "c8", "a3"}, {Prize.FOUR_CORNERS, Prize.EARLY_FIVE}, id="corners plus extras"),
+]
+
+
+@pytest.mark.parametrize(("ticked_and_drawn", "earned"), STAGGERED_CASES)
+def test_four_corners_on_a_ticket_with_staggered_lines(ticked_and_drawn, earned):
+    assert prizes_earned(STAGGERED, ticked_and_drawn) == earned

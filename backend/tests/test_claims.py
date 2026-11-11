@@ -87,3 +87,44 @@ def test_only_players_in_the_game_can_claim(started_with_every_topic_drawn):
 
     with pytest.raises(NotAPlayer):
         registry.claim(PlayerRef(game.code, "Nobody"), Prize.EARLY_FIVE)
+
+
+def tick_names(registry, game, name, topics):
+    for topic in topics:
+        registry.tick(PlayerRef(game.code, name), topic)
+
+
+def test_four_corners_is_awarded_when_all_four_corners_are_ticked(started_with_every_topic_drawn):
+    registry, game, ada_ticket, _ = started_with_every_topic_drawn
+    tick_names(registry, game, "Ada", sorted(ada_ticket.four_corners()))
+
+    outcome = registry.claim(PlayerRef(game.code, "Ada"), Prize.FOUR_CORNERS)
+
+    assert outcome.awarded_to == ("Ada",)
+    assert registry.prize_board(game.code)[Prize.FOUR_CORNERS] == ["Ada"]
+
+
+def test_four_corners_with_a_corner_unticked_is_refused_and_changes_nothing(started_with_every_topic_drawn):
+    registry, game, ada_ticket, _ = started_with_every_topic_drawn
+    corners = sorted(ada_ticket.four_corners())
+    tick_names(registry, game, "Ada", corners[:-1])
+    board_before = registry.prize_board(game.code)
+    ticks_before = registry.ticks(PlayerRef(game.code, "Ada"))
+
+    with pytest.raises(ClaimNotValid):
+        registry.claim(PlayerRef(game.code, "Ada"), Prize.FOUR_CORNERS)
+
+    assert registry.prize_board(game.code) == board_before
+    assert registry.ticks(PlayerRef(game.code, "Ada")) == ticks_before
+
+
+def test_four_corners_is_awarded_once_per_game(started_with_every_topic_drawn):
+    registry, game, ada_ticket, grace_ticket = started_with_every_topic_drawn
+    tick_names(registry, game, "Ada", sorted(ada_ticket.four_corners()))
+    tick_names(registry, game, "Grace", sorted(grace_ticket.four_corners()))
+    registry.claim(PlayerRef(game.code, "Ada"), Prize.FOUR_CORNERS)
+
+    with pytest.raises(PrizeAlreadyAwarded):
+        registry.claim(PlayerRef(game.code, "Grace"), Prize.FOUR_CORNERS)
+
+    assert registry.prize_board(game.code)[Prize.FOUR_CORNERS] == ["Ada"]
