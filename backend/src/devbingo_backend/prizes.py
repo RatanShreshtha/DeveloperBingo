@@ -1,6 +1,8 @@
 from collections.abc import Set
 from enum import StrEnum
 
+from devbingo_backend.ticket import Ticket
+
 
 class Prize(StrEnum):
     """The prizes a game can award. The value is the name the wire uses."""
@@ -11,12 +13,14 @@ class Prize(StrEnum):
 EARLY_FIVE_TOPICS = 5
 
 
-def satisfies(prize: Prize, ticked_and_drawn: Set[str]) -> bool:
-    """Whether the topics given form the pattern the prize needs.
+def prizes_earned(ticket: Ticket, ticked_and_drawn: Set[str]) -> set[Prize]:
+    """The Prize Evaluator: every prize the ticket satisfies, given the topics ticked and drawn.
 
-    The caller passes only topics that are both ticked and drawn, so this checks
-    the pattern alone, not whether the claim is allowed.
+    The caller passes only topics that are both ticked and drawn, so this judges the
+    pattern alone, not whether a claim is allowed. Topics not on the ticket never count.
     """
-    if prize is Prize.EARLY_FIVE:
-        return len(ticked_and_drawn) >= EARLY_FIVE_TOPICS
-    raise ValueError(f"no rule for prize {prize!r}")
+    on_ticket = ticked_and_drawn & ticket.topic_names()
+    earned: set[Prize] = set()
+    if len(on_ticket) >= EARLY_FIVE_TOPICS:
+        earned.add(Prize.EARLY_FIVE)
+    return earned

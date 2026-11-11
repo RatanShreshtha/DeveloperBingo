@@ -8,7 +8,7 @@ from typing import ClassVar, Literal
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.names import name_key
 from devbingo_backend.pool import Topic
-from devbingo_backend.prizes import Prize, satisfies
+from devbingo_backend.prizes import Prize, prizes_earned
 from devbingo_backend.ticket import Ticket, build_ticket
 from devbingo_backend.wire import ErrorCode, HostLink
 
@@ -256,7 +256,7 @@ class GameRegistry:
         if prize in game.awards:
             raise PrizeAlreadyAwarded(prize)
         ticked_and_drawn = member.ticks & game.drawn_names()
-        if not satisfies(prize, ticked_and_drawn):
+        if prize not in prizes_earned(member.ticket, ticked_and_drawn):
             raise ClaimNotValid(prize)
         game.awards[prize] = member.name
 

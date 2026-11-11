@@ -2,7 +2,8 @@ import random
 
 import pytest
 
-from devbingo_backend.default_pool import DEFAULT_POOL
+from helpers import names_on, start_and_draw_everything
+
 from devbingo_backend.game import (
     GameNotStarted,
     GameRegistry,
@@ -14,19 +15,13 @@ from devbingo_backend.game import (
 from devbingo_backend.prizes import Prize
 
 
-def names_on(ticket) -> list[str]:
-    return sorted({cell.name for line in ticket.lines for cell in line if cell is not None})
-
-
 @pytest.fixture
 def started_with_every_topic_drawn():
     registry = GameRegistry(rng=random.Random(31))
     game = registry.create_game()
     ada_ticket = registry.join(PlayerRef(game.code, "Ada"))
     grace_ticket = registry.join(PlayerRef(game.code, "Grace"))
-    registry.start(game)
-    for _ in range(len(DEFAULT_POOL.topics)):
-        registry.draw(game)
+    start_and_draw_everything(registry, game)
     return registry, game, ada_ticket, grace_ticket
 
 

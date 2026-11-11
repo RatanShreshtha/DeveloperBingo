@@ -1,6 +1,8 @@
 import asyncio
 import random
 
+from helpers import start_and_draw_everything
+
 from devbingo_backend.game import GameRegistry, PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.realtime import RealtimeAdapter
@@ -145,9 +147,7 @@ def started_game_with_every_topic_drawn(broadcaster=None):
     game = registry.create_game()
     adapter = RealtimeAdapter(registry, broadcaster or RecordingBroadcaster())
     joined = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
-    registry.start(game)
-    for _ in range(90):
-        registry.draw(game)
+    start_and_draw_everything(registry, game)
     return adapter, registry, game, joined["ticket"]
 
 
@@ -364,9 +364,7 @@ def lobby_of_ada_and_grace():
     adapter = RealtimeAdapter(registry, broadcaster)
     ada = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
     run(adapter.join_game("sid-grace", {"code": game.code, "name": "Grace"}))
-    registry.start(game)
-    for _ in range(90):
-        registry.draw(game)
+    start_and_draw_everything(registry, game)
     return adapter, registry, game, ada["ticket"]
 
 

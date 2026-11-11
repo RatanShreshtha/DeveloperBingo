@@ -1,8 +1,8 @@
 import random
 
 import pytest
+from helpers import names_on, start_and_draw_everything
 
-from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
     GameAlreadyStarted,
     GameRegistry,
@@ -31,10 +31,8 @@ def test_a_name_is_refused_while_its_player_is_connected(lobby):
 def test_rejoining_restores_the_players_ticks(lobby):
     registry, game, ada_ticket = lobby
     ada = PlayerRef(game.code, "Ada")
-    registry.start(game)
-    for _ in range(len(DEFAULT_POOL.topics)):
-        registry.draw(game)
-    topic = next(cell.name for line in ada_ticket.lines for cell in line if cell)
+    start_and_draw_everything(registry, game)
+    topic = names_on(ada_ticket)[0]
     registry.tick(ada, topic)
     registry.disconnect(ada)
 

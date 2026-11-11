@@ -20,6 +20,21 @@ class Ticket:
         """The names of the fifteen topics on the ticket."""
         return {cell.name for line in self.lines for cell in line if cell is not None}
 
+    def line(self, number: int) -> set[str]:
+        """The names of the five topics on one line. Line 0 is the top."""
+        return {cell.name for cell in self.lines[number] if cell is not None}
+
+    def four_corners(self) -> set[str]:
+        """The outermost topic on each side of the top line and of the bottom line.
+
+        Lines are staggered, so these are not always in the first and last columns.
+        """
+        corners: set[str] = set()
+        for line in (self.lines[0], self.lines[-1]):
+            filled = [cell.name for cell in line if cell is not None]
+            corners.update((filled[0], filled[-1]))
+        return corners
+
     def to_cells(self) -> list[list[str | None]]:
         """The ticket as topic names, with empty cells as None."""
         return [[cell.name if cell else None for cell in line] for line in self.lines]
