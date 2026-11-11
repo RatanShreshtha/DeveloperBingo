@@ -87,3 +87,63 @@ def test_only_players_in_the_game_can_claim(started_with_every_topic_drawn):
 
     with pytest.raises(NotAPlayer):
         registry.claim(PlayerRef(game.code, "Nobody"), Prize.EARLY_FIVE)
+
+
+def tick_line(registry, game, ticket, name, line):
+    for topic in ticket.lines[line]:
+        if topic is not None:
+            registry.tick(PlayerRef(game.code, name), topic.name)
+
+
+LINE_PRIZES = [(Prize.TOP_LINE, 0), (Prize.MIDDLE_LINE, 1), (Prize.BOTTOM_LINE, 2)]
+
+
+@pytest.mark.parametrize(("prize", "line"), LINE_PRIZES)
+def test_a_complete_line_wins_its_prize(started_with_every_topic_drawn, prize, line):
+    registry, game, ada_ticket, _ = started_with_every_topic_drawn
+    tick_line(registry, game, ada_ticket, "Ada", line)
+
+    outcome = registry.claim(PlayerRef(game.code, "Ada"), prize)
+
+    assert outcome.awarded_to == ("Ada",)
+    assert registry.prize_board(game.code)[prize] == ["Ada"]
+
+
+@pytest.mark.parametrize(("prize", "line"), LINE_PRIZES)
+def test_an_incomplete_line_is_refused_and_changes_nothing(started_with_every_topic_drawn, prize, line):
+    registry, game, ada_ticket, _ = started_with_every_topic_drawn
+    tick_line(registry, game, ada_ticket, "Ada", line)
+    registry.untick(PlayerRef(game.code, "Ada"), next(t.name for t in ada_ticket.lines[line] if t is not None))
+    board_before = registry.prize_board(game.code)
+    ticks_before = registry.ticks(PlayerRef(game.code, "Ada"))
+
+    with pytest.raises(ClaimNotValid):
+        registry.claim(PlayerRef(game.code, "Ada"), prize)
+
+    assert registry.prize_board(game.code) == board_before
+    assert registry.ticks(PlayerRef(game.code, "Ada")) == ticks_before
+
+
+@pytest.mark.parametrize(("prize", "line"), LINE_PRIZES)
+def test_each_line_prize_is_awarded_once_per_game(started_with_every_topic_drawn, prize, line):
+    registry, game, ada_ticket, grace_ticket = started_with_every_topic_drawn
+    tick_line(registry, game, ada_ticket, "Ada", line)
+    tick_line(registry, game, grace_ticket, "Grace", line)
+    registry.claim(PlayerRef(game.code, "Ada"), prize)
+
+    with pytest.raises(PrizeAlreadyAwarded):
+        registry.claim(PlayerRef(game.code, "Grace"), prize)
+
+    assert registry.prize_board(game.code)[prize] == ["Ada"]
+
+
+def test_one_player_can_win_several_line_prizes(started_with_every_topic_drawn):
+    registry, game, ada_ticket, _ = started_with_every_topic_drawn
+    for _, line in LINE_PRIZES:
+        tick_line(registry, game, ada_ticket, "Ada", line)
+
+    for prize, _ in LINE_PRIZES:
+        registry.claim(PlayerRef(game.code, "Ada"), prize)
+
+    board = registry.prize_board(game.code)
+    assert [board[prize] for prize, _ in LINE_PRIZES] == [["Ada"], ["Ada"], ["Ada"]]

@@ -15,9 +15,17 @@ TICKET = ticket_of(
 CASES = [
     pytest.param(set(), set(), id="nothing ticked earns nothing"),
     pytest.param({"a0", "a2", "a4", "a6"}, set(), id="four topics are not enough for early five"),
-    pytest.param({"a0", "a2", "a4", "a6", "a8"}, {Prize.EARLY_FIVE}, id="five on one line"),
+    pytest.param({"a0", "a2", "a4", "a6", "a8"}, {Prize.EARLY_FIVE, Prize.TOP_LINE}, id="a complete top line"),
+    pytest.param({"b1", "b3", "b4", "b5", "b7"}, {Prize.EARLY_FIVE, Prize.MIDDLE_LINE}, id="a complete middle line"),
+    pytest.param({"c0", "c1", "c3", "c5", "c8"}, {Prize.EARLY_FIVE, Prize.BOTTOM_LINE}, id="a complete bottom line"),
+    pytest.param({"a0", "a2", "a4", "a6", "b1", "b3", "b4", "b5", "b7"}, {Prize.EARLY_FIVE, Prize.MIDDLE_LINE}, id="four on top and a full middle is only the middle"),
+    pytest.param({"a0", "a2", "a4", "a6", "a8", "c0", "c1", "c3", "c5", "c8"}, {Prize.EARLY_FIVE, Prize.TOP_LINE, Prize.BOTTOM_LINE}, id="two complete lines earn both"),
     pytest.param({"a0", "b1", "c3", "c5", "b7"}, {Prize.EARLY_FIVE}, id="five scattered across lines"),
-    pytest.param(set(TICKET.topic_names()), {Prize.EARLY_FIVE}, id="a full ticket still earns early five"),
+    pytest.param(
+        set(TICKET.topic_names()),
+        {Prize.EARLY_FIVE, Prize.TOP_LINE, Prize.MIDDLE_LINE, Prize.BOTTOM_LINE},
+        id="a full ticket earns every line",
+    ),
     pytest.param(
         {"a0", "a2", "a4", "a6", "zz1", "zz2"},
         set(),
