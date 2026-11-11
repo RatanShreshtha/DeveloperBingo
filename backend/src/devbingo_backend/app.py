@@ -6,13 +6,12 @@ from typing import Annotated, Literal
 import socketio
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
+from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
 from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
 from devbingo_backend.pool_store import ensure_default_pool, load_default_pool
 from devbingo_backend.realtime import build_socket_server
-from pydantic.json_schema import models_json_schema
-
 from devbingo_backend.wire import SOCKET_MODELS, DrawAnnouncement, DrawHistoryResponse, HostLink
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"

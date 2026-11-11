@@ -5,6 +5,8 @@ import type { components } from '../api/schema'
 type Schemas = components['schemas']
 
 export type HostLink = Schemas['HostLink']
+// One player in one game, as the server addresses them: the game code and their display name.
+export type PlayerRef = Schemas['JoinPayload']
 export type DrawnTopic = Schemas['DrawAnnouncement']
 export type PrizeBoardEntry = Schemas['PrizeBoardEntry']
 export type PrizeAward = Schemas['PrizeAwarded']

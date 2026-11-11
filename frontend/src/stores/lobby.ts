@@ -19,12 +19,10 @@ import {
   type ErrorCode,
   type HostLink,
   type JoinAck,
+  type PlayerRef,
   type PrizeBoardEntry,
   type Refusal,
 } from '../realtime/socket'
-
-// One player in one game, as the server addresses them: the game code and their display name.
-type PlayerRef = { code: string; name: string }
 
 // Every error code needs a message: a missing one is a type error.
 const ERROR_MESSAGES: Record<ErrorCode, string> = {
