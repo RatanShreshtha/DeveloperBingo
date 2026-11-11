@@ -17,7 +17,16 @@ CASES = [
     pytest.param({"a0", "a2", "a4", "a6"}, set(), id="four topics are not enough for early five"),
     pytest.param({"a0", "a2", "a4", "a6", "a8"}, {Prize.EARLY_FIVE}, id="five on one line"),
     pytest.param({"a0", "b1", "c3", "c5", "b7"}, {Prize.EARLY_FIVE}, id="five scattered across lines"),
-    pytest.param(set(TICKET.topic_names()), {Prize.EARLY_FIVE}, id="a full ticket still earns early five"),
+    pytest.param(
+        set(TICKET.topic_names()),
+        {Prize.EARLY_FIVE, Prize.FULL_HOUSE},
+        id="all fifteen ticked earns full house as well as early five",
+    ),
+    pytest.param(
+        set(TICKET.topic_names()) - {"c8"},
+        {Prize.EARLY_FIVE},
+        id="fourteen of fifteen is not a full house",
+    ),
     pytest.param(
         {"a0", "a2", "a4", "a6", "zz1", "zz2"},
         set(),
