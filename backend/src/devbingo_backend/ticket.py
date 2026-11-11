@@ -10,6 +10,11 @@ TOPICS_PER_TICKET = 15
 MAX_TOPICS_PER_COLUMN = 3
 
 
+def _names(cells: tuple[Topic | None, ...]) -> list[str]:
+    """The names of the filled cells, left to right."""
+    return [cell.name for cell in cells if cell is not None]
+
+
 @dataclass(frozen=True)
 class Ticket:
     """A tambola-style ticket: three lines of nine cells, some of them empty."""
@@ -18,11 +23,11 @@ class Ticket:
 
     def topic_names(self) -> set[str]:
         """The names of the fifteen topics on the ticket."""
-        return {cell.name for line in self.lines for cell in line if cell is not None}
+        return {name for line in self.lines for name in _names(line)}
 
     def line(self, number: int) -> set[str]:
         """The names of the five topics on one line. Line 0 is the top."""
-        return {cell.name for cell in self.lines[number] if cell is not None}
+        return set(_names(self.lines[number]))
 
     def four_corners(self) -> set[str]:
         """The outermost topic on each side of the top line and of the bottom line.
@@ -31,7 +36,7 @@ class Ticket:
         """
         corners: set[str] = set()
         for line in (self.lines[0], self.lines[-1]):
-            filled = [cell.name for cell in line if cell is not None]
+            filled = _names(line)
             corners.update((filled[0], filled[-1]))
         return corners
 

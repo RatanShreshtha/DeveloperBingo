@@ -262,11 +262,11 @@ def test_a_rejoin_does_not_announce_a_change_to_the_lobby():
     adapter = RealtimeAdapter(registry, broadcaster)
     run(adapter.join_game("sid-1", {"code": game.code, "name": "Ada"}))
     run(adapter.disconnect("sid-1"))
+    emitted_before = list(broadcaster.emitted)
 
     run(adapter.join_game("sid-2", {"code": game.code, "name": "Ada"}))
 
-    lobby_updates = [event for event in broadcaster.emitted if event[0] == "lobby_updated"]
-    assert len(lobby_updates) == 1
+    assert broadcaster.emitted == emitted_before
 
 
 def started_game_with_five_ticks_for_ada(broadcaster=None):

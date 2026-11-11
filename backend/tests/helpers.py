@@ -26,8 +26,12 @@ def names_on(ticket: Ticket) -> list[str]:
     return sorted({cell.name for line in ticket.lines for cell in line if cell is not None})
 
 
-def start_and_draw_everything(registry: GameRegistry, game: HostLink) -> None:
-    """Start the game and draw every topic in the pool, so any topic may be ticked."""
-    registry.start(game)
+def draw_everything(registry: GameRegistry, game: HostLink) -> None:
+    """Draw every topic in the pool, so any topic may be ticked. The game must have started."""
     for _ in range(len(DEFAULT_POOL.topics)):
         registry.draw(game)
+
+
+def start_and_draw_everything(registry: GameRegistry, game: HostLink) -> None:
+    registry.start(game)
+    draw_everything(registry, game)

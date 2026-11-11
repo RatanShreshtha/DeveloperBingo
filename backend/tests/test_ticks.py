@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from helpers import names_on
+from helpers import draw_everything, names_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -20,11 +20,6 @@ def game_with_ada():
     ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     registry.start(game)
     return registry, game, ticket
-
-
-def draw_everything(registry, game):
-    for _ in range(len(DEFAULT_POOL.topics)):
-        registry.draw(game)
 
 
 def test_a_drawn_topic_on_the_players_ticket_can_be_ticked(game_with_ada):
