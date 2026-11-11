@@ -6,11 +6,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] Tick, untick and claim take the player from the socket's session, not from the message
-- [ ] A socket that has not joined is refused with `not_joined`, and nothing changes
-- [ ] A socket cannot act as a different player by putting another name in the message
-- [ ] When the socket reconnects, the frontend sends `join_game` again with the same code and name, and the player gets back their ticket, ticks and prize board
-- [ ] Host commands keep using the host token sent with each message (the token is a secret, so no socket binding is needed)
+- [x] Tick, untick and claim take the player from the socket's session, not from the message
+- [x] A socket that has not joined is refused with `not_joined`, and nothing changes
+- [x] A socket cannot act as a different player by putting another name in the message
+- [x] When the socket reconnects, the frontend sends `join_game` again with the same code and name, and the player gets back their ticket, ticks and prize board
+- [x] Host commands keep using the host token sent with each message (the token is a secret, so no socket binding is needed)
 
 ## Notes
 

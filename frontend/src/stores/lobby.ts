@@ -9,6 +9,7 @@ import {
   onGameStarted,
   onLobbyUpdated,
   onPrizeAwarded,
+  onReconnect,
   onTopicDrawn,
   startGame,
   tickTopic,
@@ -16,6 +17,7 @@ import {
   watchLobby,
   type DrawnTopic,
   type HostLink,
+  type JoinResult,
   type PlayerRef,
   type PrizeBoard,
   type TicketCells,
@@ -33,6 +35,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_drawn: 'That topic has not been drawn yet',
   not_on_ticket: 'That topic is not on your ticket',
   not_a_player: 'You are not in this game',
+  not_joined: 'You have not joined this game from this window',
   not_won: 'This claim does not complete the prize yet',
   prize_taken: 'Someone has already been awarded this prize',
   unknown_prize: 'That prize does not exist',
@@ -67,6 +70,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     started.value = true
   })
   onTopicDrawn(recordDraw)
+  onReconnect(rejoin)
   onPrizeAwarded((award) => {
     prizes.value = { ...prizes.value, [award.prize]: award.winner }
   })
@@ -102,11 +106,31 @@ export const useLobbyStore = defineStore('lobby', () => {
       error.value = messageFor(result.error)
       return false
     }
-    ticket.value = result.ticket
     player.value = { code, name }
+    restore(result)
+    return true
+  }
+
+  // A dropped socket is a new socket to the server, which acts only for players who
+  // joined on it. Joining again by the same name gets the player their place back.
+  async function rejoin() {
+    const who = player.value
+    if (!who) {
+      return
+    }
+    const result = await joinGame(who.code, who.name)
+    if (!result.ok) {
+      actionError.value = messageFor(result.error)
+      return
+    }
+    restore(result)
+  }
+
+  // Takes what the server holds for this player: their ticket, ticks and the prize board.
+  function restore(result: Extract<JoinResult, { ok: true }>) {
+    ticket.value = result.ticket
     ticks.value = result.ticks
     prizes.value = result.prizes
-    return true
   }
 
   // Claims a prize. A valid claim is announced to the room, which updates the board.
