@@ -69,7 +69,9 @@ def _host_link(payload: dict[str, str]) -> HostLink:
     return HostLink(code=payload["code"], token=payload["host_token"])
 
 
-_NOT_JOINED = {"ok": False, "error": "not_joined"}
+def _not_joined() -> dict[str, Any]:
+    """The acknowledgement for a socket that has not joined, so it cannot act as anyone."""
+    return {"ok": False, "error": "not_joined"}
 
 
 class RealtimeAdapter:
@@ -158,7 +160,7 @@ class RealtimeAdapter:
         # The claimant is whoever joined on this socket, never a name sent in the message.
         player = self._sessions.get(sid)
         if player is None:
-            return _NOT_JOINED
+            return _not_joined()
         code = player.code
         try:
             prize = Prize(payload["prize"])
@@ -192,7 +194,7 @@ class RealtimeAdapter:
     ) -> dict[str, Any]:
         player = self._sessions.get(sid)
         if player is None:
-            return _NOT_JOINED
+            return _not_joined()
         try:
             change(player, payload["topic"])
         except GameError as err:

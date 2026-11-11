@@ -17,6 +17,7 @@ import {
   watchLobby,
   type DrawnTopic,
   type HostLink,
+  type JoinResult,
   type PlayerRef,
   type PrizeBoard,
   type TicketCells,
@@ -105,10 +106,8 @@ export const useLobbyStore = defineStore('lobby', () => {
       error.value = messageFor(result.error)
       return false
     }
-    ticket.value = result.ticket
     player.value = { code, name }
-    ticks.value = result.ticks
-    prizes.value = result.prizes
+    restore(result)
     return true
   }
 
@@ -124,6 +123,11 @@ export const useLobbyStore = defineStore('lobby', () => {
       actionError.value = messageFor(result.error)
       return
     }
+    restore(result)
+  }
+
+  // Takes what the server holds for this player: their ticket, ticks and the prize board.
+  function restore(result: Extract<JoinResult, { ok: true }>) {
     ticket.value = result.ticket
     ticks.value = result.ticks
     prizes.value = result.prizes

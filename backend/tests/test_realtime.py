@@ -163,12 +163,13 @@ def test_a_tick_is_acknowledged_without_sending_any_ticks_back():
     broadcaster = RecordingBroadcaster()
     adapter, registry, game, cells = started_game_with_every_topic_drawn(broadcaster)
     topic = topics_on(cells)[0]
+    emitted_before = list(broadcaster.emitted)
 
     ack = run(adapter.tick_topic("sid-ada", tick_message(game, topic)))
 
     assert ack == {"ok": True}
     assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset({topic})
-    assert broadcaster.emitted == [("lobby_updated", game.code, {"players": ["Ada"]})]
+    assert broadcaster.emitted == emitted_before
 
 
 def test_an_untick_is_acknowledged_without_sending_any_ticks_back():
