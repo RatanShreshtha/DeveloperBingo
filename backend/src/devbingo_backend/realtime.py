@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any, Protocol
 
 import socketio
@@ -153,10 +154,6 @@ class RealtimeAdapter:
         await self._broadcaster.emit("topic_drawn", announcement, room=code)
         return {"ok": True, "draw": announcement}
 
-    # Ticks are private, and nothing is broadcast. The acknowledgement says only
-    # whether the change happened: the client keeps its own list, so no ticks are
-    # sent back to anyone.
-
     async def claim_prize(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         """A valid claim is announced to the whole room. A refused one is told to the claimant only."""
         code = payload["code"]
@@ -177,13 +174,17 @@ class RealtimeAdapter:
         )
         return {"ok": True}
 
+    # Ticks are private, and nothing is broadcast. The acknowledgement says only
+    # whether the change happened: the client keeps its own list, so no ticks are
+    # sent back to anyone.
+
     async def tick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         return self._change_ticks(payload, self._registry.tick)
 
     async def untick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
         return self._change_ticks(payload, self._registry.untick)
 
-    def _change_ticks(self, payload: dict[str, str], change: Any) -> dict[str, Any]:
+    def _change_ticks(self, payload: dict[str, str], change: Callable[[PlayerRef, str], None]) -> dict[str, Any]:
         try:
             change(_player(payload), payload["topic"])
         except GameError as err:

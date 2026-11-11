@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from devbingo_backend.default_pool import DEFAULT_POOL
+from devbingo_backend.names import name_key
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize, satisfies
 from devbingo_backend.ticket import Ticket, build_ticket
@@ -104,18 +105,13 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def _key(name: str) -> str:
-    """The form a name is compared in: surrounding spaces and case are ignored."""
-    return name.strip().casefold()
-
-
 @dataclass
 class _Game:
     host_token_hash: str
     status: Literal["lobby", "started"] = "lobby"
     # Display names, in the order players joined, as the lobby shows them.
     players: list[str] = field(default_factory=list)
-    # Everything below is keyed by _key(name), so one player has one entry.
+    # Everything below is keyed by name_key(name), so one player has one entry.
     tickets: dict[str, Ticket] = field(default_factory=dict)
     ticks: dict[str, set[str]] = field(default_factory=dict)
     connected: set[str] = field(default_factory=set)
@@ -152,7 +148,7 @@ class GameRegistry:
         a connected player is refused; any other name is a new join while the lobby is open.
         Names match without regard to case, so "Ada" and "ada" are the same player."""
         game = self._find(player.code)
-        key = _key(player.name)
+        key = name_key(player.name)
         if key in game.tickets:
             if key in game.connected:
                 raise NameTaken(player.name)
@@ -173,7 +169,7 @@ class GameRegistry:
     def disconnect(self, player: PlayerRef) -> None:
         """The player has dropped. They keep their place and their ticks, and can rejoin by name."""
         game = self._find(player.code)
-        key = _key(player.name)
+        key = name_key(player.name)
         if key not in game.tickets:
             raise NotAPlayer(player.name)
         game.connected.discard(key)
@@ -189,8 +185,9 @@ class GameRegistry:
         return list(self._find(code).players)
 
     def lobby(self, host: HostLink) -> list[str]:
-        game = self._host_game(host)
-        return list(game.players)
+        """Names in the lobby, for the host. The same list as players(), after checking the host link."""
+        self._host_game(host)
+        return self.players(host.code)
 
     def start(self, host: HostLink) -> None:
         """Start the game: joining closes and the pool locks."""
@@ -230,7 +227,8 @@ class GameRegistry:
         game.ticks[key].add(topic_name)
 
     def untick(self, player: PlayerRef, topic_name: str) -> None:
-        """Untick a topic on the player's ticket. Nothing blocks an untick until claims exist (issue 08)."""
+        """Untick a topic on the player's ticket. Nothing blocks an untick yet: issue 12 refuses it
+        while the player has a claim waiting in a settlement window."""
         game, key, ticket_names = self._player_game(player)
         if topic_name not in ticket_names:
             raise TopicNotOnTicket(topic_name)
@@ -262,7 +260,7 @@ class GameRegistry:
     def _player_game(self, player: PlayerRef) -> tuple[_Game, str, set[str]]:
         """The game, the player's key, and the topic names on their ticket. Refuses anyone not in the game."""
         game = self._find(player.code)
-        key = _key(player.name)
+        key = name_key(player.name)
         if key not in game.tickets:
             raise NotAPlayer(player.name)
         names = {

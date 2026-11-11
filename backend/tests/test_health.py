@@ -1,10 +1,10 @@
 import os
-import socket
 
 from fastapi.testclient import TestClient
 
 from devbingo_backend import app as app_module
 from devbingo_backend.app import DEFAULT_DATABASE_URL, create_app
+from database_urls import unused_database_url
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_DATABASE_URL)
 
@@ -17,14 +17,6 @@ class BrokenEngine:
 
     def dispose(self):
         pass
-
-
-def unused_database_url() -> str:
-    """A database URL pointing at a port nothing is listening on."""
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
-    return f"postgresql+psycopg://bingo:bingo@127.0.0.1:{port}/devbingo"
 
 
 def test_health_reports_database_up():

@@ -49,10 +49,10 @@ def build_ticket(pool: Pool, rng: random.Random) -> Ticket:
     grid: list[list[Topic | None]] = [[None] * TICKET_COLUMNS for _ in range(TICKET_LINES)]
     for column, lines in enumerate(column_lines):
         column_topics = pool_columns[column]
-        drawn = rng.sample(column_topics, len(lines))
+        chosen = rng.sample(column_topics, len(lines))
         # Topics keep the pool's order from the top of the column downwards.
-        drawn.sort(key=column_topics.index)
-        for line, topic in zip(sorted(lines), drawn):
+        chosen.sort(key=column_topics.index)
+        for line, topic in zip(sorted(lines), chosen):
             grid[line][column] = topic
 
     return Ticket(tuple(tuple(line) for line in grid))
