@@ -32,14 +32,14 @@ describe('lobby store after the socket reconnects', () => {
     await store.join('ABC123', 'Ada')
     vi.mocked(joinGame).mockClear()
     vi.mocked(joinGame).mockResolvedValue(
-      joinedResult(ticket, ['Pi'], { early_five: 'Grace' }),
+      joinedResult(ticket, ['Pi'], [{ prize: 'early_five', awarded_to: 'Grace' }]),
     )
 
     await reconnect()
 
     expect(joinGame).toHaveBeenCalledWith('ABC123', 'Ada')
     expect(store.ticks).toEqual(['Pi'])
-    expect(store.prizes).toEqual({ early_five: 'Grace' })
+    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: 'Grace' }])
   })
 
   it('does nothing when no player has joined yet', async () => {

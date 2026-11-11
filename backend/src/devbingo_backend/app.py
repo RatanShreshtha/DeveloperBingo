@@ -8,10 +8,12 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import create_engine, text
 
-from devbingo_backend.game import GameNotFound, GameRegistry, HostLink, NotHost
+from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
 from devbingo_backend.pool_store import ensure_default_pool, load_default_pool
 from devbingo_backend.realtime import build_socket_server
-from devbingo_backend.wire import DrawAnnouncement, DrawHistoryResponse
+from pydantic.json_schema import models_json_schema
+
+from devbingo_backend.wire import SOCKET_MODELS, DrawAnnouncement, DrawHistoryResponse, HostLink
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
 
@@ -19,11 +21,6 @@ DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo
 class HealthResponse(BaseModel):
     status: Literal["ok", "degraded"]
     database: Literal["up", "down"]
-
-
-class CreateGameResponse(BaseModel):
-    code: str
-    host_token: str
 
 
 class LobbyResponse(BaseModel):
@@ -69,10 +66,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
             database="up" if up else "down",
         )
 
-    @app.post("/games", status_code=201, response_model=CreateGameResponse)
-    def create_game() -> CreateGameResponse:
-        created = registry.create_game()
-        return CreateGameResponse(code=created.code, host_token=created.host_token)
+    @app.post("/games", status_code=201, response_model=HostLink)
+    def create_game() -> HostLink:
+        return registry.create_game()
 
     @app.get("/games/{code}/lobby", response_model=LobbyResponse)
     def read_lobby(
@@ -80,7 +76,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         x_host_token: Annotated[str, Header()] = "",
     ) -> LobbyResponse:
         try:
-            players = registry.lobby(HostLink(code=code, token=x_host_token))
+            players = registry.lobby(HostLink(code=code, host_token=x_host_token))
         except GameNotFound:
             raise HTTPException(status_code=404, detail="game not found") from None
         except NotHost:
@@ -112,6 +108,20 @@ def create_app(database_url: str | None = None) -> FastAPI:
                 for column in pool.columns()
             ]
         )
+
+    rest_openapi = app.openapi
+
+    def openapi_with_socket_messages() -> dict:
+        """The REST schema plus the messages that only travel over the socket."""
+        schema = rest_openapi()
+        _, socket_schemas = models_json_schema(
+            [(model, "serialization") for model in SOCKET_MODELS],
+            ref_template="#/components/schemas/{model}",
+        )
+        schema["components"]["schemas"].update(socket_schemas["$defs"])
+        return schema
+
+    app.openapi = openapi_with_socket_messages  # type: ignore[method-assign]
 
     socket_server = build_socket_server(registry)
     app.mount("/socket.io", socketio.ASGIApp(socket_server))

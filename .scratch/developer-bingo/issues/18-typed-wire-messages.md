@@ -6,17 +6,17 @@
 
 **Status:** ready-for-agent
 
-- [ ] `wire.py` holds a model for every incoming payload, every acknowledgement and every event payload
-- [ ] The socket-only models appear in the OpenAPI schema: a custom `app.openapi()` adds their JSON schemas to `components.schemas` with Pydantic's `models_json_schema`. `npm run gen:api` is unchanged
-- [ ] Every handler parses its payload into its model; a bad or missing field gets `{ok: false, error: "invalid_message"}` and changes nothing
-- [ ] Error codes are a `StrEnum` in `wire.py`. Each `GameError` subclass declares its own code, replacing `_ERROR_CODES` and the inline `"already_joined"` and `"unknown_prize"`
-- [ ] A test checks that every `GameError` subclass has a code
-- [ ] The frontend's error messages are a `Record<ErrorCode, string>`, so a missing message is a type error
-- [ ] `Prize` is a generated enum. The prize board is an ordered list of `{prize, awarded_to}`, so the server decides the order and the frontend no longer seeds its own board
-- [ ] `prizes.ts` keeps only labels, as `Record<Prize, string>`
-- [ ] One `HostLink` wire model replaces `CreatedGame`, `HostLink` and `CreateGameResponse`; `POST /games` returns it, and `HomeView.vue` uses the generated type
-- [ ] Socket event names are constants in `wire.py`. The frontend keeps a short hand-written table of event name → generated payload type
-- [ ] `socket.ts` has no hand-written message shapes left
+- [x] `wire.py` holds a model for every incoming payload, every acknowledgement and every event payload
+- [x] The socket-only models appear in the OpenAPI schema: a custom `app.openapi()` adds their JSON schemas to `components.schemas` with Pydantic's `models_json_schema`. `npm run gen:api` is unchanged
+- [x] Every handler parses its payload into its model; a bad or missing field gets `{ok: false, error: "invalid_message"}` and changes nothing
+- [x] Error codes are a `StrEnum` in `wire.py`. Each `GameError` subclass declares its own code, replacing `_ERROR_CODES` and the inline `"already_joined"` and `"unknown_prize"`
+- [x] A test checks that every `GameError` subclass has a code
+- [x] The frontend's error messages are a `Record<ErrorCode, string>`, so a missing message is a type error
+- [x] `Prize` is a generated enum. The prize board is an ordered list of `{prize, awarded_to}`, so the server decides the order and the frontend no longer seeds its own board
+- [x] `prizes.ts` keeps only labels, as `Record<Prize, string>`
+- [x] One `HostLink` wire model replaces `CreatedGame`, `HostLink` and `CreateGameResponse`; `POST /games` returns it, and `HomeView.vue` uses the generated type
+- [x] Socket event names are constants in `wire.py`. The frontend keeps a short hand-written table of event name → generated payload type
+- [x] `socket.ts` has no hand-written message shapes left
 
 ## Notes
 

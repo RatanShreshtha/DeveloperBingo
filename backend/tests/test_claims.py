@@ -24,9 +24,9 @@ def started_with_every_topic_drawn():
     game = registry.create_game()
     ada_ticket = registry.join(PlayerRef(game.code, "Ada"))
     grace_ticket = registry.join(PlayerRef(game.code, "Grace"))
-    registry.start(game.host_link)
+    registry.start(game)
     for _ in range(len(DEFAULT_POOL.topics)):
-        registry.draw(game.host_link)
+        registry.draw(game)
     return registry, game, ada_ticket, grace_ticket
 
 

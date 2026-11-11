@@ -16,28 +16,30 @@ beforeEach(() => {
 })
 
 describe('lobby store prizes', () => {
-  it('starts with the early five prize open', () => {
+  it('lists no prizes until the server sends the board', () => {
     const store = useLobbyStore()
 
-    expect(store.prizes).toEqual({ early_five: null })
+    expect(store.prizes).toEqual([])
   })
 
-  it('shows who was awarded a prize when the room announces it', () => {
+  it('shows who was awarded a prize when the room announces it', async () => {
+    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket))
     const store = useLobbyStore()
+    await store.join('ABC123', 'Ada')
     const announced = vi.mocked(onPrizeAwarded).mock.calls[0][0]
 
     announced({ prize: 'early_five', winner: 'Ada' })
 
-    expect(store.prizes.early_five).toBe('Ada')
+    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: 'Ada' }])
   })
 
   it('restores the prize board a player gets when they join', async () => {
-    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket, [], { early_five: 'Grace' }))
+    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket, [], [{ prize: 'early_five', awarded_to: 'Grace' }]))
     const store = useLobbyStore()
 
     await store.join('ABC123', 'Ada')
 
-    expect(store.prizes.early_five).toBe('Grace')
+    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: 'Grace' }])
   })
 
   it('sends a claim for the player and prize', async () => {
@@ -47,7 +49,7 @@ describe('lobby store prizes', () => {
 
     await store.claimPrize('early_five')
 
-    expect(claimPrize).toHaveBeenCalledWith({ code: 'ABC123', name: 'Ada' }, 'early_five')
+    expect(claimPrize).toHaveBeenCalledWith('early_five')
   })
 
   it('shows why a claim was refused, and changes no prize', async () => {
@@ -58,7 +60,7 @@ describe('lobby store prizes', () => {
     await store.claimPrize('early_five')
 
     expect(store.actionError).toBe('This claim does not complete the prize yet')
-    expect(store.prizes.early_five).toBeNull()
+    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: null }])
   })
 
   it('says a prize is taken when someone else has been awarded it', async () => {

@@ -1,3 +1,8 @@
-// The prize names the server uses on the wire. Code refers to a prize by these
-// constants, so adding a prize means one change here rather than a hunt through the app.
-export const EARLY_FIVE = 'early_five'
+import type { components } from './api/schema'
+
+export type Prize = components['schemas']['Prize']
+
+// The words a player reads for each prize. A new prize without a label is a type error.
+export const PRIZE_LABELS: Record<Prize, string> = {
+  early_five: 'Early five',
+}

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { EARLY_FIVE } from '../prizes'
+import type { Prize } from '../prizes'
 import { useLobbyStore } from '../stores/lobby'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
@@ -8,6 +8,7 @@ import PrizeBoard from './PrizeBoard.vue'
 
 const props = defineProps<{ code: string }>()
 const store = useLobbyStore()
+const EARLY_FIVE: Prize = 'early_five'
 
 onMounted(() => {
   store.loadDrawHistory(props.code)
@@ -44,7 +45,7 @@ onMounted(() => {
       v-if="store.started"
       type="button"
       data-test="claim-early-five"
-      :disabled="store.prizes[EARLY_FIVE] !== null"
+      :disabled="store.isAwarded(EARLY_FIVE)"
       @click="store.claimPrize(EARLY_FIVE)"
     >Claim Early five</button>
     <PrizeBoard :prizes="store.prizes" />

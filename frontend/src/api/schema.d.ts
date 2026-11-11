@@ -96,13 +96,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** CreateGameResponse */
-        CreateGameResponse: {
-            /** Code */
-            code: string;
-            /** Host Token */
-            host_token: string;
-        };
         /**
          * DrawAnnouncement
          * @description A draw as players see it: its place in the game, the topic and its explanation.
@@ -138,6 +131,18 @@ export interface components {
              */
             database: "up" | "down";
         };
+        /**
+         * HostLink
+         * @description The private handle on one game: whoever holds it controls that game.
+         *
+         *     It is what creating a game returns, and what every host command sends.
+         */
+        HostLink: {
+            /** Code */
+            code: string;
+            /** Host Token */
+            host_token: string;
+        };
         /** LobbyResponse */
         LobbyResponse: {
             /** Players */
@@ -167,6 +172,114 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** Accepted */
+        Accepted: {
+            /**
+             * Ok
+             * @default true
+             * @constant
+             */
+            ok: true;
+        };
+        /** ClaimPayload */
+        ClaimPayload: {
+            /** Prize */
+            prize: string;
+        };
+        /** DrawAck */
+        DrawAck: {
+            /**
+             * Ok
+             * @default true
+             * @constant
+             */
+            ok: true;
+            draw: components["schemas"]["DrawAnnouncement"];
+        };
+        /**
+         * ErrorCode
+         * @description Why a request was refused. Each engine error declares the code it maps to.
+         * @enum {string}
+         */
+        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "not_won" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message";
+        /** GameStarted */
+        GameStarted: Record<string, never>;
+        /** JoinAck */
+        JoinAck: {
+            /**
+             * Ok
+             * @default true
+             * @constant
+             */
+            ok: true;
+            /** Ticket */
+            ticket: (string | null)[][];
+            /** Ticks */
+            ticks: string[];
+            /** Prizes */
+            prizes: components["schemas"]["PrizeBoardEntry"][];
+        };
+        /** JoinPayload */
+        JoinPayload: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+        };
+        /** LobbyUpdated */
+        LobbyUpdated: {
+            /** Players */
+            players: string[];
+        };
+        /**
+         * Prize
+         * @description The prizes a game can award. The value is the name the wire uses.
+         * @enum {string}
+         */
+        Prize: "early_five";
+        /** PrizeAwarded */
+        PrizeAwarded: {
+            prize: components["schemas"]["Prize"];
+            /** Winner */
+            winner: string;
+        };
+        /**
+         * PrizeBoardEntry
+         * @description One prize, and the name of the player it was awarded to, or None while it is open.
+         */
+        PrizeBoardEntry: {
+            prize: components["schemas"]["Prize"];
+            /** Awarded To */
+            awarded_to: string | null;
+        };
+        /** Refusal */
+        Refusal: {
+            /**
+             * Ok
+             * @default false
+             * @constant
+             */
+            ok: false;
+            error: components["schemas"]["ErrorCode"];
+        };
+        /** TickPayload */
+        TickPayload: {
+            /** Topic */
+            topic: string;
+        };
+        /** WatchAck */
+        WatchAck: {
+            /**
+             * Ok
+             * @default true
+             * @constant
+             */
+            ok: true;
+            /** Players */
+            players: string[];
+            /** Prizes */
+            prizes: components["schemas"]["PrizeBoardEntry"][];
         };
     };
     responses: never;
@@ -212,7 +325,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreateGameResponse"];
+                    "application/json": components["schemas"]["HostLink"];
                 };
             };
         };

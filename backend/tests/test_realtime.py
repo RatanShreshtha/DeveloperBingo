@@ -36,7 +36,7 @@ def test_a_join_becomes_an_engine_command_and_a_room_broadcast():
     assert ack["ok"] is True
     assert len(ack["ticket"]) == 3
     assert all(len(line) == 9 for line in ack["ticket"])
-    assert registry.lobby(game.host_link) == ["Ada"]
+    assert registry.lobby(game) == ["Ada"]
     assert broadcaster.entered == [("sid-1", game.code)]
     assert broadcaster.emitted == [
         ("lobby_updated", game.code, {"players": ["Ada"]}),
@@ -70,7 +70,7 @@ def test_the_host_can_watch_the_lobby_with_the_host_token():
 
     assert ack["ok"] is True
     assert ack["players"] == ["Ada"]
-    assert ack["prizes"] == {"early_five": None}
+    assert ack["prizes"] == [{"prize": "early_five", "awarded_to": None}]
     assert broadcaster.entered == [("sid-host", game.code)]
 
 
@@ -107,7 +107,7 @@ def test_a_draw_is_announced_to_the_room_with_its_explanation():
     registry = GameRegistry()
     game = registry.create_game()
     registry.join(PlayerRef(game.code, "Ada"))
-    registry.start(game.host_link)
+    registry.start(game)
     broadcaster = RecordingBroadcaster()
     adapter = RealtimeAdapter(registry, broadcaster)
 
@@ -145,9 +145,9 @@ def started_game_with_every_topic_drawn(broadcaster=None):
     game = registry.create_game()
     adapter = RealtimeAdapter(registry, broadcaster or RecordingBroadcaster())
     joined = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
-    registry.start(game.host_link)
+    registry.start(game)
     for _ in range(90):
-        registry.draw(game.host_link)
+        registry.draw(game)
     return adapter, registry, game, joined["ticket"]
 
 
@@ -199,7 +199,7 @@ def test_a_refused_tick_names_the_reason_and_changes_nothing():
     broadcaster = RecordingBroadcaster()
     adapter = RealtimeAdapter(registry, broadcaster)
     joined = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
-    registry.start(game.host_link)
+    registry.start(game)
     emitted_before = list(broadcaster.emitted)
 
     ack = run(adapter.tick_topic("sid-ada", tick_message(game, topics_on(joined["ticket"])[0])))
@@ -296,7 +296,7 @@ def test_a_refused_claim_is_told_to_the_claimant_only():
     broadcaster = RecordingBroadcaster()
     adapter = RealtimeAdapter(registry, broadcaster)
     run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
-    registry.start(game.host_link)
+    registry.start(game)
     emitted_before = list(broadcaster.emitted)
 
     ack = run(adapter.claim_prize("sid-ada", claim_message(game)))
@@ -329,7 +329,7 @@ def test_the_join_acknowledgement_shows_which_prizes_remain():
 
     ack = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
 
-    assert ack["prizes"] == {"early_five": None}
+    assert ack["prizes"] == [{"prize": "early_five", "awarded_to": None}]
 
 
 def test_a_socket_that_never_joined_is_refused_a_claim_and_nothing_changes():
@@ -364,9 +364,9 @@ def lobby_of_ada_and_grace():
     adapter = RealtimeAdapter(registry, broadcaster)
     ada = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
     run(adapter.join_game("sid-grace", {"code": game.code, "name": "Grace"}))
-    registry.start(game.host_link)
+    registry.start(game)
     for _ in range(90):
-        registry.draw(game.host_link)
+        registry.draw(game)
     return adapter, registry, game, ada["ticket"]
 
 
@@ -400,3 +400,41 @@ def test_a_claim_is_judged_on_the_socket_s_player_not_the_name_in_the_message():
 
     assert ack == {"ok": False, "error": "not_won"}
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] is None
+
+
+def test_a_join_with_a_missing_field_is_refused_as_an_invalid_message():
+    registry = GameRegistry()
+    game = registry.create_game()
+    broadcaster = RecordingBroadcaster()
+    adapter = RealtimeAdapter(registry, broadcaster)
+
+    ack = run(adapter.join_game("sid-1", {"code": game.code}))
+
+    assert ack == {"ok": False, "error": "invalid_message"}
+    assert registry.players(game.code) == []
+    assert broadcaster.emitted == []
+
+
+def test_a_host_command_with_no_token_is_refused_as_an_invalid_message():
+    registry = GameRegistry()
+    game = registry.create_game()
+    adapter = RealtimeAdapter(registry, RecordingBroadcaster())
+
+    for command in (adapter.watch_lobby, adapter.start_game, adapter.draw_topic):
+        assert run(command("sid-host", {"code": game.code})) == {"ok": False, "error": "invalid_message"}
+
+
+def test_a_tick_or_claim_with_a_missing_or_wrong_typed_field_is_refused_as_an_invalid_message():
+    adapter, registry, game, cells = started_game_with_every_topic_drawn()
+
+    assert run(adapter.tick_topic("sid-ada", {})) == {"ok": False, "error": "invalid_message"}
+    assert run(adapter.untick_topic("sid-ada", {"topic": 7})) == {"ok": False, "error": "invalid_message"}
+    assert run(adapter.claim_prize("sid-ada", {})) == {"ok": False, "error": "invalid_message"}
+    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
+
+
+def test_a_payload_that_is_not_an_object_is_refused_as_an_invalid_message():
+    adapter, _, _, _ = started_game_with_every_topic_drawn()
+
+    assert run(adapter.tick_topic("sid-ada", None)) == {"ok": False, "error": "invalid_message"}
+

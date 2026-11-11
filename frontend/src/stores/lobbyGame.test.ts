@@ -20,9 +20,9 @@ describe('lobby store game flow', () => {
     vi.mocked(startGame).mockResolvedValue({ ok: true })
     const store = useLobbyStore()
 
-    await store.start({ code: 'ABC123', token: 'secret-token' })
+    await store.start({ code: 'ABC123', host_token: 'secret-token' })
 
-    expect(startGame).toHaveBeenCalledWith({ code: 'ABC123', token: 'secret-token' })
+    expect(startGame).toHaveBeenCalledWith({ code: 'ABC123', host_token: 'secret-token' })
     expect(store.started).toBe(true)
   })
 
@@ -30,7 +30,7 @@ describe('lobby store game flow', () => {
     vi.mocked(startGame).mockResolvedValue({ ok: false, error: 'not_host' })
     const store = useLobbyStore()
 
-    await store.start({ code: 'ABC123', token: 'wrong-token' })
+    await store.start({ code: 'ABC123', host_token: 'wrong-token' })
 
     expect(store.started).toBe(false)
     expect(store.actionError).toBe('This host link is not valid for this game')
@@ -41,7 +41,7 @@ describe('lobby store game flow', () => {
     vi.mocked(drawTopic).mockResolvedValue({ ok: true, draw: firstDraw })
     const store = useLobbyStore()
 
-    await store.drawNext({ code: 'ABC123', token: 'secret-token' })
+    await store.drawNext({ code: 'ABC123', host_token: 'secret-token' })
 
     expect(store.draws).toEqual([firstDraw])
   })
@@ -51,7 +51,7 @@ describe('lobby store game flow', () => {
     const store = useLobbyStore()
     const announced = vi.mocked(onTopicDrawn).mock.calls[0][0]
 
-    await store.drawNext({ code: 'ABC123', token: 'secret-token' })
+    await store.drawNext({ code: 'ABC123', host_token: 'secret-token' })
     announced(firstDraw)
 
     expect(store.draws).toEqual([firstDraw])
@@ -91,7 +91,7 @@ describe('lobby store game flow', () => {
     vi.mocked(drawTopic).mockResolvedValue({ ok: false, error: 'no_topics_left' })
     const store = useLobbyStore()
 
-    await store.drawNext({ code: 'ABC123', token: 'secret-token' })
+    await store.drawNext({ code: 'ABC123', host_token: 'secret-token' })
 
     expect(store.actionError).toBe('Every topic has already been drawn')
     expect(store.error).toBeNull()

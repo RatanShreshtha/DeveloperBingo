@@ -26,13 +26,13 @@ def game_with_ada():
     registry = GameRegistry(rng=random.Random(11))
     game = registry.create_game()
     ticket = registry.join(PlayerRef(game.code, "Ada"))
-    registry.start(game.host_link)
+    registry.start(game)
     return registry, game, ticket
 
 
 def draw_everything(registry, game):
     for _ in range(len(DEFAULT_POOL.topics)):
-        registry.draw(game.host_link)
+        registry.draw(game)
 
 
 def test_a_drawn_topic_on_the_players_ticket_can_be_ticked(game_with_ada):
@@ -107,7 +107,7 @@ def test_each_players_ticks_belong_to_that_player():
     game = registry.create_game()
     ada_ticket = registry.join(PlayerRef(game.code, "Ada"))
     registry.join(PlayerRef(game.code, "Grace"))
-    registry.start(game.host_link)
+    registry.start(game)
     draw_everything(registry, game)
     topic = sorted(names_on(ada_ticket))[0]
 
