@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] A complete top line wins the top-line prize
-- [ ] A complete middle line wins the middle-line prize
-- [ ] A complete bottom line wins the bottom-line prize
-- [ ] An incomplete line is refused and changes nothing
-- [ ] Each line prize is awarded once per game
-- [ ] One player can win several line prizes
+- [x] A complete top line wins the top-line prize
+- [x] A complete middle line wins the middle-line prize
+- [x] A complete bottom line wins the bottom-line prize
+- [x] An incomplete line is refused and changes nothing
+- [x] Each line prize is awarded once per game
+- [x] One player can win several line prizes
