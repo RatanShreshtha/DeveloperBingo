@@ -80,7 +80,7 @@ def test_a_drawn_topic_carries_its_explanation(started):
 def test_every_topic_is_drawn_once_and_then_none_are_left(started):
     registry, game = started
 
-    draws = [registry.draw(game) for _ in range(90)]
+    draws = [registry.draw(game) for _ in range(len(DEFAULT_POOL.topics))]
 
     assert {draw.topic for draw in draws} == set(DEFAULT_POOL.topics)
     assert len({draw.topic for draw in draws}) == 90

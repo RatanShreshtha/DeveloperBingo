@@ -1,6 +1,8 @@
 import asyncio
 import random
 
+from helpers import start_and_draw_everything
+
 from devbingo_backend.game import GameRegistry, PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.realtime import RealtimeAdapter
@@ -70,7 +72,7 @@ def test_the_host_can_watch_the_lobby_with_the_host_token():
 
     assert ack["ok"] is True
     assert ack["players"] == ["Ada"]
-    assert ack["prizes"] == [{"prize": "early_five", "awarded_to": None}]
+    assert ack["prizes"] == [{"prize": "early_five", "awarded_to": []}]
     assert broadcaster.entered == [("sid-host", game.code)]
 
 
@@ -145,9 +147,7 @@ def started_game_with_every_topic_drawn(broadcaster=None):
     game = registry.create_game()
     adapter = RealtimeAdapter(registry, broadcaster or RecordingBroadcaster())
     joined = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
-    registry.start(game)
-    for _ in range(90):
-        registry.draw(game)
+    start_and_draw_everything(registry, game)
     return adapter, registry, game, joined["ticket"]
 
 
@@ -262,11 +262,11 @@ def test_a_rejoin_does_not_announce_a_change_to_the_lobby():
     adapter = RealtimeAdapter(registry, broadcaster)
     run(adapter.join_game("sid-1", {"code": game.code, "name": "Ada"}))
     run(adapter.disconnect("sid-1"))
+    emitted_before = list(broadcaster.emitted)
 
     run(adapter.join_game("sid-2", {"code": game.code, "name": "Ada"}))
 
-    lobby_updates = [event for event in broadcaster.emitted if event[0] == "lobby_updated"]
-    assert len(lobby_updates) == 1
+    assert broadcaster.emitted == emitted_before
 
 
 def started_game_with_five_ticks_for_ada(broadcaster=None):
@@ -287,7 +287,7 @@ def test_a_valid_claim_is_acknowledged_and_announced_to_the_room():
     ack = run(adapter.claim_prize("sid-ada", claim_message(game)))
 
     assert ack == {"ok": True}
-    assert broadcaster.emitted[-1] == ("prize_awarded", game.code, {"prize": "early_five", "winner": "Ada"})
+    assert broadcaster.emitted[-1] == ("prize_awarded", game.code, {"prize": "early_five", "awarded_to": ["Ada"]})
 
 
 def test_a_refused_claim_is_told_to_the_claimant_only():
@@ -301,7 +301,7 @@ def test_a_refused_claim_is_told_to_the_claimant_only():
 
     ack = run(adapter.claim_prize("sid-ada", claim_message(game)))
 
-    assert ack == {"ok": False, "error": "not_won"}
+    assert ack == {"ok": False, "error": "claim_not_valid"}
     assert broadcaster.emitted == emitted_before
 
 
@@ -329,7 +329,7 @@ def test_the_join_acknowledgement_shows_which_prizes_remain():
 
     ack = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
 
-    assert ack["prizes"] == [{"prize": "early_five", "awarded_to": None}]
+    assert ack["prizes"] == [{"prize": "early_five", "awarded_to": []}]
 
 
 def test_a_socket_that_never_joined_is_refused_a_claim_and_nothing_changes():
@@ -340,7 +340,7 @@ def test_a_socket_that_never_joined_is_refused_a_claim_and_nothing_changes():
     ack = run(adapter.claim_prize("sid-stranger", claim_message(game)))
 
     assert ack == {"ok": False, "error": "not_joined"}
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] is None
+    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
     assert broadcaster.emitted == emitted_before
 
 
@@ -364,9 +364,7 @@ def lobby_of_ada_and_grace():
     adapter = RealtimeAdapter(registry, broadcaster)
     ada = run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
     run(adapter.join_game("sid-grace", {"code": game.code, "name": "Grace"}))
-    registry.start(game)
-    for _ in range(90):
-        registry.draw(game)
+    start_and_draw_everything(registry, game)
     return adapter, registry, game, ada["ticket"]
 
 
@@ -398,8 +396,8 @@ def test_a_claim_is_judged_on_the_socket_s_player_not_the_name_in_the_message():
     # Grace has ticked nothing, so claiming "as Ada" from her socket must fail.
     ack = run(adapter.claim_prize("sid-grace", claim_message(game, name="Ada")))
 
-    assert ack == {"ok": False, "error": "not_won"}
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] is None
+    assert ack == {"ok": False, "error": "claim_not_valid"}
+    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
 
 
 def test_a_join_with_a_missing_field_is_refused_as_an_invalid_message():

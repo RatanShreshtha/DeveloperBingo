@@ -65,9 +65,9 @@ def _parse(model: type[M], payload: object) -> M:
         raise InvalidMessage from None
 
 
-def _prize_board(board: dict[Prize, str | None]) -> list[PrizeBoardEntry]:
+def _prize_board(board: dict[Prize, list[str]]) -> list[PrizeBoardEntry]:
     """The prize board in the order the engine keeps it."""
-    return [PrizeBoardEntry(prize=prize, awarded_to=name) for prize, name in board.items()]
+    return [PrizeBoardEntry(prize=prize, awarded_to=names) for prize, names in board.items()]
 
 
 class RealtimeAdapter:
@@ -97,15 +97,14 @@ class RealtimeAdapter:
             if sid in self._sessions:
                 raise AlreadyJoined
             player = PlayerRef(code=message.code, name=message.name)
-            lobby_size = len(self._registry.players(player.code))
-            ticket = self._registry.join(player)
+            joined = self._registry.join(player)
         except GameError as err:
             return _refusal(err)
 
         self._sessions[sid] = player
         await self._broadcaster.enter_room(sid, player.code)
         # Only a new player changes the lobby. A rejoin changes nothing for the others.
-        if len(self._registry.players(player.code)) != lobby_size:
+        if joined.is_new_player:
             await self._broadcaster.emit(
                 ServerEvent.LOBBY_UPDATED,
                 LobbyUpdated(players=self._registry.players(player.code)).model_dump(mode="json"),
@@ -113,7 +112,7 @@ class RealtimeAdapter:
             )
         # A rejoin restores the ticks the player already had, so they come back here.
         return JoinAck(
-            ticket=ticket.to_cells(),
+            ticket=joined.ticket.to_cells(),
             ticks=sorted(self._registry.ticks(player)),
             prizes=_prize_board(self._registry.prize_board(player.code)),
         ).model_dump(mode="json")
@@ -171,15 +170,13 @@ class RealtimeAdapter:
                 prize = Prize(message.prize)
             except ValueError:
                 raise UnknownPrize from None
-            self._registry.claim(player, prize)
+            awarded = self._registry.claim(player, prize)
         except GameError as err:
             return _refusal(err)
 
-        winner = self._registry.prize_board(player.code)[prize]
-        assert winner is not None  # the claim just awarded it
         await self._broadcaster.emit(
             ServerEvent.PRIZE_AWARDED,
-            PrizeAwarded(prize=prize, winner=winner).model_dump(mode="json"),
+            PrizeAwarded(prize=awarded.prize, awarded_to=list(awarded.awarded_to)).model_dump(mode="json"),
             room=player.code,
         )
         return Accepted().model_dump(mode="json")

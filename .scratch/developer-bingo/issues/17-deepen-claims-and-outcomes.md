@@ -21,13 +21,13 @@ Build it as four commits, in this order. Every commit keeps all tests passing.
    - On the wire, `prize_awarded` and the prize board carry `awarded_to: list[str]` instead of `winner: str`, and the error `not_won` becomes `claim_not_valid`.
    - Change the models in `wire.py`, regenerate the types with `npm run gen:api`, and update the lobby store and the prize board view to match.
 
-- [ ] `_Game` keeps one record per player
-- [ ] `Ticket` answers `topic_names()`, `line(n)` and `four_corners()`, including tickets whose top and bottom lines start and end in different columns
-- [ ] The Prize Evaluator decides Early five from a Ticket and the ticked-and-drawn topics; `satisfies` is gone
-- [ ] `join` and `claim` return outcomes, and the adapter no longer diffs registry state
-- [ ] Awards hold a list of players per prize; the wire uses `awarded_to` and `claim_not_valid`
-- [ ] The frontend shows every player a prize was awarded to
-- [ ] Behaviour for players is otherwise unchanged
+- [x] `_Game` keeps one record per player
+- [x] `Ticket` answers `topic_names()`, `line(n)` and `four_corners()`, including tickets whose top and bottom lines start and end in different columns
+- [x] The Prize Evaluator decides Early five from a Ticket and the ticked-and-drawn topics; `satisfies` is gone
+- [x] `join` and `claim` return outcomes, and the adapter no longer diffs registry state
+- [x] Awards hold a list of players per prize; the wire uses `awarded_to` and `claim_not_valid`
+- [x] The frontend shows every player a prize was awarded to
+- [x] Behaviour for players is otherwise unchanged
 
 ## Tests
 

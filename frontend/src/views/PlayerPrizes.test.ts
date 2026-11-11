@@ -19,7 +19,7 @@ function setUpPlayer() {
   store.ticket = [['Algorithm', null, 'JSON']]
   store.started = true
   // The server lists the prizes when the player joins.
-  store.prizes = [{ prize: 'early_five', awarded_to: null }]
+  store.prizes = [{ prize: 'early_five', awarded_to: [] }]
   return store
 }
 
@@ -52,7 +52,7 @@ describe('PlayerLobbyView prizes', () => {
 
   it('shows who early five was awarded to', () => {
     const store = setUpPlayer()
-    store.prizes = [{ prize: 'early_five', awarded_to: 'Grace' }]
+    store.prizes = [{ prize: 'early_five', awarded_to: ['Grace'] }]
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     expect(wrapper.text()).toContain('Early five: awarded to Grace')

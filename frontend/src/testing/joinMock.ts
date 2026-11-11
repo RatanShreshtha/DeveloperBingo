@@ -7,7 +7,7 @@ import type { JoinAck, PrizeBoardEntry } from '../realtime/socket'
 export function joinedResult(
   ticket: JoinAck['ticket'],
   ticks: string[] = [],
-  prizes: PrizeBoardEntry[] = [{ prize: 'early_five', awarded_to: null }],
+  prizes: PrizeBoardEntry[] = [{ prize: 'early_five', awarded_to: [] }],
 ): JoinAck {
   return { ok: true, ticket, ticks, prizes }
 }

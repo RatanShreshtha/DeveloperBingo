@@ -202,7 +202,7 @@ export interface components {
          * @description Why a request was refused. Each engine error declares the code it maps to.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "not_won" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message";
+        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "claim_not_valid" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message";
         /** GameStarted */
         GameStarted: Record<string, never>;
         /** JoinAck */
@@ -241,17 +241,17 @@ export interface components {
         /** PrizeAwarded */
         PrizeAwarded: {
             prize: components["schemas"]["Prize"];
-            /** Winner */
-            winner: string;
+            /** Awarded To */
+            awarded_to: string[];
         };
         /**
          * PrizeBoardEntry
-         * @description One prize, and the name of the player it was awarded to, or None while it is open.
+         * @description One prize, and the names of the players it was awarded to. Empty while it is open.
          */
         PrizeBoardEntry: {
             prize: components["schemas"]["Prize"];
             /** Awarded To */
-            awarded_to: string | null;
+            awarded_to: string[];
         };
         /** Refusal */
         Refusal: {
