@@ -45,7 +45,7 @@ describe('lobby store ticks', () => {
 
     await store.toggleTick('Algorithm')
 
-    expect(tickTopic).toHaveBeenCalledWith(ada, 'Algorithm')
+    expect(tickTopic).toHaveBeenCalledWith('Algorithm')
     expect(store.ticks).toEqual(['Algorithm'])
   })
 
@@ -57,7 +57,7 @@ describe('lobby store ticks', () => {
 
     await store.toggleTick('Algorithm')
 
-    expect(untickTopic).toHaveBeenCalledWith(ada, 'Algorithm')
+    expect(untickTopic).toHaveBeenCalledWith('Algorithm')
     expect(store.ticks).toEqual([])
   })
 

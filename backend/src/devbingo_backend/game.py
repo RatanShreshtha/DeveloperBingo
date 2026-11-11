@@ -3,13 +3,14 @@ import hmac
 import random
 import secrets
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import ClassVar, Literal
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.names import name_key
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize, satisfies
 from devbingo_backend.ticket import Ticket, build_ticket
+from devbingo_backend.wire import ErrorCode, HostLink
 
 MAX_PLAYERS = 200
 
@@ -18,63 +19,78 @@ _CODE_LENGTH = 6
 
 
 class GameError(Exception):
-    """Base class for rule violations the engine reports to callers."""
+    """Base class for rule violations the engine reports to callers.
+
+    Each subclass declares the wire code that tells a client why it was refused.
+    """
+
+    code: ClassVar[ErrorCode]
 
 
 class GameNotFound(GameError):
-    pass
+    code = ErrorCode.NOT_FOUND
 
 
 class NotHost(GameError):
-    pass
+    code = ErrorCode.NOT_HOST
 
 
 class NameTaken(GameError):
-    pass
+    code = ErrorCode.NAME_TAKEN
 
 
 class GameFull(GameError):
-    pass
+    code = ErrorCode.GAME_FULL
 
 
 class GameAlreadyStarted(GameError):
-    pass
+    code = ErrorCode.ALREADY_STARTED
 
 
 class GameNotStarted(GameError):
-    pass
+    code = ErrorCode.NOT_STARTED
 
 
 class NoTopicsLeft(GameError):
-    pass
+    code = ErrorCode.NO_TOPICS_LEFT
 
 
 class NotAPlayer(GameError):
-    pass
+    code = ErrorCode.NOT_A_PLAYER
 
 
 class TopicNotDrawn(GameError):
-    pass
+    code = ErrorCode.NOT_DRAWN
 
 
 class TopicNotOnTicket(GameError):
-    pass
+    code = ErrorCode.NOT_ON_TICKET
 
 
 class ClaimNotValid(GameError):
-    pass
+    code = ErrorCode.NOT_WON
 
 
 class PrizeAlreadyAwarded(GameError):
-    pass
+    code = ErrorCode.PRIZE_TAKEN
 
 
-@dataclass(frozen=True)
-class HostLink:
-    """The private handle on one game. Whoever holds it can control that game."""
+class AlreadyJoined(GameError):
+    code = ErrorCode.ALREADY_JOINED
 
-    code: str
-    token: str
+
+class NotJoined(GameError):
+    code = ErrorCode.NOT_JOINED
+
+
+class UnknownPrize(GameError):
+    code = ErrorCode.UNKNOWN_PRIZE
+
+
+class InvalidMessage(GameError):
+    """A message that is missing a field, or has one of the wrong type."""
+
+    code = ErrorCode.INVALID_MESSAGE
 
 
 @dataclass(frozen=True)
@@ -83,16 +99,6 @@ class PlayerRef:
 
     code: str
     name: str
-
-
-@dataclass(frozen=True)
-class CreatedGame:
-    code: str
-    host_token: str
-
-    @property
-    def host_link(self) -> HostLink:
-        return HostLink(code=self.code, token=self.host_token)
 
 
 @dataclass(frozen=True)
@@ -137,11 +143,11 @@ class GameRegistry:
         self._games: dict[str, _Game] = {}
         self._rng = rng or random.Random()
 
-    def create_game(self) -> CreatedGame:
+    def create_game(self) -> HostLink:
         code = self._new_code()
         host_token = secrets.token_urlsafe(24)
         self._games[code] = _Game(host_token_hash=_hash_token(host_token))
-        return CreatedGame(code=code, host_token=host_token)
+        return HostLink(code=code, host_token=host_token)
 
     def join(self, player: PlayerRef) -> Ticket:
         """Join a game. A name held by a dropped player restores that player; a name held by
@@ -274,7 +280,7 @@ class GameRegistry:
     def _host_game(self, host: HostLink) -> _Game:
         """The game, once the link proves it belongs to its host."""
         game = self._find(host.code)
-        if not hmac.compare_digest(game.host_token_hash, _hash_token(host.token)):
+        if not hmac.compare_digest(game.host_token_hash, _hash_token(host.host_token)):
             raise NotHost()
         return game
 

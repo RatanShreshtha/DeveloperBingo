@@ -31,9 +31,9 @@ def test_a_name_is_refused_while_its_player_is_connected(lobby):
 def test_rejoining_restores_the_players_ticks(lobby):
     registry, game, ada_ticket = lobby
     ada = PlayerRef(game.code, "Ada")
-    registry.start(game.host_link)
+    registry.start(game)
     for _ in range(len(DEFAULT_POOL.topics)):
-        registry.draw(game.host_link)
+        registry.draw(game)
     topic = next(cell.name for line in ada_ticket.lines for cell in line if cell)
     registry.tick(ada, topic)
     registry.disconnect(ada)
@@ -45,7 +45,7 @@ def test_rejoining_restores_the_players_ticks(lobby):
 
 def test_a_rejoin_after_the_game_starts_is_still_a_restore(lobby):
     registry, game, ada_ticket = lobby
-    registry.start(game.host_link)
+    registry.start(game)
     registry.disconnect(PlayerRef(game.code, "Ada"))
 
     rejoined = registry.join(PlayerRef(game.code, "Ada"))
@@ -55,7 +55,7 @@ def test_a_rejoin_after_the_game_starts_is_still_a_restore(lobby):
 
 def test_a_new_name_after_the_game_starts_is_refused(lobby):
     registry, game, _ = lobby
-    registry.start(game.host_link)
+    registry.start(game)
 
     with pytest.raises(GameAlreadyStarted):
         registry.join(PlayerRef(game.code, "Grace"))

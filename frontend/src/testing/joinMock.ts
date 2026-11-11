@@ -1,14 +1,13 @@
-import type { JoinResult, PrizeBoard, TicketCells } from '../realtime/socket'
-import { EARLY_FIVE } from '../prizes'
+import type { JoinAck, PrizeBoardEntry } from '../realtime/socket'
 
 /**
  * A successful join, as the server acknowledges it. Tests use this so that adding a
  * field to the join result changes one place rather than every mock.
  */
 export function joinedResult(
-  ticket: TicketCells,
+  ticket: JoinAck['ticket'],
   ticks: string[] = [],
-  prizes: PrizeBoard = { [EARLY_FIVE]: null },
-): JoinResult {
+  prizes: PrizeBoardEntry[] = [{ prize: 'early_five', awarded_to: null }],
+): JoinAck {
   return { ok: true, ticket, ticks, prizes }
 }

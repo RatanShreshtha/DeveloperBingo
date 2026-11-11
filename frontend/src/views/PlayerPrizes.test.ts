@@ -18,6 +18,8 @@ function setUpPlayer() {
   store.player = { code: 'ABC123', name: 'Ada' }
   store.ticket = [['Algorithm', null, 'JSON']]
   store.started = true
+  // The server lists the prizes when the player joins.
+  store.prizes = [{ prize: 'early_five', awarded_to: null }]
   return store
 }
 
@@ -30,7 +32,7 @@ describe('PlayerLobbyView prizes', () => {
     await wrapper.get('[data-test="claim-early-five"]').trigger('click')
     await flushPromises()
 
-    expect(claimPrize).toHaveBeenCalledWith({ code: 'ABC123', name: 'Ada' }, 'early_five')
+    expect(claimPrize).toHaveBeenCalledWith('early_five')
   })
 
   it('shows early five as still open until someone is awarded it', () => {
@@ -50,7 +52,7 @@ describe('PlayerLobbyView prizes', () => {
 
   it('shows who early five was awarded to', () => {
     const store = setUpPlayer()
-    store.prizes = { early_five: 'Grace' }
+    store.prizes = [{ prize: 'early_five', awarded_to: 'Grace' }]
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     expect(wrapper.text()).toContain('Early five: awarded to Grace')

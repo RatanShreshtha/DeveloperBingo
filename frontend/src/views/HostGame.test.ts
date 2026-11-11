@@ -11,7 +11,7 @@ vi.mock('../api/pools', () => ({
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 beforeEach(() => {
-  vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'], prizes: { early_five: null } })
+  vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'], prizes: [{ prize: 'early_five', awarded_to: null }] })
   vi.mocked(startGame).mockReset()
   vi.mocked(drawTopic).mockReset()
 })
@@ -36,7 +36,7 @@ describe('HostView game flow', () => {
 
     await startTheGame(wrapper)
 
-    expect(startGame).toHaveBeenCalledWith({ code: 'ABC123', token: 'secret-token' })
+    expect(startGame).toHaveBeenCalledWith({ code: 'ABC123', host_token: 'secret-token' })
     expect(wrapper.find('[data-test="start-game"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="draw-topic"]').exists()).toBe(true)
   })
@@ -53,7 +53,7 @@ describe('HostView game flow', () => {
     await wrapper.get('[data-test="draw-topic"]').trigger('click')
     await flushPromises()
 
-    expect(drawTopic).toHaveBeenCalledWith({ code: 'ABC123', token: 'secret-token' })
+    expect(drawTopic).toHaveBeenCalledWith({ code: 'ABC123', host_token: 'secret-token' })
     expect(wrapper.text()).toContain('Algorithm')
     expect(wrapper.text()).toContain('A finite sequence of steps.')
   })

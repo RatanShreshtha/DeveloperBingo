@@ -33,7 +33,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateGameResponse"
+                  "$ref": "#/components/schemas/HostLink"
                 }
               }
             }
@@ -151,47 +151,29 @@
   },
   "components": {
     "schemas": {
-      "CreateGameResponse": {
-        "properties": {
-          "code": {
-            "type": "string",
-            "title": "Code"
-          },
-          "host_token": {
-            "type": "string",
-            "title": "Host Token"
-          }
-        },
-        "type": "object",
-        "required": [
-          "code",
-          "host_token"
-        ],
-        "title": "CreateGameResponse"
-      },
       "DrawAnnouncement": {
+        "description": "A draw as players see it: its place in the game, the topic and its explanation.",
         "properties": {
           "position": {
-            "type": "integer",
-            "title": "Position"
+            "title": "Position",
+            "type": "integer"
           },
           "name": {
-            "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "type": "string"
           },
           "explanation": {
-            "type": "string",
-            "title": "Explanation"
+            "title": "Explanation",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "position",
           "name",
           "explanation"
         ],
         "title": "DrawAnnouncement",
-        "description": "A draw as players see it: its place in the game, the topic and its explanation."
+        "type": "object"
       },
       "DrawHistoryResponse": {
         "properties": {
@@ -247,6 +229,25 @@
           "database"
         ],
         "title": "HealthResponse"
+      },
+      "HostLink": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "host_token": {
+            "type": "string",
+            "title": "Host Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "host_token"
+        ],
+        "title": "HostLink",
+        "description": "The private handle on one game: whoever holds it controls that game.\n\nIt is what creating a game returns, and what every host command sends."
       },
       "LobbyResponse": {
         "properties": {
@@ -340,6 +341,277 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "Accepted": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "Accepted",
+        "type": "object"
+      },
+      "ClaimPayload": {
+        "properties": {
+          "prize": {
+            "title": "Prize",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prize"
+        ],
+        "title": "ClaimPayload",
+        "type": "object"
+      },
+      "DrawAck": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "draw": {
+            "$ref": "#/components/schemas/DrawAnnouncement"
+          }
+        },
+        "required": [
+          "ok",
+          "draw"
+        ],
+        "title": "DrawAck",
+        "type": "object"
+      },
+      "ErrorCode": {
+        "description": "Why a request was refused. Each engine error declares the code it maps to.",
+        "enum": [
+          "not_found",
+          "not_host",
+          "name_taken",
+          "game_full",
+          "already_started",
+          "not_started",
+          "no_topics_left",
+          "not_a_player",
+          "not_drawn",
+          "not_on_ticket",
+          "not_won",
+          "prize_taken",
+          "already_joined",
+          "not_joined",
+          "unknown_prize",
+          "invalid_message"
+        ],
+        "title": "ErrorCode",
+        "type": "string"
+      },
+      "GameStarted": {
+        "properties": {},
+        "title": "GameStarted",
+        "type": "object"
+      },
+      "JoinAck": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "ticket": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "title": "Ticket",
+            "type": "array"
+          },
+          "ticks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ticks",
+            "type": "array"
+          },
+          "prizes": {
+            "items": {
+              "$ref": "#/components/schemas/PrizeBoardEntry"
+            },
+            "title": "Prizes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "ticket",
+          "ticks",
+          "prizes"
+        ],
+        "title": "JoinAck",
+        "type": "object"
+      },
+      "JoinPayload": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "JoinPayload",
+        "type": "object"
+      },
+      "LobbyUpdated": {
+        "properties": {
+          "players": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Players",
+            "type": "array"
+          }
+        },
+        "required": [
+          "players"
+        ],
+        "title": "LobbyUpdated",
+        "type": "object"
+      },
+      "Prize": {
+        "description": "The prizes a game can award. The value is the name the wire uses.",
+        "enum": [
+          "early_five"
+        ],
+        "title": "Prize",
+        "type": "string"
+      },
+      "PrizeAwarded": {
+        "properties": {
+          "prize": {
+            "$ref": "#/components/schemas/Prize"
+          },
+          "winner": {
+            "title": "Winner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prize",
+          "winner"
+        ],
+        "title": "PrizeAwarded",
+        "type": "object"
+      },
+      "PrizeBoardEntry": {
+        "description": "One prize, and the name of the player it was awarded to, or None while it is open.",
+        "properties": {
+          "prize": {
+            "$ref": "#/components/schemas/Prize"
+          },
+          "awarded_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awarded To"
+          }
+        },
+        "required": [
+          "prize",
+          "awarded_to"
+        ],
+        "title": "PrizeBoardEntry",
+        "type": "object"
+      },
+      "Refusal": {
+        "properties": {
+          "ok": {
+            "const": false,
+            "default": false,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ErrorCode"
+          }
+        },
+        "required": [
+          "ok",
+          "error"
+        ],
+        "title": "Refusal",
+        "type": "object"
+      },
+      "TickPayload": {
+        "properties": {
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic"
+        ],
+        "title": "TickPayload",
+        "type": "object"
+      },
+      "WatchAck": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "players": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "prizes": {
+            "items": {
+              "$ref": "#/components/schemas/PrizeBoardEntry"
+            },
+            "title": "Prizes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "players",
+          "prizes"
+        ],
+        "title": "WatchAck",
+        "type": "object"
       }
     }
   }

@@ -33,7 +33,7 @@ describe('PlayerLobbyView ticking', () => {
     await wrapper.findAll('[data-test="tick-cell"]')[0].trigger('click')
     await flushPromises()
 
-    expect(tickTopic).toHaveBeenCalledWith({ code: 'ABC123', name: 'Ada' }, 'Algorithm')
+    expect(tickTopic).toHaveBeenCalledWith('Algorithm')
     expect(store.ticks).toEqual(['Algorithm'])
   })
 

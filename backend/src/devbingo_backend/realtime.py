@@ -1,28 +1,37 @@
-from collections.abc import Callable
-from typing import Any, Protocol
+from collections.abc import Awaitable, Callable
+from typing import Any, Protocol, TypeVar
 
 import socketio
+from pydantic import BaseModel, ValidationError
 
 from devbingo_backend.game import (
-    ClaimNotValid,
-    GameAlreadyStarted,
+    AlreadyJoined,
     GameError,
-    GameFull,
-    GameNotFound,
-    GameNotStarted,
     GameRegistry,
-    HostLink,
-    NameTaken,
-    NoTopicsLeft,
-    NotAPlayer,
-    NotHost,
+    InvalidMessage,
+    NotJoined,
     PlayerRef,
-    PrizeAlreadyAwarded,
-    TopicNotDrawn,
-    TopicNotOnTicket,
+    UnknownPrize,
 )
 from devbingo_backend.prizes import Prize
-from devbingo_backend.wire import DrawAnnouncement
+from devbingo_backend.wire import (
+    Accepted,
+    ClaimPayload,
+    ClientEvent,
+    DrawAck,
+    DrawAnnouncement,
+    GameStarted,
+    HostLink,
+    JoinAck,
+    JoinPayload,
+    LobbyUpdated,
+    PrizeAwarded,
+    PrizeBoardEntry,
+    Refusal,
+    ServerEvent,
+    TickPayload,
+    WatchAck,
+)
 
 
 class Broadcaster(Protocol):
@@ -39,39 +48,26 @@ class Broadcaster(Protocol):
     ) -> None: ...
 
 
-_ERROR_CODES: dict[type[GameError], str] = {
-    GameNotFound: "not_found",
-    NotHost: "not_host",
-    NameTaken: "name_taken",
-    GameFull: "game_full",
-    GameAlreadyStarted: "already_started",
-    GameNotStarted: "not_started",
-    NoTopicsLeft: "no_topics_left",
-    NotAPlayer: "not_a_player",
-    TopicNotDrawn: "not_drawn",
-    TopicNotOnTicket: "not_on_ticket",
-    ClaimNotValid: "not_won",
-    PrizeAlreadyAwarded: "prize_taken",
-}
+Ack = dict[str, Any]
+M = TypeVar("M", bound=BaseModel)
 
 
-def _refusal(err: GameError) -> dict[str, Any]:
+def _refusal(err: GameError) -> Ack:
     """The acknowledgement that tells only the sender why a request was refused."""
-    return {"ok": False, "error": _ERROR_CODES[type(err)]}
+    return Refusal(error=err.code).model_dump(mode="json")
 
 
-def _prize_board(board: dict[Prize, str | None]) -> dict[str, str | None]:
-    """The prize board in the wire's terms: prize names as strings, and the name each prize was awarded to."""
-    return {prize.value: winner for prize, winner in board.items()}
+def _parse(model: type[M], payload: object) -> M:
+    """Reads a payload into its model. A bad or missing field refuses the whole message."""
+    try:
+        return model.model_validate(payload)
+    except ValidationError:
+        raise InvalidMessage from None
 
 
-def _host_link(payload: dict[str, str]) -> HostLink:
-    return HostLink(code=payload["code"], token=payload["host_token"])
-
-
-def _not_joined() -> dict[str, Any]:
-    """The acknowledgement for a socket that has not joined, so it cannot act as anyone."""
-    return {"ok": False, "error": "not_joined"}
+def _prize_board(board: dict[Prize, str | None]) -> list[PrizeBoardEntry]:
+    """The prize board in the order the engine keeps it."""
+    return [PrizeBoardEntry(prize=prize, awarded_to=name) for prize, name in board.items()]
 
 
 class RealtimeAdapter:
@@ -86,13 +82,21 @@ class RealtimeAdapter:
         # Which player each live socket belongs to, so a dropped socket frees its name.
         self._sessions: dict[str, PlayerRef] = {}
 
-    async def join_game(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
-        # One socket is one player. Joining again on the same socket would leave the
-        # first player connected for ever, so it is refused.
-        if sid in self._sessions:
-            return {"ok": False, "error": "already_joined"}
-        player = PlayerRef(code=payload["code"], name=payload["name"])
+    def _player_on(self, sid: str) -> PlayerRef:
+        """Whoever joined on this socket. A command never names its own player."""
+        player = self._sessions.get(sid)
+        if player is None:
+            raise NotJoined
+        return player
+
+    async def join_game(self, sid: str, payload: object) -> Ack:
         try:
+            message = _parse(JoinPayload, payload)
+            # One socket is one player. Joining again on the same socket would leave the
+            # first player connected for ever, so it is refused.
+            if sid in self._sessions:
+                raise AlreadyJoined
+            player = PlayerRef(code=message.code, name=message.name)
             lobby_size = len(self._registry.players(player.code))
             ticket = self._registry.join(player)
         except GameError as err:
@@ -103,17 +107,16 @@ class RealtimeAdapter:
         # Only a new player changes the lobby. A rejoin changes nothing for the others.
         if len(self._registry.players(player.code)) != lobby_size:
             await self._broadcaster.emit(
-                "lobby_updated",
-                {"players": self._registry.players(player.code)},
+                ServerEvent.LOBBY_UPDATED,
+                LobbyUpdated(players=self._registry.players(player.code)).model_dump(mode="json"),
                 room=player.code,
             )
         # A rejoin restores the ticks the player already had, so they come back here.
-        return {
-            "ok": True,
-            "ticket": ticket.to_cells(),
-            "ticks": sorted(self._registry.ticks(player)),
-            "prizes": _prize_board(self._registry.prize_board(player.code)),
-        }
+        return JoinAck(
+            ticket=ticket.to_cells(),
+            ticks=sorted(self._registry.ticks(player)),
+            prizes=_prize_board(self._registry.prize_board(player.code)),
+        ).model_dump(mode="json")
 
     async def disconnect(self, sid: str) -> None:
         """A socket has dropped. The player keeps their place and can rejoin by name."""
@@ -121,85 +124,85 @@ class RealtimeAdapter:
         if player is not None:
             self._registry.disconnect(player)
 
-    async def watch_lobby(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+    async def watch_lobby(self, sid: str, payload: object) -> Ack:
         try:
-            players = self._registry.lobby(_host_link(payload))
+            host = _parse(HostLink, payload)
+            players = self._registry.lobby(host)
         except GameError as err:
             return _refusal(err)
 
-        await self._broadcaster.enter_room(sid, payload["code"])
-        return {
-            "ok": True,
-            "players": players,
-            "prizes": _prize_board(self._registry.prize_board(payload["code"])),
-        }
+        await self._broadcaster.enter_room(sid, host.code)
+        return WatchAck(
+            players=players,
+            prizes=_prize_board(self._registry.prize_board(host.code)),
+        ).model_dump(mode="json")
 
-    async def start_game(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
-        code = payload["code"]
+    async def start_game(self, sid: str, payload: object) -> Ack:
         try:
-            self._registry.start(_host_link(payload))
+            host = _parse(HostLink, payload)
+            self._registry.start(host)
         except GameError as err:
             return _refusal(err)
 
-        await self._broadcaster.emit("game_started", {}, room=code)
-        return {"ok": True}
+        await self._broadcaster.emit(
+            ServerEvent.GAME_STARTED, GameStarted().model_dump(mode="json"), room=host.code
+        )
+        return Accepted().model_dump(mode="json")
 
-    async def draw_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
-        code = payload["code"]
+    async def draw_topic(self, sid: str, payload: object) -> Ack:
         try:
-            draw = self._registry.draw(_host_link(payload))
+            host = _parse(HostLink, payload)
+            draw = self._registry.draw(host)
         except GameError as err:
             return _refusal(err)
 
-        announcement = DrawAnnouncement.from_draw(draw).model_dump()
-        await self._broadcaster.emit("topic_drawn", announcement, room=code)
-        return {"ok": True, "draw": announcement}
+        announcement = DrawAnnouncement.from_draw(draw)
+        await self._broadcaster.emit(
+            ServerEvent.TOPIC_DRAWN, announcement.model_dump(mode="json"), room=host.code
+        )
+        return DrawAck(draw=announcement).model_dump(mode="json")
 
-    async def claim_prize(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+    async def claim_prize(self, sid: str, payload: object) -> Ack:
         """A valid claim is announced to the whole room. A refused one is told to the claimant only."""
-        # The claimant is whoever joined on this socket, never a name sent in the message.
-        player = self._sessions.get(sid)
-        if player is None:
-            return _not_joined()
-        code = player.code
         try:
-            prize = Prize(payload["prize"])
-        except ValueError:
-            return {"ok": False, "error": "unknown_prize"}
-        try:
+            message = _parse(ClaimPayload, payload)
+            player = self._player_on(sid)
+            try:
+                prize = Prize(message.prize)
+            except ValueError:
+                raise UnknownPrize from None
             self._registry.claim(player, prize)
         except GameError as err:
             return _refusal(err)
 
-        winner = self._registry.prize_board(code)[prize]
+        winner = self._registry.prize_board(player.code)[prize]
+        assert winner is not None  # the claim just awarded it
         await self._broadcaster.emit(
-            "prize_awarded",
-            {"prize": prize.value, "winner": winner},
-            room=code,
+            ServerEvent.PRIZE_AWARDED,
+            PrizeAwarded(prize=prize, winner=winner).model_dump(mode="json"),
+            room=player.code,
         )
-        return {"ok": True}
+        return Accepted().model_dump(mode="json")
 
     # Ticks are private, and nothing is broadcast. The acknowledgement says only
     # whether the change happened: the client keeps its own list, so no ticks are
     # sent back to anyone.
 
-    async def tick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+    async def tick_topic(self, sid: str, payload: object) -> Ack:
         return self._change_ticks(sid, payload, self._registry.tick)
 
-    async def untick_topic(self, sid: str, payload: dict[str, str]) -> dict[str, Any]:
+    async def untick_topic(self, sid: str, payload: object) -> Ack:
         return self._change_ticks(sid, payload, self._registry.untick)
 
     def _change_ticks(
-        self, sid: str, payload: dict[str, str], change: Callable[[PlayerRef, str], None]
-    ) -> dict[str, Any]:
-        player = self._sessions.get(sid)
-        if player is None:
-            return _not_joined()
+        self, sid: str, payload: object, change: Callable[[PlayerRef, str], None]
+    ) -> Ack:
         try:
-            change(player, payload["topic"])
+            message = _parse(TickPayload, payload)
+            change(self._player_on(sid), message.topic)
         except GameError as err:
             return _refusal(err)
-        return {"ok": True}
+        return Accepted().model_dump(mode="json")
 
 
 class _SocketIOBroadcaster:
@@ -223,36 +226,17 @@ def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
     server = socketio.AsyncServer(async_mode="asgi")
     adapter = RealtimeAdapter(registry, _SocketIOBroadcaster(server))
 
-    @server.event
-    async def join_game(sid: str, data: dict[str, str]) -> dict[str, Any]:
-        return await adapter.join_game(sid, data)
-
-    @server.event
-    async def disconnect(sid: str) -> None:
-        await adapter.disconnect(sid)
-
-    @server.event
-    async def watch_lobby(sid: str, data: dict[str, str]) -> dict[str, Any]:
-        return await adapter.watch_lobby(sid, data)
-
-    @server.event
-    async def start_game(sid: str, data: dict[str, str]) -> dict[str, Any]:
-        return await adapter.start_game(sid, data)
-
-    @server.event
-    async def draw_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
-        return await adapter.draw_topic(sid, data)
-
-    @server.event
-    async def claim_prize(sid: str, data: dict[str, str]) -> dict[str, Any]:
-        return await adapter.claim_prize(sid, data)
-
-    @server.event
-    async def tick_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
-        return await adapter.tick_topic(sid, data)
-
-    @server.event
-    async def untick_topic(sid: str, data: dict[str, str]) -> dict[str, Any]:
-        return await adapter.untick_topic(sid, data)
+    commands: dict[ClientEvent, Callable[[str, Any], Awaitable[Ack]]] = {
+        ClientEvent.JOIN_GAME: adapter.join_game,
+        ClientEvent.WATCH_LOBBY: adapter.watch_lobby,
+        ClientEvent.START_GAME: adapter.start_game,
+        ClientEvent.DRAW_TOPIC: adapter.draw_topic,
+        ClientEvent.TICK_TOPIC: adapter.tick_topic,
+        ClientEvent.UNTICK_TOPIC: adapter.untick_topic,
+        ClientEvent.CLAIM_PRIZE: adapter.claim_prize,
+    }
+    for event, command in commands.items():
+        server.on(event.value, command)
+    server.on("disconnect", adapter.disconnect)
 
     return server

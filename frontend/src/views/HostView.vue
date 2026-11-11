@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { fetchDefaultPool, type TopicResponse } from '../api/pools'
-import type { HostLink } from '../realtime/socket'
+import type { HostLink } from '../api/games'
 import { useLobbyStore } from '../stores/lobby'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
@@ -14,7 +14,7 @@ const pool = ref<TopicResponse[][] | null>(null)
 const poolError = ref(false)
 
 function hostLink(): HostLink {
-  return { code: props.code, token: props.token ?? '' }
+  return { code: props.code, host_token: props.token ?? '' }
 }
 
 onMounted(async () => {
