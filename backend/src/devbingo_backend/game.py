@@ -102,6 +102,22 @@ class PlayerRef:
 
 
 @dataclass(frozen=True)
+class Joined:
+    """What a join did: the player's ticket, and whether they are new to the game or came back."""
+
+    ticket: Ticket
+    is_new_player: bool
+
+
+@dataclass(frozen=True)
+class Awarded:
+    """A valid claim: the prize, and the display name of the player it was awarded to."""
+
+    prize: Prize
+    winner: str
+
+
+@dataclass(frozen=True)
 class Draw:
     position: int
     topic: Topic
@@ -154,7 +170,7 @@ class GameRegistry:
         self._games[code] = _Game(host_token_hash=_hash_token(host_token))
         return HostLink(code=code, host_token=host_token)
 
-    def join(self, player: PlayerRef) -> Ticket:
+    def join(self, player: PlayerRef) -> Joined:
         """Join a game. A name held by a dropped player restores that player; a name held by
         a connected player is refused; any other name is a new join while the lobby is open.
         Names match without regard to case, so "Ada" and "ada" are the same player."""
@@ -165,14 +181,14 @@ class GameRegistry:
             if member.connected:
                 raise NameTaken(player.name)
             member.connected = True
-            return member.ticket
+            return Joined(member.ticket, is_new_player=False)
         if game.status != "lobby":
             raise GameAlreadyStarted(player.code)
         if len(game.players) >= MAX_PLAYERS:
             raise GameFull(player.code)
         ticket = self._deal_unique_ticket(game)
         game.players[key] = _Player(name=player.name.strip(), ticket=ticket)
-        return ticket
+        return Joined(ticket, is_new_player=True)
 
     def disconnect(self, player: PlayerRef) -> None:
         """The player has dropped. They keep their place and their ticks, and can rejoin by name."""
@@ -247,7 +263,7 @@ class GameRegistry:
         _, member = self._player_game(player)
         return frozenset(member.ticks)
 
-    def claim(self, player: PlayerRef, prize: Prize) -> None:
+    def claim(self, player: PlayerRef, prize: Prize) -> Awarded:
         """Claim a prize. The claim is checked against what the player has ticked and what has
         been drawn. A valid claim awards the prize, which can be awarded only once a game."""
         game, member = self._player_game(player)
@@ -259,6 +275,7 @@ class GameRegistry:
         if prize not in prizes_earned(member.ticket, ticked_and_drawn):
             raise ClaimNotValid(prize)
         game.awards[prize] = member.name
+        return Awarded(prize, winner=member.name)
 
     def prize_board(self, code: str) -> dict[Prize, str | None]:
         """Each prize and the player it was awarded to, or None while it is still open."""

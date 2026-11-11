@@ -19,8 +19,8 @@ from devbingo_backend.prizes import Prize
 def started_with_every_topic_drawn():
     registry = GameRegistry(rng=random.Random(31))
     game = registry.create_game()
-    ada_ticket = registry.join(PlayerRef(game.code, "Ada"))
-    grace_ticket = registry.join(PlayerRef(game.code, "Grace"))
+    ada_ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
+    grace_ticket = registry.join(PlayerRef(game.code, "Grace")).ticket
     start_and_draw_everything(registry, game)
     return registry, game, ada_ticket, grace_ticket
 
@@ -35,8 +35,10 @@ def test_five_ticked_and_drawn_topics_award_early_five(started_with_every_topic_
     registry, game, ada_ticket, _ = started_with_every_topic_drawn
     tick_n(registry, game, ada_ticket, "Ada", 5)
 
-    registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+    outcome = registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
 
+    assert outcome.prize is Prize.EARLY_FIVE
+    assert outcome.winner == "Ada"
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == "Ada"
 
 

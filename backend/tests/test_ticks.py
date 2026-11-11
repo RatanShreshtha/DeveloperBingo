@@ -17,7 +17,7 @@ from devbingo_backend.game import (
 def game_with_ada():
     registry = GameRegistry(rng=random.Random(11))
     game = registry.create_game()
-    ticket = registry.join(PlayerRef(game.code, "Ada"))
+    ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     registry.start(game)
     return registry, game, ticket
 
@@ -97,7 +97,7 @@ def test_only_players_in_the_game_can_tick(game_with_ada):
 def test_each_players_ticks_belong_to_that_player():
     registry = GameRegistry(rng=random.Random(11))
     game = registry.create_game()
-    ada_ticket = registry.join(PlayerRef(game.code, "Ada"))
+    ada_ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     registry.join(PlayerRef(game.code, "Grace"))
     registry.start(game)
     draw_everything(registry, game)
