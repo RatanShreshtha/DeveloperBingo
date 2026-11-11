@@ -29,7 +29,7 @@ class ErrorCode(StrEnum):
     NOT_A_PLAYER = "not_a_player"
     NOT_DRAWN = "not_drawn"
     NOT_ON_TICKET = "not_on_ticket"
-    NOT_WON = "not_won"
+    CLAIM_NOT_VALID = "claim_not_valid"
     PRIZE_TAKEN = "prize_taken"
     ALREADY_JOINED = "already_joined"
     NOT_JOINED = "not_joined"
@@ -116,10 +116,10 @@ class ClaimPayload(_Message):
 
 
 class PrizeBoardEntry(_Message):
-    """One prize, and the name of the player it was awarded to, or None while it is open."""
+    """One prize, and the names of the players it was awarded to. Empty while it is open."""
 
     prize: Prize
-    awarded_to: str | None
+    awarded_to: list[str]
 
 
 class Refusal(_Message):
@@ -162,7 +162,7 @@ class GameStarted(_Message):
 
 class PrizeAwarded(_Message):
     prize: Prize
-    winner: str
+    awarded_to: list[str]
 
 
 # Models the OpenAPI schema carries that no REST route returns.

@@ -3,94 +3,39 @@ import hmac
 import random
 import secrets
 from dataclasses import dataclass, field
-from typing import ClassVar, Literal
+from typing import Literal
 
 from devbingo_backend.default_pool import DEFAULT_POOL
+from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
+    AlreadyJoined,
+    ClaimNotValid,
+    GameAlreadyStarted,
+    GameError,
+    GameFull,
+    GameNotFound,
+    GameNotStarted,
+    InvalidMessage,
+    NameTaken,
+    NoTopicsLeft,
+    NotAPlayer,
+    NotHost,
+    NotJoined,
+    PrizeAlreadyAwarded,
+    TopicNotDrawn,
+    TopicNotOnTicket,
+    UnknownPrize,
+)
 from devbingo_backend.names import name_key
 from devbingo_backend.pool import Topic
-from devbingo_backend.prizes import Prize, prizes_earned
+from devbingo_backend.prizes import Prize
+from devbingo_backend.settlement import Awarded, ClaimSettlement
 from devbingo_backend.ticket import Ticket, build_ticket
-from devbingo_backend.wire import ErrorCode, HostLink
+from devbingo_backend.wire import HostLink
 
 MAX_PLAYERS = 200
 
 _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _CODE_LENGTH = 6
-
-
-class GameError(Exception):
-    """Base class for rule violations the engine reports to callers.
-
-    Each subclass declares the wire code that tells a client why it was refused.
-    """
-
-    code: ClassVar[ErrorCode]
-
-
-class GameNotFound(GameError):
-    code = ErrorCode.NOT_FOUND
-
-
-class NotHost(GameError):
-    code = ErrorCode.NOT_HOST
-
-
-class NameTaken(GameError):
-    code = ErrorCode.NAME_TAKEN
-
-
-class GameFull(GameError):
-    code = ErrorCode.GAME_FULL
-
-
-class GameAlreadyStarted(GameError):
-    code = ErrorCode.ALREADY_STARTED
-
-
-class GameNotStarted(GameError):
-    code = ErrorCode.NOT_STARTED
-
-
-class NoTopicsLeft(GameError):
-    code = ErrorCode.NO_TOPICS_LEFT
-
-
-class NotAPlayer(GameError):
-    code = ErrorCode.NOT_A_PLAYER
-
-
-class TopicNotDrawn(GameError):
-    code = ErrorCode.NOT_DRAWN
-
-
-class TopicNotOnTicket(GameError):
-    code = ErrorCode.NOT_ON_TICKET
-
-
-class ClaimNotValid(GameError):
-    code = ErrorCode.NOT_WON
-
-
-class PrizeAlreadyAwarded(GameError):
-    code = ErrorCode.PRIZE_TAKEN
-
-
-class AlreadyJoined(GameError):
-    code = ErrorCode.ALREADY_JOINED
-
-
-class NotJoined(GameError):
-    code = ErrorCode.NOT_JOINED
-
-
-class UnknownPrize(GameError):
-    code = ErrorCode.UNKNOWN_PRIZE
-
-
-class InvalidMessage(GameError):
-    """A message that is missing a field, or has one of the wrong type."""
-
-    code = ErrorCode.INVALID_MESSAGE
 
 
 @dataclass(frozen=True)
@@ -107,14 +52,6 @@ class Joined:
 
     ticket: Ticket
     is_new_player: bool
-
-
-@dataclass(frozen=True)
-class Awarded:
-    """A valid claim: the prize, and the display name of the player it was awarded to."""
-
-    prize: Prize
-    winner: str
 
 
 @dataclass(frozen=True)
@@ -144,8 +81,7 @@ class _Game:
     status: Literal["lobby", "started"] = "lobby"
     # Keyed by name_key(name), so one player has one entry. In the order players joined.
     players: dict[str, _Player] = field(default_factory=dict)
-    # The display name of the player each prize was awarded to. A prize is awarded at most once.
-    awards: dict[Prize, str] = field(default_factory=dict)
+    settlement: ClaimSettlement = field(default_factory=ClaimSettlement)
     undrawn: list[Topic] = field(default_factory=list)
     draws: list[Draw] = field(default_factory=list)
 
@@ -265,22 +201,16 @@ class GameRegistry:
 
     def claim(self, player: PlayerRef, prize: Prize) -> Awarded:
         """Claim a prize. The claim is checked against what the player has ticked and what has
-        been drawn. A valid claim awards the prize, which can be awarded only once a game."""
+        been drawn. A valid claim awards the prize."""
         game, member = self._player_game(player)
         if game.status != "started":
             raise GameNotStarted(player.code)
-        if prize in game.awards:
-            raise PrizeAlreadyAwarded(prize)
         ticked_and_drawn = member.ticks & game.drawn_names()
-        if prize not in prizes_earned(member.ticket, ticked_and_drawn):
-            raise ClaimNotValid(prize)
-        game.awards[prize] = member.name
-        return Awarded(prize, winner=member.name)
+        return game.settlement.claim(prize, member.name, member.ticket, ticked_and_drawn)
 
-    def prize_board(self, code: str) -> dict[Prize, str | None]:
-        """Each prize and the player it was awarded to, or None while it is still open."""
-        game = self._find(code)
-        return {prize: game.awards.get(prize) for prize in Prize}
+    def prize_board(self, code: str) -> dict[Prize, list[str]]:
+        """Each prize and the names of the players it was awarded to. Empty while it is still open."""
+        return self._find(code).settlement.board()
 
     def _player_game(self, player: PlayerRef) -> tuple[_Game, _Player]:
         """The game and the player's record. Refuses anyone not in the game."""

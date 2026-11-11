@@ -38,7 +38,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   not_on_ticket: 'That topic is not on your ticket',
   not_a_player: 'You are not in this game',
   not_joined: 'You have not joined this game from this window',
-  not_won: 'This claim does not complete the prize yet',
+  claim_not_valid: 'This claim does not complete the prize yet',
   prize_taken: 'Someone has already been awarded this prize',
   unknown_prize: 'That prize does not exist',
   invalid_message: 'That request was not understood. Please reload the page.',
@@ -62,7 +62,7 @@ export const useLobbyStore = defineStore('lobby', () => {
   // Each prize in the order the server lists them, and who it was awarded to.
   const prizes = ref<PrizeBoardEntry[]>([])
   const isAwarded = (prize: Prize) =>
-    prizes.value.some((entry) => entry.prize === prize && entry.awarded_to !== null)
+    prizes.value.some((entry) => entry.prize === prize && entry.awarded_to.length > 0)
   // Problems loading the lobby, shown in place of it.
   const error = ref<string | null>(null)
   // Refusals of something the player or host did, shown next to the controls.
@@ -78,7 +78,7 @@ export const useLobbyStore = defineStore('lobby', () => {
   onReconnect(rejoin)
   onPrizeAwarded((award) => {
     prizes.value = prizes.value.map((entry) =>
-      entry.prize === award.prize ? { ...entry, awarded_to: award.winner } : entry,
+      entry.prize === award.prize ? { ...entry, awarded_to: award.awarded_to } : entry,
     )
   })
 

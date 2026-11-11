@@ -28,18 +28,18 @@ describe('lobby store prizes', () => {
     await store.join('ABC123', 'Ada')
     const announced = vi.mocked(onPrizeAwarded).mock.calls[0][0]
 
-    announced({ prize: 'early_five', winner: 'Ada' })
+    announced({ prize: 'early_five', awarded_to: ['Ada'] })
 
-    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: 'Ada' }])
+    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: ['Ada'] }])
   })
 
   it('restores the prize board a player gets when they join', async () => {
-    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket, [], [{ prize: 'early_five', awarded_to: 'Grace' }]))
+    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket, [], [{ prize: 'early_five', awarded_to: ['Grace'] }]))
     const store = useLobbyStore()
 
     await store.join('ABC123', 'Ada')
 
-    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: 'Grace' }])
+    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: ['Grace'] }])
   })
 
   it('sends a claim for the player and prize', async () => {
@@ -53,14 +53,14 @@ describe('lobby store prizes', () => {
   })
 
   it('shows why a claim was refused, and changes no prize', async () => {
-    vi.mocked(claimPrize).mockResolvedValue({ ok: false, error: 'not_won' })
+    vi.mocked(claimPrize).mockResolvedValue({ ok: false, error: 'claim_not_valid' })
     const store = useLobbyStore()
     await store.join('ABC123', 'Ada')
 
     await store.claimPrize('early_five')
 
     expect(store.actionError).toBe('This claim does not complete the prize yet')
-    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: null }])
+    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: [] }])
   })
 
   it('says a prize is taken when someone else has been awarded it', async () => {

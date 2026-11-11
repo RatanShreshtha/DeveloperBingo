@@ -402,7 +402,7 @@
           "not_a_player",
           "not_drawn",
           "not_on_ticket",
-          "not_won",
+          "claim_not_valid",
           "prize_taken",
           "already_joined",
           "not_joined",
@@ -513,34 +513,33 @@
           "prize": {
             "$ref": "#/components/schemas/Prize"
           },
-          "winner": {
-            "title": "Winner",
-            "type": "string"
+          "awarded_to": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Awarded To",
+            "type": "array"
           }
         },
         "required": [
           "prize",
-          "winner"
+          "awarded_to"
         ],
         "title": "PrizeAwarded",
         "type": "object"
       },
       "PrizeBoardEntry": {
-        "description": "One prize, and the name of the player it was awarded to, or None while it is open.",
+        "description": "One prize, and the names of the players it was awarded to. Empty while it is open.",
         "properties": {
           "prize": {
             "$ref": "#/components/schemas/Prize"
           },
           "awarded_to": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Awarded To"
+            "items": {
+              "type": "string"
+            },
+            "title": "Awarded To",
+            "type": "array"
           }
         },
         "required": [

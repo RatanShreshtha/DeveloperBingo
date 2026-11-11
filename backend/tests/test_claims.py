@@ -38,8 +38,8 @@ def test_five_ticked_and_drawn_topics_award_early_five(started_with_every_topic_
     outcome = registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
 
     assert outcome.prize is Prize.EARLY_FIVE
-    assert outcome.winner == "Ada"
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == "Ada"
+    assert outcome.awarded_to == ("Ada",)
+    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada"]
 
 
 def test_fewer_than_five_ticks_is_not_a_valid_early_five(started_with_every_topic_drawn):
@@ -64,13 +64,13 @@ def test_the_prize_is_awarded_once_per_game(started_with_every_topic_drawn):
     with pytest.raises(PrizeAlreadyAwarded):
         registry.claim(PlayerRef(game.code, "Grace"), Prize.EARLY_FIVE)
 
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == "Ada"
+    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada"]
 
 
 def test_a_prize_remains_open_until_someone_claims_it(started_with_every_topic_drawn):
     registry, game, _, _ = started_with_every_topic_drawn
 
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] is None
+    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
 
 
 def test_claims_are_refused_before_the_game_starts():

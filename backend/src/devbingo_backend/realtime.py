@@ -65,9 +65,9 @@ def _parse(model: type[M], payload: object) -> M:
         raise InvalidMessage from None
 
 
-def _prize_board(board: dict[Prize, str | None]) -> list[PrizeBoardEntry]:
+def _prize_board(board: dict[Prize, list[str]]) -> list[PrizeBoardEntry]:
     """The prize board in the order the engine keeps it."""
-    return [PrizeBoardEntry(prize=prize, awarded_to=name) for prize, name in board.items()]
+    return [PrizeBoardEntry(prize=prize, awarded_to=names) for prize, names in board.items()]
 
 
 class RealtimeAdapter:
@@ -176,7 +176,7 @@ class RealtimeAdapter:
 
         await self._broadcaster.emit(
             ServerEvent.PRIZE_AWARDED,
-            PrizeAwarded(prize=awarded.prize, winner=awarded.winner).model_dump(mode="json"),
+            PrizeAwarded(prize=awarded.prize, awarded_to=list(awarded.awarded_to)).model_dump(mode="json"),
             room=player.code,
         )
         return Accepted().model_dump(mode="json")

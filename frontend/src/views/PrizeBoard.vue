@@ -11,7 +11,7 @@ defineProps<{ prizes: PrizeBoardEntry[] }>()
     <ul>
       <li v-for="entry in prizes" :key="entry.prize">
         {{ PRIZE_LABELS[entry.prize] }}:
-        {{ entry.awarded_to ? `awarded to ${entry.awarded_to}` : 'still open' }}
+        {{ entry.awarded_to.length ? `awarded to ${entry.awarded_to.join(', ')}` : 'still open' }}
       </li>
     </ul>
   </section>
