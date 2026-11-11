@@ -22,13 +22,20 @@ EARLY_FIVE_TOPICS = 5
 
 # What each prize needs, as a test of the topics that are on the ticket and both ticked and
 # drawn. A prize with no rule here cannot be earned yet.
-_RULES: dict[Prize, Callable[[Ticket, Set[str]], bool]] = {
+Rule = Callable[[Ticket, Set[str]], bool]
+
+
+def _line_rule(index: int) -> Rule:
+    return lambda ticket, on_ticket: ticket.line(index) <= on_ticket
+
+
+_RULES: dict[Prize, Rule] = {
     Prize.EARLY_FIVE: lambda ticket, on_ticket: len(on_ticket) >= EARLY_FIVE_TOPICS,
-    Prize.TOP_LINE: lambda ticket, on_ticket: ticket.line(0) <= on_ticket,
-    Prize.MIDDLE_LINE: lambda ticket, on_ticket: ticket.line(1) <= on_ticket,
-    Prize.BOTTOM_LINE: lambda ticket, on_ticket: ticket.line(2) <= on_ticket,
-    Prize.FULL_HOUSE: lambda ticket, on_ticket: on_ticket == ticket.topic_names(),
+    Prize.TOP_LINE: _line_rule(0),
+    Prize.MIDDLE_LINE: _line_rule(1),
+    Prize.BOTTOM_LINE: _line_rule(2),
     Prize.FOUR_CORNERS: lambda ticket, on_ticket: ticket.four_corners() <= on_ticket,
+    Prize.FULL_HOUSE: lambda ticket, on_ticket: on_ticket == ticket.topic_names(),
 }
 
 
