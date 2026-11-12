@@ -224,45 +224,6 @@
           }
         }
       }
-    },
-    "/games/{code}/pool": {
-      "get": {
-        "summary": "Read Game Pool",
-        "operationId": "read_game_pool_games__code__pool_get",
-        "parameters": [
-          {
-            "name": "code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Code"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GamePoolResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -426,38 +387,6 @@
         ],
         "title": "GameHistoryResponse",
         "description": "An ended game: its draws in order, every claim with its outcome, and who won each prize."
-      },
-      "GamePoolResponse": {
-        "properties": {
-          "columns": {
-            "items": {
-              "items": {
-                "$ref": "#/components/schemas/TopicResponse"
-              },
-              "type": "array"
-            },
-            "type": "array",
-            "title": "Columns"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "columns",
-          "name"
-        ],
-        "title": "GamePoolResponse",
-        "description": "A game's pool, with the name it was chosen under (none if the game was made without one)."
       },
       "HTTPValidationError": {
         "properties": {

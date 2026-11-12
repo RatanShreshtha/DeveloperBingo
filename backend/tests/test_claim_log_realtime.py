@@ -54,7 +54,7 @@ def test_a_malformed_claim_or_one_from_a_socket_that_never_joined_is_not_logged(
     run(adapter.claim_prize("sid-ada", {"prize": 5}))
     run(adapter.claim_prize("sid-ada", claim_message(game, prize="jackpot")))
 
-    assert registry.claim_log(game.code) == []
+    assert registry.host_snapshot(game).claims == ()
     assert [e for e in broadcaster.emitted if e[0] == "claim_logged"] == []
 
 

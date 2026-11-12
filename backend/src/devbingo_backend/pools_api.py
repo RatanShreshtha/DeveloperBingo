@@ -1,13 +1,11 @@
-"""REST routes for the Pool Library: list, read and save pools, and read a game's pool."""
+"""REST routes for the Pool Library: list, read and save pools."""
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from devbingo_backend.game import GameNotFound, GameRegistry
 from devbingo_backend.pool import (
     DuplicateTopicError,
     EmptyTopicError,
-    Pool,
     PoolError,
     PoolSizeError,
     Topic,
@@ -16,12 +14,6 @@ from devbingo_backend.pool import (
 from devbingo_backend.pool_library import PoolLibrary, PoolNotFound
 from devbingo_backend.pool_store import DEFAULT_POOL_NAME
 from devbingo_backend.wire import PoolResponse, TopicResponse
-
-
-class GamePoolResponse(PoolResponse):
-    """A game's pool, with the name it was chosen under (none if the game was made without one)."""
-
-    name: str | None = None
 
 
 class PoolSummaryResponse(BaseModel):
@@ -80,15 +72,11 @@ _RULES: dict[type[PoolError], str] = {
 }
 
 
-def pool_response(pool: Pool) -> PoolResponse:
-    return PoolResponse.from_pool(pool)
-
-
 def _refusal(rule: str, message: str) -> HTTPException:
     return HTTPException(status_code=422, detail={"rule": rule, "message": message})
 
 
-def build_pools_router(library: PoolLibrary, registry: GameRegistry) -> APIRouter:
+def build_pools_router(library: PoolLibrary) -> APIRouter:
     router = APIRouter()
 
     @router.get("/pools", response_model=list[PoolSummaryResponse])
@@ -101,7 +89,7 @@ def build_pools_router(library: PoolLibrary, registry: GameRegistry) -> APIRoute
     @router.get("/pools/{pool_id}", response_model=PoolResponse)
     def read_pool(pool_id: int) -> PoolResponse:
         try:
-            return pool_response(library.load(pool_id))
+            return PoolResponse.from_pool(library.load(pool_id))
         except PoolNotFound:
             raise HTTPException(status_code=404, detail="pool not found") from None
 
@@ -125,13 +113,5 @@ def build_pools_router(library: PoolLibrary, registry: GameRegistry) -> APIRoute
             raise _refusal(_RULES.get(type(error), "invalid_pool"), str(error)) from None
         pool_id = library.save(name, pool)
         return PoolSummaryResponse(id=pool_id, name=name, is_default=False)
-
-    @router.get("/games/{code}/pool", response_model=GamePoolResponse)
-    def read_game_pool(code: str) -> GamePoolResponse:
-        try:
-            shown = pool_response(registry.pool_of(code))
-            return GamePoolResponse(columns=shown.columns, name=registry.pool_name_of(code))
-        except GameNotFound:
-            raise HTTPException(status_code=404, detail="game not found") from None
 
     return router

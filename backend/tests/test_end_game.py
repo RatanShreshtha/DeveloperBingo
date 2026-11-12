@@ -19,7 +19,7 @@ from devbingo_backend.wire import HostLink
 def lobby():
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(41))
     game = registry.create_game(DEFAULT_POOL)
-    ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
+    ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     return registry, game, ticket
 
 
@@ -112,7 +112,7 @@ def test_claims_are_refused_after_the_game_ends(started_with_every_topic_drawn):
     with pytest.raises(GameAlreadyEnded):
         registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
 
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 
 
 def test_a_dropped_player_can_rejoin_after_the_game_ends_to_read_the_result(started_with_every_topic_drawn):
@@ -145,4 +145,4 @@ def test_ticks_and_unticks_are_refused_after_the_game_ends(started_with_every_to
         registry.untick(ada, topic)
     with pytest.raises(GameAlreadyEnded):
         registry.tick(ada, names_on(ticket)[1])
-    assert registry.ticks(ada) == {topic}
+    assert registry.player_snapshot(ada).ticks == {topic}

@@ -33,7 +33,7 @@ def test_creating_a_game_returns_a_code_and_a_private_host_token(registry):
 def test_joining_returns_the_players_ticket(registry):
     game = registry.create_game(DEFAULT_POOL)
 
-    ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
+    ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
 
     assert len(ticket.lines) == 3
     assert sum(cell is not None for line in ticket.lines for cell in line) == 15
@@ -51,7 +51,10 @@ def test_no_two_tickets_in_a_game_are_identical():
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(99))
     game = registry.create_game(DEFAULT_POOL)
 
-    tickets = [registry.join(PlayerRef(game.code, f"player-{i}")).ticket for i in range(MAX_PLAYERS)]
+    tickets = [
+        registry.join(PlayerRef(game.code, f"player-{i}")).snapshot.ticket
+        for i in range(MAX_PLAYERS)
+    ]
 
     assert len({ticket.lines for ticket in tickets}) == MAX_PLAYERS
 
@@ -62,7 +65,7 @@ def test_players_join_with_a_code_and_a_display_name(registry):
     registry.join(PlayerRef(game.code, "Ada"))
     registry.join(PlayerRef(game.code, "Grace"))
 
-    assert registry.lobby(game) == ["Ada", "Grace"]
+    assert registry.host_snapshot(game).players == ("Ada", "Grace")
 
 
 def test_a_duplicate_name_is_rejected(registry):
@@ -94,13 +97,6 @@ def test_joins_are_rejected_once_the_game_has_started(registry):
 def test_joining_an_unknown_game_is_rejected(registry):
     with pytest.raises(GameNotFound):
         registry.join(PlayerRef("NOPE00", "Ada"))
-
-
-def test_only_the_host_token_can_read_the_lobby(registry):
-    game = registry.create_game(DEFAULT_POOL)
-
-    with pytest.raises(NotHost):
-        registry.lobby(HostLink(code=game.code, host_token="not-the-host-token"))
 
 
 def test_only_the_host_token_can_start_the_game(registry):

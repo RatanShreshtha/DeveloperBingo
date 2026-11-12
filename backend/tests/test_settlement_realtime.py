@@ -113,7 +113,7 @@ def test_a_close_logs_each_claim_then_awards_then_tells_each_claimant_then_the_w
 def test_a_claim_refused_at_close_is_settled_for_that_claimant_only():
     t = Table()
     # Grace takes back two ticks, so her claim is not valid; it still queues in Ada's open window.
-    grace_ticks = sorted(t.registry.ticks(PlayerRef(t.game.code, "Grace")))
+    grace_ticks = sorted(t.registry.player_snapshot(PlayerRef(t.game.code, "Grace")).ticks)
     for topic in grace_ticks[:2]:
         run(t.adapter.untick_topic("sid-grace", tick_message(t.game, topic, "Grace")))
     t.claim("Ada")
@@ -186,7 +186,7 @@ def test_a_failed_send_is_logged_and_every_other_send_still_goes_out(caplog):
     assert t.broadcaster.sent == [settled(t, "Ada"), settled(t, "Grace"), window(t, False)]
     assert len(caplog.records) == 3
     assert all(record.exc_info for record in caplog.records)
-    assert t.registry.prize_board(t.game.code)[Prize.EARLY_FIVE] == ["Ada", "Grace"]
+    assert t.registry.host_snapshot(t.game).prizes[Prize.EARLY_FIVE] == ("Ada", "Grace")
 
 
 def test_on_the_real_clock_a_claim_is_waiting_then_settled_without_being_asked_again():

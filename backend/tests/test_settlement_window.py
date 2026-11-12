@@ -21,7 +21,7 @@ def table():
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(7))
     game = registry.create_game(DEFAULT_POOL)
     tickets = {
-        name: registry.join(PlayerRef(game.code, name)).ticket for name in ("Ada", "Grace")
+        name: registry.join(PlayerRef(game.code, name)).snapshot.ticket for name in ("Ada", "Grace")
     }
     registry.start(game)
     return registry, game, tickets
@@ -53,7 +53,7 @@ def test_a_valid_claim_opens_a_window_and_the_prize_stays_open_until_it_closes(t
     outcome = registry.claim(ada(game), Prize.EARLY_FIVE)
 
     assert outcome.window_open is True
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 
 
 def test_two_claims_in_one_window_win_the_prize_together(table):
@@ -67,7 +67,7 @@ def test_two_claims_in_one_window_win_the_prize_together(table):
     # The window was already open, so nothing about it changed.
     assert second.window_open is None
     assert settled.awarded_to == ("Ada", "Grace")
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada", "Grace"]
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ("Ada", "Grace")
 
 
 def test_an_invalid_claim_is_refused_and_opens_no_window(table):
@@ -103,11 +103,11 @@ def test_ticks_cannot_be_taken_back_while_the_player_has_a_claim_pending(table):
     with pytest.raises(ClaimPending):
         registry.untick(ada(game), ticked)
     registry.untick(grace(game), names_on(tickets["Grace"])[0])
-    assert ticked in registry.ticks(ada(game))
+    assert ticked in registry.player_snapshot(ada(game)).ticks
 
     registry.close_window(game.code, Prize.EARLY_FIVE)
     registry.untick(ada(game), ticked)
-    assert ticked not in registry.ticks(ada(game))
+    assert ticked not in registry.player_snapshot(ada(game)).ticks
 
 
 def test_a_queued_claim_is_judged_at_close_on_what_the_player_has_ticked_then(table):
@@ -121,7 +121,7 @@ def test_a_queued_claim_is_judged_at_close_on_what_the_player_has_ticked_then(ta
 
     assert settled.awarded_to == ("Ada",)
     assert settled.refused == ("Grace",)
-    assert [(r.player, r.accepted) for r in registry.claim_log(game.code)] == [
+    assert [(r.player, r.accepted) for r in registry.host_snapshot(game).claims] == [
         ("Ada", True),
         ("Grace", False),
     ]

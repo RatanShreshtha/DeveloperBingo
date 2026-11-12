@@ -20,7 +20,7 @@ from devbingo_backend.pool_library import (
     PostgresPoolLibrary,
 )
 from devbingo_backend.pool_store import DEFAULT_POOL_NAME
-from devbingo_backend.pools_api import PoolResponse, build_pools_router, pool_response
+from devbingo_backend.pools_api import PoolResponse, build_pools_router
 from devbingo_backend.realtime import build_socket_server
 from devbingo_backend.wire import SOCKET_MODELS, HostLink
 
@@ -112,9 +112,9 @@ def create_app(
 
     @app.get("/pools/default", response_model=PoolResponse)
     def read_default_pool() -> PoolResponse:
-        return pool_response(library.load_default())
+        return PoolResponse.from_pool(library.load_default())
 
-    app.include_router(build_pools_router(library, registry))
+    app.include_router(build_pools_router(library))
 
     rest_openapi = app.openapi
 

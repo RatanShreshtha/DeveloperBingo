@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from devbingo_backend.app import create_app
 from devbingo_backend.pool_library import InMemoryPoolLibrary
+from devbingo_backend.wire import HostLink, PoolResponse
 from unavailable import UnavailablePoolLibrary
 
 
@@ -12,6 +13,11 @@ def topics(prefix="Mine", count=90):
 
 def make_client(library=None):
     return TestClient(create_app(pool_library=library or InMemoryPoolLibrary()))
+
+
+def hosts_snapshot(client, created):
+    """What the host of a game just created through the API is shown when they watch it."""
+    return client.app.state.registry.host_snapshot(HostLink(**created.json()))
 
 
 def test_a_saved_pool_is_listed_and_read_back_in_nine_columns():
@@ -97,19 +103,17 @@ def test_a_game_created_with_a_saved_pool_deals_and_draws_from_it():
         pool_id = client.post("/pools", json={"name": "Mine", "topics": topics()}).json()["id"]
         game = client.post("/games", json={"pool_id": pool_id})
         assert game.status_code == 201
-        code = game.json()["code"]
-        shown = client.get(f"/games/{code}/pool").json()["columns"]
+        shown = hosts_snapshot(client, game).pool.columns()
 
-    assert shown[0][0]["name"] == "Mine00"
+    assert shown[0][0].name == "Mine00"
 
 
 def test_a_game_with_no_body_uses_the_default_pool():
     with make_client() as client:
-        code = client.post("/games").json()["code"]
-        shown = client.get(f"/games/{code}/pool").json()
+        shown = hosts_snapshot(client, client.post("/games")).pool
         default = client.get("/pools/default").json()
 
-    assert shown["columns"] == default["columns"]
+    assert PoolResponse.from_pool(shown).model_dump() == default
 
 
 def test_a_game_with_an_unknown_pool_id_is_not_found_and_creates_nothing():
@@ -117,11 +121,6 @@ def test_a_game_with_an_unknown_pool_id_is_not_found_and_creates_nothing():
         response = client.post("/games", json={"pool_id": 999})
 
     assert response.status_code == 404
-
-
-def test_the_pool_of_an_unknown_game_is_not_found():
-    with make_client() as client:
-        assert client.get("/games/NOPE00/pool").status_code == 404
 
 
 def refusal_of(client, **overrides):
@@ -199,13 +198,11 @@ def test_a_pool_named_default_is_refused_so_the_picker_has_one_default(name):
 def test_a_game_created_from_a_saved_pool_tells_the_host_the_pools_name():
     with make_client() as client:
         pool_id = client.post("/pools", json={"name": "Mine", "topics": topics()}).json()["id"]
-        code = client.post("/games", json={"pool_id": pool_id}).json()["code"]
-        shown = client.get(f"/games/{code}/pool").json()
+        shown = hosts_snapshot(client, client.post("/games", json={"pool_id": pool_id}))
 
-    assert shown["name"] == "Mine"
+    assert shown.pool_name == "Mine"
 
 
 def test_a_game_on_the_default_pool_tells_the_host_it_is_the_default():
     with make_client() as client:
-        code = client.post("/games").json()["code"]
-        assert client.get(f"/games/{code}/pool").json()["name"] == "Default"
+        assert hosts_snapshot(client, client.post("/games")).pool_name == "Default"

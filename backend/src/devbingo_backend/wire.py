@@ -6,15 +6,19 @@ types from them rather than writing them by hand.
 """
 
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict
 
 from devbingo_backend.prizes import Prize
 
 if TYPE_CHECKING:
-    from devbingo_backend.game import Draw
+    from collections.abc import Mapping
+
+    from devbingo_backend.game import Draw, HostSnapshot, PlayerSnapshot
+    from devbingo_backend.game import GameSnapshot as EngineSnapshot
     from devbingo_backend.pool import Pool
+    from devbingo_backend.settlement import ClaimRecord
 
 
 # Where a game stands.
@@ -160,6 +164,11 @@ class PrizeBoardEntry(_Message):
     prize: Prize
     awarded_to: list[str]
 
+    @classmethod
+    def board_of(cls, prizes: "Mapping[Prize, tuple[str, ...]]") -> "list[PrizeBoardEntry]":
+        """The prize board in the order the engine keeps it."""
+        return [cls(prize=prize, awarded_to=list(names)) for prize, names in prizes.items()]
+
 
 class ClaimLogEntry(_Message):
     """One decided claim as the host sees it. A refused claim says why, as a wire error code."""
@@ -168,6 +177,12 @@ class ClaimLogEntry(_Message):
     prize: Prize
     accepted: bool
     error: ErrorCode | None
+
+    @classmethod
+    def from_record(cls, record: "ClaimRecord") -> "ClaimLogEntry":
+        return cls(
+            player=record.player, prize=record.prize, accepted=record.accepted, error=record.error
+        )
 
 
 class Refusal(_Message):
@@ -194,6 +209,11 @@ class ClaimSettled(_Message):
     accepted: bool
     error: ErrorCode | None
 
+    @classmethod
+    def from_record(cls, record: "ClaimRecord") -> "ClaimSettled":
+        """A decided claim as its own player is told it."""
+        return cls(prize=record.prize, accepted=record.accepted, error=record.error)
+
 
 class GameSnapshot(_Message):
     """What a client needs to show a game from scratch: where it stands, who is in it, what has
@@ -205,6 +225,17 @@ class GameSnapshot(_Message):
     players: list[str]
     draws: list[DrawAnnouncement]
     prizes: list[PrizeBoardEntry]
+
+    @staticmethod
+    def _shared(snapshot: "EngineSnapshot") -> dict[str, Any]:
+        """The wire form of the parts of a snapshot everyone gets."""
+        return {
+            "status": snapshot.status,
+            "end_reason": snapshot.end_reason,
+            "players": list(snapshot.players),
+            "draws": [DrawAnnouncement.from_draw(draw) for draw in snapshot.draws],
+            "prizes": PrizeBoardEntry.board_of(snapshot.prizes),
+        }
 
 
 class JoinAck(GameSnapshot):
@@ -224,6 +255,18 @@ class JoinAck(GameSnapshot):
     # Kept private by the player. Every join issues a new one, replacing the last.
     rejoin_token: str
 
+    @classmethod
+    def from_snapshot(cls, snapshot: "PlayerSnapshot", rejoin_token: str) -> "JoinAck":
+        return cls(
+            **cls._shared(snapshot),
+            name=snapshot.player.name,
+            ticket=snapshot.ticket.to_cells(),
+            ticks=sorted(snapshot.ticks),
+            pending_claims=list(snapshot.pending_claims),
+            decided_claims=[ClaimSettled.from_record(record) for record in snapshot.decided_claims],
+            rejoin_token=rejoin_token,
+        )
+
 
 class WatchAck(GameSnapshot):
     """The host's snapshot: the game, plus the claim log, the pool and whether a window is open."""
@@ -235,6 +278,16 @@ class WatchAck(GameSnapshot):
     pool_name: str | None
     # True while a settlement window is open, so the host sees why a draw is refused.
     window_open: bool
+
+    @classmethod
+    def from_snapshot(cls, snapshot: "HostSnapshot") -> "WatchAck":
+        return cls(
+            **cls._shared(snapshot),
+            claims=[ClaimLogEntry.from_record(record) for record in snapshot.claims],
+            pool=PoolResponse.from_pool(snapshot.pool),
+            pool_name=snapshot.pool_name,
+            window_open=snapshot.window_open,
+        )
 
 
 class DrawAck(_Message):
