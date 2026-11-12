@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { claimPrize } from '../realtime/socket'
+import { claimPrize, untickTopic } from '../realtime/socket'
 import { useLobbyStore } from '../stores/lobby'
 import PlayerLobbyView from './PlayerLobbyView.vue'
 
@@ -56,6 +56,60 @@ describe('PlayerLobbyView prizes', () => {
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     expect(wrapper.text()).toContain('Early five: awarded to Grace')
+  })
+
+  describe('while a claim waits for its settlement window', () => {
+    it('shows the claim as pending until the server answers, then clears it', async () => {
+      let settle: (ack: { ok: true }) => void = () => {}
+      vi.mocked(claimPrize).mockReturnValue(new Promise((resolve) => (settle = resolve)))
+      setUpPlayer()
+      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+      await wrapper.get('[data-test="claim-early_five"]').trigger('click')
+
+      const button = wrapper.get('[data-test="claim-early_five"]')
+      expect(button.text()).toBe('Claiming Early five…')
+      expect(button.attributes('disabled')).toBeDefined()
+
+      settle({ ok: true })
+      await flushPromises()
+
+      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe('Claim Early five')
+    })
+
+    it('clears the pending state and shows why when the claim is refused', async () => {
+      vi.mocked(claimPrize).mockResolvedValue({ ok: false, error: 'claim_not_valid' })
+      setUpPlayer()
+      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+      await wrapper.get('[data-test="claim-early_five"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe('Claim Early five')
+      expect(wrapper.text()).toContain('This claim does not complete the prize yet')
+    })
+
+    it('explains a draw held for a window and a tick that cannot be taken back', async () => {
+      const store = setUpPlayer()
+      store.ticks = ['Algorithm']
+      store.ticket = [['Algorithm', null, 'JSON']]
+      store.draws = [{ position: 1, name: 'Algorithm', explanation: 'x' }]
+      vi.mocked(untickTopic).mockResolvedValue({ ok: false, error: 'claim_pending' })
+      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+      await wrapper.get('[data-test="tick-cell"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.get('[role="alert"]').text()).toContain('claim is waiting')
+    })
+  })
+
+  it('shows every player a prize was awarded to together', () => {
+    const store = setUpPlayer()
+    store.prizes = [{ prize: 'early_five', awarded_to: ['Ada', 'Grace'] }]
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+    expect(wrapper.text()).toContain('Early five: awarded to Ada, Grace')
   })
 
   describe('with every prize on the board', () => {

@@ -1,4 +1,6 @@
-from collections.abc import Awaitable, Callable
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Any, Literal, Protocol, TypeVar
 
 import socketio
@@ -14,8 +16,10 @@ from devbingo_backend.game import (
     UnknownPrize,
 )
 from devbingo_backend.prizes import Prize
+from devbingo_backend.settlement import ClaimRecord, Settled
 from devbingo_backend.wire import (
     Accepted,
+    ClaimLogEntry,
     ClaimPayload,
     ClientEvent,
     DrawAck,
@@ -49,6 +53,33 @@ class Broadcaster(Protocol):
     ) -> None: ...
 
 
+class Scheduler(Protocol):
+    """Runs an action after a delay. The engine has no clock, so the adapter asks for the close of
+    each settlement window here, and tests fake it to close windows without waiting."""
+
+    def call_later(self, delay: float, action: Callable[[], Awaitable[None]]) -> None: ...
+
+
+class AsyncioScheduler:
+    def __init__(self) -> None:
+        # Held so a task is not garbage-collected before it runs.
+        self._tasks: set[asyncio.Task[None]] = set()
+
+    def call_later(self, delay: float, action: Callable[[], Awaitable[None]]) -> None:
+        async def run() -> None:
+            await asyncio.sleep(delay)
+            await action()
+
+        task = asyncio.get_running_loop().create_task(run())
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+
+logger = logging.getLogger(__name__)
+
+# How long a settlement window stays open, unless the app is configured otherwise.
+DEFAULT_WINDOW_SECONDS = 1.0
+
 Ack = dict[str, Any]
 M = TypeVar("M", bound=BaseModel)
 
@@ -71,15 +102,36 @@ def _prize_board(board: dict[Prize, list[str]]) -> list[PrizeBoardEntry]:
     return [PrizeBoardEntry(prize=prize, awarded_to=names) for prize, names in board.items()]
 
 
+def _claim_entry(record: ClaimRecord) -> ClaimLogEntry:
+    return ClaimLogEntry(
+        player=record.player, prize=record.prize, accepted=record.accepted, error=record.error
+    )
+
+
+def _host_room(code: str) -> str:
+    """The room only the game's host sockets are in. The game's own room has every player too."""
+    return f"{code}:host"
+
+
 class RealtimeAdapter:
     """Turns socket events into engine calls and engine state into room broadcasts.
 
     Holds no game rules: the registry decides, the adapter only reports.
     """
 
-    def __init__(self, registry: GameRegistry, broadcaster: Broadcaster) -> None:
+    def __init__(
+        self,
+        registry: GameRegistry,
+        broadcaster: Broadcaster,
+        scheduler: Scheduler | None = None,
+        window_seconds: float = DEFAULT_WINDOW_SECONDS,
+    ) -> None:
         self._registry = registry
         self._broadcaster = broadcaster
+        self._scheduler = scheduler or AsyncioScheduler()
+        self._window_seconds = window_seconds
+        # The claimants' acknowledgements held open, by the window they wait on.
+        self._held: dict[tuple[str, Prize], list[tuple[str, asyncio.Future[Ack]]]] = {}
         # Which player each live socket belongs to, so a dropped socket frees its name.
         self._sessions: dict[str, PlayerRef] = {}
 
@@ -132,9 +184,11 @@ class RealtimeAdapter:
             return _refusal(err)
 
         await self._broadcaster.enter_room(sid, host.code)
+        await self._broadcaster.enter_room(sid, _host_room(host.code))
         return WatchAck(
             players=players,
             prizes=_prize_board(self._registry.prize_board(host.code)),
+            claims=[_claim_entry(record) for record in self._registry.claim_log(host.code)],
         ).model_dump(mode="json")
 
     async def start_game(self, sid: str, payload: object) -> Ack:
@@ -168,18 +222,23 @@ class RealtimeAdapter:
         )
 
     async def end_game(self, sid: str, payload: object) -> Ack:
-        """The host ends the game. Everyone in the room is told."""
+        """The host ends the game. Windows still open settle at once, refused; everyone in the room is told."""
         try:
             host = _parse(HostLink, payload)
-            self._registry.end(host)
+            settled = self._registry.end(host)
         except GameError as err:
             return _refusal(err)
 
-        await self._announce_end(host.code, "host")
+        await self._announce(
+            host.code,
+            settled,
+            lambda: self._announce_end(host.code, "host"),
+        )
         return Accepted().model_dump(mode="json")
 
     async def claim_prize(self, sid: str, payload: object) -> Ack:
-        """A valid claim is announced to the whole room. A refused one is told to the claimant only."""
+        """A refused claim is told to the claimant at once. A valid one waits in the prize's settlement
+        window: the acknowledgement is held until the window settles, then says awarded or refused."""
         try:
             message = _parse(ClaimPayload, payload)
             player = self._player_on(sid)
@@ -187,18 +246,81 @@ class RealtimeAdapter:
                 prize = Prize(message.prize)
             except ValueError:
                 raise UnknownPrize from None
-            awarded = self._registry.claim(player, prize)
+            try:
+                pending = self._registry.claim(player, prize)
+            except GameError as err:
+                if err.record is not None:
+                    await self._tell_host(player.code, err.record)
+                raise
         except GameError as err:
             return _refusal(err)
 
+        answer: asyncio.Future[Ack] = asyncio.get_running_loop().create_future()
+        self._held.setdefault((player.code, prize), []).append((player.name, answer))
+        if pending.opened_window:
+            self._scheduler.call_later(
+                self._window_seconds, lambda: self.close_window(player.code, prize)
+            )
+        return await answer
+
+    async def close_window(self, code: str, prize: Prize) -> None:
+        """Close the prize's settlement window. Tells the host of each claim, the room of the winners
+        (once) and of the game's end, and answers every held acknowledgement, even if telling fails."""
+        settled = self._registry.close_window(code, prize)
+        if settled is None:
+            return
+
+        async def announce_room() -> None:
+            if settled.awarded_to:
+                await self._broadcaster.emit(
+                    ServerEvent.PRIZE_AWARDED,
+                    PrizeAwarded(prize=prize, awarded_to=list(settled.awarded_to)).model_dump(mode="json"),
+                    room=code,
+                )
+            if settled.ends_game:
+                await self._announce_end(code, "full_house")
+
+        await self._announce(code, [settled], announce_room)
+
+    async def _announce(
+        self,
+        code: str,
+        settled: Iterable[Settled],
+        announce_room: Callable[[], Awaitable[None]],
+    ) -> None:
+        """Tells the host of each settled claim, then the room, and answers the held acknowledgements.
+        The answers go out whatever happens to the announcements, which only get logged if they fail."""
+        settled = list(settled)
+        try:
+            for outcome in settled:
+                for record in outcome.records:
+                    await self._tell_host(code, record)
+            await announce_room()
+        except Exception:
+            logger.exception("could not announce the settlement in game %s", code)
+        finally:
+            for outcome in settled:
+                self._answer_held(code, outcome)
+
+    def _answer_held(self, code: str, settled: Settled) -> None:
+        decided = {record.player: record for record in settled.records}
+        for name, answer in self._held.pop((code, settled.prize), []):
+            record = decided[name]
+            if record.accepted:
+                result = Accepted().model_dump(mode="json")
+            else:
+                assert record.error is not None
+                result = Refusal(error=record.error).model_dump(mode="json")
+            if not answer.done():
+                answer.set_result(result)
+
+    async def _tell_host(self, code: str, record: ClaimRecord) -> None:
+        """Sends the host one decided claim, and nobody else."""
         await self._broadcaster.emit(
-            ServerEvent.PRIZE_AWARDED,
-            PrizeAwarded(prize=awarded.prize, awarded_to=list(awarded.awarded_to)).model_dump(mode="json"),
-            room=player.code,
+            ServerEvent.CLAIM_LOGGED,
+            _claim_entry(record).model_dump(mode="json"),
+            room=_host_room(code),
         )
-        if awarded.ends_game:
-            await self._announce_end(player.code, "full_house")
-        return Accepted().model_dump(mode="json")
 
     # Ticks are private, and nothing is broadcast. The acknowledgement says only
     # whether the change happened: the client keeps its own list, so no ticks are
@@ -238,9 +360,11 @@ class _SocketIOBroadcaster:
         await self._server.emit(event, data, room=room, to=to)
 
 
-def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
+def build_socket_server(
+    registry: GameRegistry, window_seconds: float = DEFAULT_WINDOW_SECONDS
+) -> socketio.AsyncServer:
     server = socketio.AsyncServer(async_mode="asgi")
-    adapter = RealtimeAdapter(registry, _SocketIOBroadcaster(server))
+    adapter = RealtimeAdapter(registry, _SocketIOBroadcaster(server), window_seconds=window_seconds)
 
     commands: dict[ClientEvent, Callable[[str, Any], Awaitable[Ack]]] = {
         ClientEvent.JOIN_GAME: adapter.join_game,

@@ -19,6 +19,7 @@ beforeEach(() => {
     ok: true,
     players: ['Ada'],
     prizes: [{ prize: 'early_five', awarded_to: [] }],
+    claims: [],
   })
   vi.mocked(endGame).mockReset()
 })

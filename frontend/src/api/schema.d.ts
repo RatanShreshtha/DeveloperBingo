@@ -182,6 +182,18 @@ export interface components {
              */
             ok: true;
         };
+        /**
+         * ClaimLogEntry
+         * @description One decided claim as the host sees it. A refused claim says why, as a wire error code.
+         */
+        ClaimLogEntry: {
+            /** Player */
+            player: string;
+            prize: components["schemas"]["Prize"];
+            /** Accepted */
+            accepted: boolean;
+            error: components["schemas"]["ErrorCode"] | null;
+        };
         /** ClaimPayload */
         ClaimPayload: {
             /** Prize */
@@ -202,7 +214,7 @@ export interface components {
          * @description Why a request was refused. Each engine error declares the code it maps to.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "game_ended" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "claim_not_valid" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message";
+        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "game_ended" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "claim_not_valid" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message" | "settlement_open" | "claim_pending";
         /**
          * GameEnded
          * @description The game is over: someone claimed the full house, or the host ended it.
@@ -293,6 +305,8 @@ export interface components {
             players: string[];
             /** Prizes */
             prizes: components["schemas"]["PrizeBoardEntry"][];
+            /** Claims */
+            claims: components["schemas"]["ClaimLogEntry"][];
         };
     };
     responses: never;

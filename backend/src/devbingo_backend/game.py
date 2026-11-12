@@ -8,6 +8,7 @@ from typing import Literal
 from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
     AlreadyJoined,
     ClaimNotValid,
+    ClaimPending,
     GameAlreadyEnded,
     GameAlreadyStarted,
     GameError,
@@ -21,6 +22,7 @@ from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers impor
     NotHost,
     NotJoined,
     PrizeAlreadyAwarded,
+    SettlementWindowOpen,
     TopicNotDrawn,
     TopicNotOnTicket,
     UnknownPrize,
@@ -28,7 +30,7 @@ from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers impor
 from devbingo_backend.names import name_key
 from devbingo_backend.pool import Pool, Topic
 from devbingo_backend.prizes import Prize
-from devbingo_backend.settlement import Awarded, ClaimSettlement
+from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Evidence, Pending, Settled
 from devbingo_backend.ticket import Ticket, build_ticket
 from devbingo_backend.wire import HostLink
 
@@ -161,16 +163,28 @@ class GameRegistry:
         game.status = "started"
         game.undrawn = list(game.pool.topics)
 
-    def end(self, host: HostLink) -> None:
-        """The host ends the game, at any time. No draws or claims are accepted after it ends."""
+    def end(self, host: HostLink) -> tuple[Settled, ...]:
+        """The host ends the game, at any time. No draws or claims are accepted after it ends.
+        Every open settlement window settles at once, its claims refused as `game_ended`; the
+        outcomes are returned so the caller can answer the claimants."""
         game = self._host_game(host)
         self._refuse_if_ended(game, host.code)
+        refusal = GameAlreadyEnded(host.code)
+        settled = tuple(
+            outcome
+            for prize in game.settlement.open_prizes()
+            if (outcome := game.settlement.close(prize, self._evidence(game), refusal)) is not None
+        )
         self._finish(game)
+        return settled
 
     def draw(self, host: HostLink) -> Draw:
-        """Draw one topic uniformly at random from those not yet drawn. Draws are final."""
+        """Draw one topic uniformly at random from those not yet drawn. Draws are final.
+        Draws are held while any settlement window is open."""
         game = self._host_game(host)
         self._refuse_if_ended(game, host.code)
+        if game.settlement.window_open():
+            raise SettlementWindowOpen(host.code)
         if game.status != "started":
             raise GameNotStarted(host.code)
         if not game.undrawn:
@@ -194,9 +208,11 @@ class GameRegistry:
         member.ticks.add(topic_name)
 
     def untick(self, player: PlayerRef, topic_name: str) -> None:
-        """Untick a topic on the player's ticket. Nothing blocks an untick yet: issue 12 refuses it
-        while the player has a claim waiting in a settlement window."""
-        _, member = self._player_game(player)
+        """Untick a topic on the player's ticket. Refused while the player has a claim waiting in a
+        settlement window: a player may untick only before a claim is made."""
+        game, member = self._player_game(player)
+        if game.settlement.has_pending(member.name):
+            raise ClaimPending(topic_name)
         if topic_name not in member.ticket.topic_names():
             raise TopicNotOnTicket(topic_name)
         member.ticks.discard(topic_name)
@@ -206,23 +222,52 @@ class GameRegistry:
         _, member = self._player_game(player)
         return frozenset(member.ticks)
 
-    def claim(self, player: PlayerRef, prize: Prize) -> Awarded:
-        """Claim a prize. The claim is checked against what the player has ticked and what has
-        been drawn. A valid claim awards the prize. Awarding the full house ends the game."""
+    def claim(self, player: PlayerRef, prize: Prize) -> Pending:
+        """Claim a prize. A claim the ticket does not earn is refused at once. A valid one waits in
+        the prize's settlement window, which it opens if none is; nothing is awarded until
+        `close_window`. The outcome says whether this claim opened the window."""
         game, member = self._player_game(player)
-        self._refuse_if_ended(game, player.code)
-        if game.status != "started":
-            raise GameNotStarted(player.code)
         ticked_and_drawn = member.ticks & game.drawn_names()
-        awarded = game.settlement.claim(prize, member.name, member.ticket, ticked_and_drawn)
-        if prize is Prize.FULL_HOUSE:
+        return game.settlement.claim(
+            prize, member.name, member.ticket, ticked_and_drawn, self._game_refusal(game, player.code)
+        )
+
+    def close_window(self, code: str, prize: Prize) -> Settled | None:
+        """Close the prize's settlement window: every claim in it is judged against the draws now,
+        and all that earn the prize win it together. Awarding the full house ends the game.
+        Returns None when no window is open for the prize."""
+        game = self._find(code)
+        refusal = GameAlreadyEnded(code) if game.status == "ended" else None
+        settled = game.settlement.close(prize, self._evidence(game), refusal)
+        if settled is not None and settled.awarded_to and prize is Prize.FULL_HOUSE:
             self._finish(game)
-            return replace(awarded, ends_game=True)
-        return awarded
+            return replace(settled, ends_game=True)
+        return settled
+
+    @staticmethod
+    def _evidence(game: _Game) -> Evidence:
+        def evidence(name: str) -> tuple[Ticket, set[str]]:
+            member = game.players[name_key(name)]
+            return member.ticket, member.ticks & game.drawn_names()
+
+        return evidence
+
+    @staticmethod
+    def _game_refusal(game: _Game, code: str) -> GameError | None:
+        if game.status == "ended":
+            return GameAlreadyEnded(code)
+        if game.status != "started":
+            return GameNotStarted(code)
+        return None
 
     def prize_board(self, code: str) -> dict[Prize, list[str]]:
         """Each prize and the names of the players it was awarded to. Empty while it is still open."""
         return self._find(code).settlement.board()
+
+    def claim_log(self, code: str) -> list[ClaimRecord]:
+        """Every claim decided so far, accepted or refused, in order. For the host only: a refused
+        claim is private to the claimant among players."""
+        return self._find(code).settlement.log()
 
     @staticmethod
     def _refuse_if_ended(game: _Game, code: str) -> None:

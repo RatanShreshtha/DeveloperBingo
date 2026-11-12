@@ -357,6 +357,40 @@
         "title": "Accepted",
         "type": "object"
       },
+      "ClaimLogEntry": {
+        "description": "One decided claim as the host sees it. A refused claim says why, as a wire error code.",
+        "properties": {
+          "player": {
+            "title": "Player",
+            "type": "string"
+          },
+          "prize": {
+            "$ref": "#/components/schemas/Prize"
+          },
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "player",
+          "prize",
+          "accepted",
+          "error"
+        ],
+        "title": "ClaimLogEntry",
+        "type": "object"
+      },
       "ClaimPayload": {
         "properties": {
           "prize": {
@@ -408,7 +442,9 @@
           "already_joined",
           "not_joined",
           "unknown_prize",
-          "invalid_message"
+          "invalid_message",
+          "settlement_open",
+          "claim_pending"
         ],
         "title": "ErrorCode",
         "type": "string"
@@ -626,12 +662,20 @@
             },
             "title": "Prizes",
             "type": "array"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimLogEntry"
+            },
+            "title": "Claims",
+            "type": "array"
           }
         },
         "required": [
           "ok",
           "players",
-          "prizes"
+          "prizes",
+          "claims"
         ],
         "title": "WatchAck",
         "type": "object"

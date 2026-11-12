@@ -12,7 +12,7 @@ from sqlmodel import create_engine, text
 
 from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
 from devbingo_backend.pool_library import PoolLibrary, PoolLibraryUnavailable, PostgresPoolLibrary
-from devbingo_backend.realtime import build_socket_server
+from devbingo_backend.realtime import DEFAULT_WINDOW_SECONDS, build_socket_server
 from devbingo_backend.wire import SOCKET_MODELS, DrawAnnouncement, DrawHistoryResponse, HostLink
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
@@ -36,7 +36,13 @@ class PoolResponse(BaseModel):
     columns: list[list[TopicResponse]]
 
 
-def create_app(database_url: str | None = None, pool_library: PoolLibrary | None = None) -> FastAPI:
+def create_app(
+    database_url: str | None = None,
+    pool_library: PoolLibrary | None = None,
+    settlement_window_seconds: float | None = None,
+) -> FastAPI:
+    """`settlement_window_seconds` is how long a settlement window stays open. Without it the
+    SETTLEMENT_WINDOW_SECONDS environment variable is used, then one second."""
     url = database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     engine = create_engine(url, connect_args={"connect_timeout": 2})
     registry = GameRegistry()
@@ -124,7 +130,12 @@ def create_app(database_url: str | None = None, pool_library: PoolLibrary | None
 
     app.openapi = openapi_with_socket_messages  # type: ignore[method-assign]
 
-    socket_server = build_socket_server(registry)
+    window_seconds = (
+        settlement_window_seconds
+        if settlement_window_seconds is not None
+        else float(os.environ.get("SETTLEMENT_WINDOW_SECONDS", DEFAULT_WINDOW_SECONDS))
+    )
+    socket_server = build_socket_server(registry, window_seconds)
     app.mount("/socket.io", socketio.ASGIApp(socket_server))
 
     return app

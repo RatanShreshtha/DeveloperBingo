@@ -6,11 +6,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] The first valid claim for a prize opens the settlement window
-- [ ] Valid claims for the same prize within the window all win together
-- [ ] Draws are held until the window closes
-- [ ] The window length defaults to one second and is configurable
-- [ ] Claims are judged against the draws at window close
+- [x] The first valid claim for a prize opens the settlement window
+- [x] Valid claims for the same prize within the window all win together
+- [x] Draws are held until the window closes
+- [x] The window length defaults to one second and is configurable
+- [x] Claims are judged against the draws at window close
 
 ## Design decisions
 

@@ -4,6 +4,7 @@ import { fetchDefaultPool, type TopicResponse } from '../api/pools'
 import type { HostLink } from '../api/games'
 import { END_MESSAGES } from '../endMessages'
 import { useLobbyStore } from '../stores/lobby'
+import ClaimLog from './ClaimLog.vue'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
 import PrizeBoard from './PrizeBoard.vue'
@@ -58,6 +59,7 @@ onMounted(async () => {
       </div>
       <p v-if="store.actionError" role="alert">{{ store.actionError }}</p>
       <PrizeBoard :prizes="store.prizes" />
+      <ClaimLog :claims="store.claims" :message-for="store.messageFor" />
       <DrawHistory :draws="store.draws" />
       <LobbyList :players="store.players" />
     </template>

@@ -1,8 +1,11 @@
 """The rule violations the engine reports. Each declares the wire code that tells a client why."""
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from devbingo_backend.wire import ErrorCode
+
+if TYPE_CHECKING:
+    from devbingo_backend.settlement import ClaimRecord
 
 
 class GameError(Exception):
@@ -12,6 +15,8 @@ class GameError(Exception):
     """
 
     code: ClassVar[ErrorCode]
+    # Set when refusing a claim put it in the claim log: the record of that refusal.
+    record: "ClaimRecord | None" = None
 
 
 class GameNotFound(GameError):
@@ -82,3 +87,15 @@ class InvalidMessage(GameError):
     """A message that is missing a field, or has one of the wrong type."""
 
     code = ErrorCode.INVALID_MESSAGE
+
+
+class SettlementWindowOpen(GameError):
+    """A draw was asked for while a settlement window is open: draws are held until it closes."""
+
+    code = ErrorCode.SETTLEMENT_OPEN
+
+
+class ClaimPending(GameError):
+    """A tick was taken back while the player has a claim waiting in a settlement window."""
+
+    code = ErrorCode.CLAIM_PENDING

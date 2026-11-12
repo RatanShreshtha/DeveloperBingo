@@ -1,0 +1,86 @@
+"""The outcomes the engine hands back when windows settle, so callers never diff the claim log."""
+
+import random
+
+import pytest
+from helpers import draw_everything, names_on
+
+from devbingo_backend.default_pool import DEFAULT_POOL
+from devbingo_backend.game import ClaimNotValid, GameRegistry, PlayerRef
+from devbingo_backend.prizes import Prize
+from devbingo_backend.settlement import ClaimRecord
+from devbingo_backend.wire import ErrorCode
+
+
+@pytest.fixture
+def table():
+    registry = GameRegistry(rng=random.Random(7))
+    game = registry.create_game(DEFAULT_POOL)
+    tickets = {
+        name: registry.join(PlayerRef(game.code, name)).ticket for name in ("Ada", "Grace")
+    }
+    registry.start(game)
+    draw_everything(registry, game)
+    for name, ticket in tickets.items():
+        for topic in names_on(ticket)[:5]:
+            registry.tick(PlayerRef(game.code, name), topic)
+    return registry, game
+
+
+def player(game, name):
+    return PlayerRef(game.code, name)
+
+
+def test_closing_a_window_returns_each_claimants_outcome(table):
+    registry, game = table
+    registry.claim(player(game, "Ada"), Prize.EARLY_FIVE)
+    registry.claim(player(game, "Grace"), Prize.EARLY_FIVE)
+
+    settled = registry.close_window(game.code, Prize.EARLY_FIVE)
+
+    assert settled.records == (
+        ClaimRecord("Ada", Prize.EARLY_FIVE, accepted=True),
+        ClaimRecord("Grace", Prize.EARLY_FIVE, accepted=True),
+    )
+
+
+def test_ending_the_game_settles_every_open_window_as_refused_game_ended(table):
+    registry, game = table
+    registry.claim(player(game, "Ada"), Prize.EARLY_FIVE)
+    registry.claim(player(game, "Grace"), Prize.EARLY_FIVE)
+
+    settled = registry.end(game)
+
+    ended = ErrorCode.GAME_ENDED
+    assert [s.prize for s in settled] == [Prize.EARLY_FIVE]
+    assert settled[0].awarded_to == ()
+    assert settled[0].records == (
+        ClaimRecord("Ada", Prize.EARLY_FIVE, accepted=False, error=ended),
+        ClaimRecord("Grace", Prize.EARLY_FIVE, accepted=False, error=ended),
+    )
+    assert registry.claim_log(game.code) == list(settled[0].records)
+    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
+
+
+def test_a_window_closed_after_the_game_was_ended_is_a_no_op(table):
+    registry, game = table
+    registry.claim(player(game, "Ada"), Prize.EARLY_FIVE)
+    registry.end(game)
+
+    assert registry.close_window(game.code, Prize.EARLY_FIVE) is None
+    assert len(registry.claim_log(game.code)) == 1
+
+
+def test_ending_a_game_with_no_open_window_settles_nothing(table):
+    registry, game = table
+
+    assert registry.end(game) == ()
+
+
+def test_a_claim_refused_outright_carries_its_logged_record(table):
+    registry, game = table
+
+    with pytest.raises(ClaimNotValid) as refused:
+        registry.claim(player(game, "Ada"), Prize.FULL_HOUSE)
+
+    assert refused.value.record == registry.claim_log(game.code)[0]

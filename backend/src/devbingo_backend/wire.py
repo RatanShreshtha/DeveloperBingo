@@ -36,6 +36,8 @@ class ErrorCode(StrEnum):
     NOT_JOINED = "not_joined"
     UNKNOWN_PRIZE = "unknown_prize"
     INVALID_MESSAGE = "invalid_message"
+    SETTLEMENT_OPEN = "settlement_open"
+    CLAIM_PENDING = "claim_pending"
 
 
 class ClientEvent(StrEnum):
@@ -59,6 +61,8 @@ class ServerEvent(StrEnum):
     GAME_ENDED = "game_ended"
     TOPIC_DRAWN = "topic_drawn"
     PRIZE_AWARDED = "prize_awarded"
+    # Sent to the host only: refused claims stay private to the claimant among players.
+    CLAIM_LOGGED = "claim_logged"
 
 
 class _Message(BaseModel):
@@ -125,6 +129,15 @@ class PrizeBoardEntry(_Message):
     awarded_to: list[str]
 
 
+class ClaimLogEntry(_Message):
+    """One decided claim as the host sees it. A refused claim says why, as a wire error code."""
+
+    player: str
+    prize: Prize
+    accepted: bool
+    error: ErrorCode | None
+
+
 class Refusal(_Message):
     ok: Literal[False] = False
     error: ErrorCode
@@ -145,6 +158,7 @@ class WatchAck(_Message):
     ok: Literal[True] = True
     players: list[str]
     prizes: list[PrizeBoardEntry]
+    claims: list[ClaimLogEntry]
 
 
 class DrawAck(_Message):
@@ -180,6 +194,7 @@ SOCKET_MODELS: list[type[BaseModel]] = [
     TickPayload,
     ClaimPayload,
     PrizeBoardEntry,
+    ClaimLogEntry,
     Refusal,
     Accepted,
     JoinAck,

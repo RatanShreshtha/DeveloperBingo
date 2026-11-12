@@ -1,7 +1,7 @@
 """Setup shared by the engine tests."""
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import GameRegistry
+from devbingo_backend.game import GameRegistry, PlayerRef
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.ticket import Ticket
@@ -46,3 +46,9 @@ def board_of(**awarded_to: list[str]) -> dict[Prize, list[str]]:
 def wire_board_of(**awarded_to: list[str]) -> list[dict]:
     """The prize board as the wire carries it: every prize in order, with who holds it."""
     return [{"prize": prize.value, "awarded_to": awarded_to.get(prize.value, [])} for prize in Prize]
+
+
+def claim_and_settle(registry: GameRegistry, player: PlayerRef, prize: Prize):
+    """Claim a prize and close its settlement window at once, as if no one else claimed in it."""
+    registry.claim(player, prize)
+    return registry.close_window(player.code, prize)

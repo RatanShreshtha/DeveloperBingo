@@ -48,9 +48,9 @@ onMounted(() => {
         :key="entry.prize"
         type="button"
         :data-test="`claim-${entry.prize}`"
-        :disabled="store.isAwarded(entry.prize)"
+        :disabled="store.isAwarded(entry.prize) || store.isPending(entry.prize)"
         @click="store.claimPrize(entry.prize)"
-      >Claim {{ PRIZE_LABELS[entry.prize] }}</button>
+      >{{ store.isPending(entry.prize) ? 'Claiming' : 'Claim' }} {{ PRIZE_LABELS[entry.prize] }}{{ store.isPending(entry.prize) ? '…' : '' }}</button>
     </template>
     <PrizeBoard :prizes="store.prizes" />
     <DrawHistory :draws="store.draws" />
