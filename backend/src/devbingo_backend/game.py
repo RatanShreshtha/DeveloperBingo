@@ -170,7 +170,12 @@ class GameRegistry:
                 raise NameTaken(player.name)
             took_over = member.connected
             member.connected = True
-            return Joined(member.ticket, False, self._issue_token(member), took_over)
+            return Joined(
+                member.ticket,
+                is_new_player=False,
+                rejoin_token=self._issue_token(member),
+                took_over=took_over,
+            )
         self._refuse_if_ended(game, player.code)
         if game.status != "lobby":
             raise GameAlreadyStarted(player.code)
@@ -179,7 +184,7 @@ class GameRegistry:
         ticket = self._deal_unique_ticket(game)
         member = _Player(name=player.name.strip(), ticket=ticket)
         game.players[key] = member
-        return Joined(ticket, True, self._issue_token(member))
+        return Joined(ticket, is_new_player=True, rejoin_token=self._issue_token(member))
 
     @staticmethod
     def _issue_token(member: _Player) -> str:

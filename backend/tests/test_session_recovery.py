@@ -255,3 +255,31 @@ def test_a_takeover_does_not_announce_a_change_to_the_lobby():
     join(adapter, game, "sid-ada-2", rejoin_token=first["rejoin_token"])
 
     assert [e for e in broadcaster.emitted[before:] if e[0] == "lobby_updated"] == []
+
+
+def test_a_takeover_during_a_pending_claim_reattaches_it_without_logging_it_twice():
+    scheduler = ManualScheduler()
+    adapter, registry, game, _ = a_game(scheduler)
+    ada = join(adapter, game)
+    start_and_draw_everything(registry, game)
+    for topic in topics_on(ada["ticket"]):
+        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+
+    async def scenario():
+        first_claim = asyncio.ensure_future(adapter.claim_prize("sid-ada", {"prize": "early_five"}))
+        await asyncio.sleep(0)
+        takeover = await adapter.join_game(
+            "sid-ada-2", {"code": game.code, "name": "Ada", "rejoin_token": ada["rejoin_token"]}
+        )
+        reattached = asyncio.ensure_future(adapter.claim_prize("sid-ada-2", {"prize": "early_five"}))
+        await asyncio.sleep(0)
+        for action in scheduler.pending:
+            await action()
+        return takeover, await first_claim, await reattached
+
+    takeover, first, second = asyncio.run(scenario())
+
+    assert takeover["pending_claims"] == ["early_five"]
+    assert first == {"ok": True}
+    assert second == {"ok": True}
+    assert [entry.player for entry in registry.claim_log(game.code)] == ["Ada"]

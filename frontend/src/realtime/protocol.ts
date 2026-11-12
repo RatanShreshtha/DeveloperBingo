@@ -17,26 +17,23 @@ export type GameEnd = Schemas['GameEnded']
 export type ErrorCode = Schemas['ErrorCode']
 export type Refusal = Schemas['Refusal']
 
-export type JoinAck = Schemas['JoinAck']
-export type JoinResult = JoinAck | Refusal
-export type WatchResult = Schemas['WatchAck'] | Refusal
-export type StartResult = Schemas['Accepted'] | Refusal
-export type EndResult = Schemas['Accepted'] | Refusal
+export type JoinResult = PlayerSnapshot | Refusal
+export type WatchResult = HostSnapshot | Refusal
 export type DrawResult = Schemas['DrawAck'] | Refusal
 // A tick changes only the player's own list, so the server says only whether it happened.
-export type TickResult = Schemas['Accepted'] | Refusal
-export type ClaimResult = Schemas['Accepted'] | Refusal
+// A command that only says whether it happened: start, end, tick, untick and claim.
+export type Done = Schemas['Accepted'] | Refusal
 
 // Event name → what the client sends and what the server acknowledges with.
 export type Commands = {
   join_game: [Schemas['JoinPayload'], JoinResult]
   watch_lobby: [HostLink, WatchResult]
-  start_game: [HostLink, StartResult]
+  start_game: [HostLink, Done]
   draw_topic: [HostLink, DrawResult]
-  end_game: [HostLink, EndResult]
-  tick_topic: [Schemas['TickPayload'], TickResult]
-  untick_topic: [Schemas['TickPayload'], TickResult]
-  claim_prize: [Schemas['ClaimPayload'], ClaimResult]
+  end_game: [HostLink, Done]
+  tick_topic: [Schemas['TickPayload'], Done]
+  untick_topic: [Schemas['TickPayload'], Done]
+  claim_prize: [Schemas['ClaimPayload'], Done]
 }
 
 // Event name → what the server announces to a room.
