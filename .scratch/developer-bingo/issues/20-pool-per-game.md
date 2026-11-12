@@ -6,15 +6,15 @@
 
 **Status:** ready-for-agent
 
-- [ ] `create_game` takes a `Pool`. Each game keeps its Pool and deals Tickets and draws from it
-- [ ] The engine no longer imports `DEFAULT_POOL`. `DEFAULT_POOL` stays in code only as the seed data for the Pool Library
-- [ ] `POST /games` loads the default Pool from the Pool Library and passes it to `create_game`
-- [ ] `POST /games` returns 503 when the Pool Library can't be reached. There is no fallback to the in-code Pool
-- [ ] The Pool Library is a port. Its interface is "load the default Pool" for now; ticket 14 adds save, list and load-by-id
-- [ ] Two adapters: Postgres for the app, and in-memory for tests
-- [ ] API tests use the in-memory adapter and no longer need Postgres
-- [ ] One contract test suite runs against both adapters; the Postgres run is skipped when no database is available
-- [ ] `GameRegistry.is_pool_locked` and its tests are removed: a game's Pool is fixed from creation, so there is nothing left to lock
+- [x] `create_game` takes a `Pool`. Each game keeps its Pool and deals Tickets and draws from it
+- [x] The engine no longer imports `DEFAULT_POOL`. `DEFAULT_POOL` stays in code only as the seed data for the Pool Library
+- [x] `POST /games` loads the default Pool from the Pool Library and passes it to `create_game`
+- [x] `POST /games` returns 503 when the Pool Library can't be reached. There is no fallback to the in-code Pool
+- [x] The Pool Library is a port. Its interface is "load the default Pool" for now; ticket 14 adds save, list and load-by-id
+- [x] Two adapters: Postgres for the app, and in-memory for tests
+- [x] API tests use the in-memory adapter and no longer need Postgres
+- [x] One contract test suite runs against both adapters; the Postgres run is skipped when no database is available
+- [x] `GameRegistry.is_pool_locked` and its tests are removed: a game's Pool is fixed from creation, so there is nothing left to lock
 
 ## Notes
 

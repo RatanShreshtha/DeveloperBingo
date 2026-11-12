@@ -17,23 +17,10 @@ from devbingo_backend.wire import HostLink
 @pytest.fixture
 def started():
     registry = GameRegistry(rng=random.Random(7))
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
     registry.join(PlayerRef(game.code, "Ada"))
     registry.start(game)
     return registry, game
-
-
-def test_starting_the_game_locks_the_pool(started):
-    registry, game = started
-
-    assert registry.is_pool_locked(game.code) is True
-
-
-def test_the_pool_is_not_locked_before_the_game_starts():
-    registry = GameRegistry()
-    game = registry.create_game()
-
-    assert registry.is_pool_locked(game.code) is False
 
 
 def test_the_game_cannot_be_started_twice(started):
@@ -45,7 +32,7 @@ def test_the_game_cannot_be_started_twice(started):
 
 def test_draws_are_refused_before_the_game_starts():
     registry = GameRegistry()
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
 
     with pytest.raises(GameNotStarted):
         registry.draw(game)
