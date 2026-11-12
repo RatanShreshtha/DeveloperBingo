@@ -45,3 +45,11 @@ def test_two_games_keep_their_own_pools():
 
     assert all(name.startswith("Alpha") for name in alpha_ticket.topic_names())
     assert all(name.startswith("Beta") for name in beta_ticket.topic_names())
+
+
+def test_the_registry_reports_the_pool_a_game_was_created_with():
+    pool = custom_pool("Alpha")
+    registry = GameRegistry(rng=random.Random(3))
+    game = registry.create_game(pool)
+
+    assert registry.pool_of(game.code) is pool

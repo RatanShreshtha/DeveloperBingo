@@ -1,12 +1,16 @@
 import { createRouter as createVueRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import GameHistoryView from './views/GameHistoryView.vue'
 import HomeView from './views/HomeView.vue'
 import JoinView from './views/JoinView.vue'
 import HostView from './views/HostView.vue'
+import PoolEditorView from './views/PoolEditorView.vue'
 import PlayerLobbyView from './views/PlayerLobbyView.vue'
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', component: HomeView },
   { path: '/join', component: JoinView },
+  { path: '/pools/new', component: PoolEditorView },
+  { path: '/games/:code/history', component: GameHistoryView, props: true },
   { path: '/games/:code', component: PlayerLobbyView, props: true },
   {
     path: '/host/:code',

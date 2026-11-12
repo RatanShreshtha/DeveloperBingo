@@ -7,3 +7,15 @@ class UnavailablePoolLibrary:
 
     def load_default(self) -> Pool:
         raise PoolLibraryUnavailable
+
+    def save(self, name: str, pool: Pool) -> int:
+        raise PoolLibraryUnavailable
+
+    def list_pools(self):
+        raise PoolLibraryUnavailable
+
+    def load(self, pool_id: int) -> Pool:
+        raise PoolLibraryUnavailable
+
+    def get(self, pool_id: int):
+        raise PoolLibraryUnavailable

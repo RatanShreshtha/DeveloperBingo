@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { fetchDefaultPool, type TopicResponse } from '../api/pools'
+import { fetchGamePool, type TopicResponse } from '../api/pools'
 import type { HostLink } from '../api/games'
 import { END_MESSAGES } from '../endMessages'
 import { useLobbyStore } from '../stores/lobby'
@@ -13,6 +13,7 @@ import PoolColumns from './PoolColumns.vue'
 const props = defineProps<{ code: string; token: string | undefined }>()
 const store = useLobbyStore()
 const pool = ref<TopicResponse[][] | null>(null)
+const poolName = ref<string | null>(null)
 const poolError = ref(false)
 
 function hostLink(): HostLink {
@@ -23,7 +24,9 @@ onMounted(async () => {
   store.watchAsHost(hostLink())
   store.loadDrawHistory(props.code)
   try {
-    pool.value = (await fetchDefaultPool()).columns
+    const gamePool = await fetchGamePool(props.code)
+    pool.value = gamePool.columns
+    poolName.value = gamePool.name ?? null
   } catch {
     poolError.value = true
   }
@@ -35,7 +38,10 @@ onMounted(async () => {
     <p>Game code: <strong>{{ code }}</strong></p>
     <p v-if="store.error" role="alert">{{ store.error }}</p>
     <template v-else>
-      <p v-if="store.endReason">{{ END_MESSAGES.host[store.endReason] }}</p>
+      <p v-if="store.endReason">
+        {{ END_MESSAGES.host[store.endReason] }}
+        <RouterLink :to="`/games/${code}/history`" data-test="history-link">View the game history</RouterLink>
+      </p>
       <div v-else>
         <button
           v-if="!store.started"
@@ -63,7 +69,8 @@ onMounted(async () => {
       <DrawHistory :draws="store.draws" />
       <LobbyList :players="store.players" />
     </template>
+    <p v-if="poolName" data-test="pool-name">Pool: {{ poolName }}</p>
     <PoolColumns v-if="pool" :columns="pool" />
-    <p v-else-if="poolError" role="alert">Could not load the default pool.</p>
+    <p v-else-if="poolError" role="alert">Could not load this game's pool.</p>
   </section>
 </template>

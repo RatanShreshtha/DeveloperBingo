@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/games/{code}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Game History
+         * @description An ended game's record. Public: anyone with the game's code may read it.
+         */
+        get: operations["read_game_history_games__code__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -30,7 +50,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Game */
+        /**
+         * Create Game
+         * @description Create a game on the default pool, or on the saved pool named by `pool_id`.
+         */
         post: operations["create_game_games_post"];
         delete?: never;
         options?: never;
@@ -92,10 +115,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pools */
+        get: operations["list_pools_pools_get"];
+        put?: never;
+        /**
+         * Save Pool
+         * @description Save a custom pool for every host to use, once it meets the pool rules.
+         */
+        post: operations["save_pool_pools_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pools/{pool_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Pool */
+        get: operations["read_pool_pools__pool_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/games/{code}/pool": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Game Pool */
+        get: operations["read_game_pool_games__code__pool_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ClaimLogEntry
+         * @description One decided claim as the host sees it. A refused claim says why, as a wire error code.
+         */
+        ClaimLogEntry: {
+            /** Player */
+            player: string;
+            prize: components["schemas"]["Prize"];
+            /** Accepted */
+            accepted: boolean;
+            error: components["schemas"]["ErrorCode"] | null;
+        };
+        /** CreateGameRequest */
+        CreateGameRequest: {
+            /** Pool Id */
+            pool_id?: number | null;
+        };
         /**
          * DrawAnnouncement
          * @description A draw as players see it: its place in the game, the topic and its explanation.
@@ -112,6 +207,43 @@ export interface components {
         DrawHistoryResponse: {
             /** Draws */
             draws: components["schemas"]["DrawAnnouncement"][];
+        };
+        /**
+         * ErrorCode
+         * @description Why a request was refused. Each engine error declares the code it maps to.
+         * @enum {string}
+         */
+        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "game_ended" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "claim_not_valid" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message" | "settlement_open" | "claim_pending";
+        /**
+         * GameHistoryResponse
+         * @description An ended game: its draws in order, every claim with its outcome, and who won each prize.
+         */
+        GameHistoryResponse: {
+            /** Code */
+            code: string;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "full_house" | "host";
+            /** Pool Name */
+            pool_name: string | null;
+            /** Draws */
+            draws: components["schemas"]["DrawAnnouncement"][];
+            /** Claims */
+            claims: components["schemas"]["ClaimLogEntry"][];
+            /** Winners */
+            winners: components["schemas"]["PrizeBoardEntry"][];
+        };
+        /**
+         * GamePoolResponse
+         * @description A game's pool, with the name it was chosen under (none if the game was made without one).
+         */
+        GamePoolResponse: {
+            /** Columns */
+            columns: components["schemas"]["TopicResponse"][][];
+            /** Name */
+            name?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -148,10 +280,54 @@ export interface components {
             /** Players */
             players: string[];
         };
+        /** NewPool */
+        NewPool: {
+            /** Name */
+            name: string;
+            /** Topics */
+            topics: components["schemas"]["TopicResponse"][];
+        };
+        /** PoolRefusal */
+        PoolRefusal: {
+            /** Rule */
+            rule: string;
+            /** Message */
+            message: string;
+        };
+        /** PoolRefused */
+        PoolRefused: {
+            detail: components["schemas"]["PoolRefusal"];
+        };
         /** PoolResponse */
         PoolResponse: {
             /** Columns */
             columns: components["schemas"]["TopicResponse"][][];
+        };
+        /** PoolSummaryResponse */
+        PoolSummaryResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Is Default */
+            is_default: boolean;
+        };
+        /**
+         * Prize
+         * @description The prizes a game can award, in the order the prize board lists them.
+         *
+         *     The value is the name the wire uses.
+         * @enum {string}
+         */
+        Prize: "early_five" | "top_line" | "middle_line" | "bottom_line" | "four_corners" | "full_house";
+        /**
+         * PrizeBoardEntry
+         * @description One prize, and the names of the players it was awarded to. Empty while it is open.
+         */
+        PrizeBoardEntry: {
+            prize: components["schemas"]["Prize"];
+            /** Awarded To */
+            awarded_to: string[];
         };
         /** TopicResponse */
         TopicResponse: {
@@ -182,18 +358,6 @@ export interface components {
              */
             ok: true;
         };
-        /**
-         * ClaimLogEntry
-         * @description One decided claim as the host sees it. A refused claim says why, as a wire error code.
-         */
-        ClaimLogEntry: {
-            /** Player */
-            player: string;
-            prize: components["schemas"]["Prize"];
-            /** Accepted */
-            accepted: boolean;
-            error: components["schemas"]["ErrorCode"] | null;
-        };
         /** ClaimPayload */
         ClaimPayload: {
             /** Prize */
@@ -209,12 +373,6 @@ export interface components {
             ok: true;
             draw: components["schemas"]["DrawAnnouncement"];
         };
-        /**
-         * ErrorCode
-         * @description Why a request was refused. Each engine error declares the code it maps to.
-         * @enum {string}
-         */
-        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "game_ended" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "claim_not_valid" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message" | "settlement_open" | "claim_pending";
         /**
          * GameEnded
          * @description The game is over: someone claimed the full house, or the host ended it.
@@ -255,25 +413,8 @@ export interface components {
             /** Players */
             players: string[];
         };
-        /**
-         * Prize
-         * @description The prizes a game can award, in the order the prize board lists them.
-         *
-         *     The value is the name the wire uses.
-         * @enum {string}
-         */
-        Prize: "early_five" | "top_line" | "middle_line" | "bottom_line" | "four_corners" | "full_house";
         /** PrizeAwarded */
         PrizeAwarded: {
-            prize: components["schemas"]["Prize"];
-            /** Awarded To */
-            awarded_to: string[];
-        };
-        /**
-         * PrizeBoardEntry
-         * @description One prize, and the names of the players it was awarded to. Empty while it is open.
-         */
-        PrizeBoardEntry: {
             prize: components["schemas"]["Prize"];
             /** Awarded To */
             awarded_to: string[];
@@ -317,6 +458,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    read_game_history_games__code__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_health_get: {
         parameters: {
             query?: never;
@@ -344,7 +516,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateGameRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -353,6 +529,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HostLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -437,6 +622,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PoolResponse"];
+                };
+            };
+        };
+    };
+    list_pools_pools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolSummaryResponse"][];
+                };
+            };
+        };
+    };
+    save_pool_pools_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPool"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolSummaryResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolRefused"];
+                };
+            };
+        };
+    };
+    read_pool_pools__pool_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pool_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_game_pool_games__code__pool_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GamePoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

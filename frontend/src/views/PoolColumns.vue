@@ -6,7 +6,7 @@ defineProps<{ columns: TopicResponse[][] }>()
 
 <template>
   <section>
-    <h2>Default pool</h2>
+    <h2>Pool</h2>
     <div class="pool-columns">
       <div v-for="(column, index) in columns" :key="index" class="pool-column">
         <h3>Column {{ index + 1 }}</h3>
