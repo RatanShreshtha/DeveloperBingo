@@ -1,4 +1,4 @@
-"""The public route for a finished game's history."""
+"""The public route for an ended game's history."""
 
 from typing import Literal
 
@@ -10,7 +10,7 @@ from devbingo_backend.wire import ClaimLogEntry, DrawAnnouncement, PrizeBoardEnt
 
 
 class GameHistoryResponse(_Message):
-    """A finished game: its draws in order, every claim with its outcome, and who won each prize."""
+    """An ended game: its draws in order, every claim with its outcome, and who won each prize."""
 
     code: str
     # Why it ended: the full house was awarded, or the host ended it.
@@ -45,7 +45,7 @@ def history_router(store: HistoryStore) -> APIRouter:
 
     @router.get("/games/{code}/history", response_model=GameHistoryResponse)
     def read_game_history(code: str) -> GameHistoryResponse:
-        """A finished game's record. Public: anyone with the game's code may read it."""
+        """An ended game's record. Public: anyone with the game's code may read it."""
         try:
             summary = store.load(code)
         except HistoryUnavailable:

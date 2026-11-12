@@ -1,4 +1,4 @@
-"""A finished game's history over HTTP, and the wiring that stores a game when it ends."""
+"""An ended game's history over HTTP, and the wiring that stores a game when it ends."""
 
 import logging
 
@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from helpers import claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.app import create_app
-from devbingo_backend.game import GameAlreadyEnded, PlayerRef
+from devbingo_backend.game import GameAlreadyEnded, GameSummary, PlayerRef
 from devbingo_backend.history import HistoryUnavailable, InMemoryHistoryStore
 from devbingo_backend.pool_library import InMemoryPoolLibrary
 from devbingo_backend.prizes import Prize
@@ -19,6 +19,9 @@ class UnavailableHistoryStore:
         raise HistoryUnavailable
 
     def load(self, code):
+        raise HistoryUnavailable
+
+    def exists(self, code):
         raise HistoryUnavailable
 
 
@@ -127,3 +130,23 @@ def test_a_game_created_without_a_pool_records_the_default_pool_name(client):
     end_game(client, link)
 
     assert client.get(f"/games/{link['code']}/history").json()["pool_name"] == "Default"
+
+
+def test_a_code_that_already_has_history_is_never_given_to_a_new_game(store, monkeypatch):
+    taken = "TAKEN1"
+    store.save(GameSummary(taken, "host", None, (), (), {prize: () for prize in Prize}))
+    letters = iter(taken + taken + "FRESH1")
+    monkeypatch.setattr("devbingo_backend.game.secrets.choice", lambda _alphabet: next(letters))
+    app = create_app(pool_library=InMemoryPoolLibrary(), history_store=store)
+
+    with TestClient(app) as c:
+        code = c.post("/games").json()["code"]
+
+    assert code == "FRESH1"
+    assert store.load(taken).reason == "host"
+
+
+def test_a_game_can_still_be_created_when_the_history_store_is_down():
+    app = create_app(pool_library=InMemoryPoolLibrary(), history_store=UnavailableHistoryStore())
+    with TestClient(app) as c:
+        assert c.post("/games").status_code == 201

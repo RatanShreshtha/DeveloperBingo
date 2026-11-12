@@ -11,7 +11,7 @@ from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
 from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
-from devbingo_backend.history import HistoryStore, PostgresHistoryStore
+from devbingo_backend.history import HistoryStore, HistoryUnavailable, PostgresHistoryStore
 from devbingo_backend.history_api import history_router
 from devbingo_backend.pool_library import (
     PoolLibrary,
@@ -51,7 +51,16 @@ def create_app(
     url = database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     engine = create_engine(url, connect_args={"connect_timeout": 2})
     history = history_store or PostgresHistoryStore(engine)
-    registry = GameRegistry(on_finished=history.save)
+
+    def code_has_history(code: str) -> bool:
+        # If history can't be read the code is treated as free: `save` refuses to overwrite, so
+        # a clash still costs nothing but the new game's record.
+        try:
+            return history.exists(code)
+        except HistoryUnavailable:
+            return False
+
+    registry = GameRegistry(on_ended=history.save, code_taken=code_has_history)
     library = pool_library or PostgresPoolLibrary(engine)
 
     def database_is_up() -> bool:
@@ -93,11 +102,10 @@ def create_app(
         if body is None or body.pool_id is None:
             return registry.create_game(library.load_default(), pool_name=DEFAULT_POOL_NAME)
         try:
-            pool = library.load(body.pool_id)
+            saved = library.get(body.pool_id)
         except PoolNotFound:
             raise HTTPException(status_code=404, detail="pool not found") from None
-        name = next((p.name for p in library.list_pools() if p.id == body.pool_id), None)
-        return registry.create_game(pool, pool_name=name)
+        return registry.create_game(saved.pool, pool_name=saved.name)
 
     @app.get("/games/{code}/lobby", response_model=LobbyResponse)
     def read_lobby(

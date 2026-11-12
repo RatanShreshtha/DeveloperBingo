@@ -1,4 +1,4 @@
-"""When a game ends the registry hands one finished-game summary to its observer."""
+"""When a game ends the registry hands one ended-game summary to its observer."""
 
 import random
 
@@ -14,7 +14,7 @@ from devbingo_backend.prizes import Prize
 @pytest.fixture
 def setup():
     summaries = []
-    registry = GameRegistry(rng=random.Random(5), on_finished=summaries.append)
+    registry = GameRegistry(rng=random.Random(5), on_ended=summaries.append)
     game = registry.create_game(DEFAULT_POOL, pool_name="Default")
     ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     return registry, game, ticket, summaries
@@ -89,7 +89,7 @@ def test_a_failing_observer_does_not_stop_the_game_ending(caplog):
     def boom(_summary):
         raise RuntimeError("store down")
 
-    registry = GameRegistry(on_finished=boom)
+    registry = GameRegistry(on_ended=boom)
     game = registry.create_game(DEFAULT_POOL)
     with caplog.at_level("ERROR"):
         registry.end(game)
@@ -97,3 +97,19 @@ def test_a_failing_observer_does_not_stop_the_game_ending(caplog):
     assert any(r.exc_info for r in caplog.records)
     with pytest.raises(Exception):
         registry.start(game)  # ended
+
+
+def test_a_code_the_caller_says_is_taken_is_never_handed_to_a_new_game():
+    refused: list[str] = []
+
+    def taken(code: str) -> bool:
+        if len(refused) < 3:
+            refused.append(code)
+            return True
+        return False
+
+    registry = GameRegistry(code_taken=taken)
+    link = registry.create_game(DEFAULT_POOL)
+
+    assert len(refused) == 3
+    assert link.code not in refused

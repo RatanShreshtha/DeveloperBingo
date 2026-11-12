@@ -16,3 +16,6 @@ class UnavailablePoolLibrary:
 
     def load(self, pool_id: int) -> Pool:
         raise PoolLibraryUnavailable
+
+    def get(self, pool_id: int):
+        raise PoolLibraryUnavailable

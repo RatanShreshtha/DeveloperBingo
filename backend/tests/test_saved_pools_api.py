@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from devbingo_backend.app import create_app
@@ -108,7 +109,7 @@ def test_a_game_with_no_body_uses_the_default_pool():
         shown = client.get(f"/games/{code}/pool").json()
         default = client.get("/pools/default").json()
 
-    assert shown == default
+    assert shown["columns"] == default["columns"]
 
 
 def test_a_game_with_an_unknown_pool_id_is_not_found_and_creates_nothing():
@@ -121,3 +122,90 @@ def test_a_game_with_an_unknown_pool_id_is_not_found_and_creates_nothing():
 def test_the_pool_of_an_unknown_game_is_not_found():
     with make_client() as client:
         assert client.get("/games/NOPE00/pool").status_code == 404
+
+
+def refusal_of(client, **overrides):
+    body = {"name": "Limits", "topics": topics()}
+    body.update(overrides)
+    response = client.post("/pools", json=body)
+    assert response.status_code == 422
+    return response.json()["detail"]
+
+
+def test_a_pool_name_over_eighty_characters_is_refused_naming_the_limit():
+    with make_client() as client:
+        detail = refusal_of(client, name="x" * 81)
+
+    assert detail["rule"] == "name_too_long"
+    assert "80" in detail["message"]
+
+
+def test_a_pool_name_of_eighty_characters_after_trimming_is_kept_trimmed():
+    with make_client() as client:
+        saved = client.post("/pools", json={"name": "  " + "x" * 80 + "  ", "topics": topics()})
+
+    assert saved.status_code == 201
+    assert saved.json()["name"] == "x" * 80
+
+
+def test_a_topic_name_over_eighty_characters_is_refused_naming_the_limit():
+    body = topics()
+    body[3]["name"] = "n" * 81
+    with make_client() as client:
+        detail = refusal_of(client, topics=body)
+
+    assert detail["rule"] == "topic_name_too_long"
+    assert "80" in detail["message"]
+
+
+def test_an_explanation_over_three_hundred_characters_is_refused_naming_the_limit():
+    body = topics()
+    body[3]["explanation"] = "e" * 301
+    with make_client() as client:
+        detail = refusal_of(client, topics=body)
+
+    assert detail["rule"] == "explanation_too_long"
+    assert "300" in detail["message"]
+
+
+def test_more_than_ninety_topics_are_refused_before_the_pool_rules_run():
+    with make_client() as client:
+        detail = refusal_of(client, topics=topics(count=91))
+
+    assert detail["rule"] == "too_many_topics"
+    assert "90" in detail["message"]
+
+
+def test_topic_names_and_explanations_are_stored_trimmed():
+    body = topics()
+    body[0] = {"name": "  Padded  ", "explanation": "  spaced out  "}
+    with make_client() as client:
+        pool_id = client.post("/pools", json={"name": "Trim", "topics": body}).json()["id"]
+        first = client.get(f"/pools/{pool_id}").json()["columns"][0][0]
+
+    assert first == {"name": "Padded", "explanation": "spaced out"}
+
+
+@pytest.mark.parametrize("name", ["Default", "default", "  DEFAULT "])
+def test_a_pool_named_default_is_refused_so_the_picker_has_one_default(name):
+    with make_client() as client:
+        detail = refusal_of(client, name=name)
+        listed = client.get("/pools").json()
+
+    assert detail["rule"] == "reserved_name"
+    assert len(listed) == 1
+
+
+def test_a_game_created_from_a_saved_pool_tells_the_host_the_pools_name():
+    with make_client() as client:
+        pool_id = client.post("/pools", json={"name": "Mine", "topics": topics()}).json()["id"]
+        code = client.post("/games", json={"pool_id": pool_id}).json()["code"]
+        shown = client.get(f"/games/{code}/pool").json()
+
+    assert shown["name"] == "Mine"
+
+
+def test_a_game_on_the_default_pool_tells_the_host_it_is_the_default():
+    with make_client() as client:
+        code = client.post("/games").json()["code"]
+        assert client.get(f"/games/{code}/pool").json()["name"] == "Default"

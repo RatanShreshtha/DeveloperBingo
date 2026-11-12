@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.pool import Pool, Topic, build_pool
 from devbingo_backend.pool_store import (
+    DEFAULT_POOL_NAME,
     PoolRecord,
     PoolTopicRecord,
     ensure_default_pool,
@@ -22,6 +23,12 @@ class PoolLibraryUnavailable(Exception):
 
 class PoolNotFound(Exception):
     """No pool in the library has that id."""
+
+
+@dataclass(frozen=True)
+class SavedPool:
+    name: str
+    pool: Pool
 
 
 @dataclass(frozen=True)
@@ -50,6 +57,10 @@ class PoolLibrary(Protocol):
         """The pool with this id. Raises PoolNotFound for an unknown id."""
         ...
 
+    def get(self, pool_id: int) -> SavedPool:
+        """The pool with this id together with its name. Raises PoolNotFound for an unknown id."""
+        ...
+
 
 class InMemoryPoolLibrary:
     """A library that holds the default pool in memory, with no database. For tests."""
@@ -57,7 +68,7 @@ class InMemoryPoolLibrary:
     def __init__(self, default: Pool = DEFAULT_POOL) -> None:
         self._default = default
         # Id 1 is the default; saved pools follow.
-        self._pools: dict[int, tuple[str, Pool]] = {1: ("Default", default)}
+        self._pools: dict[int, tuple[str, Pool]] = {1: (DEFAULT_POOL_NAME, default)}
 
     def load_default(self) -> Pool:
         return self._default
@@ -71,10 +82,14 @@ class InMemoryPoolLibrary:
         return [PoolSummary(pool_id, name, pool_id == 1) for pool_id, (name, _) in self._pools.items()]
 
     def load(self, pool_id: int) -> Pool:
+        return self.get(pool_id).pool
+
+    def get(self, pool_id: int) -> SavedPool:
         try:
-            return self._pools[pool_id][1]
+            name, pool = self._pools[pool_id]
         except KeyError:
             raise PoolNotFound(pool_id) from None
+        return SavedPool(name, pool)
 
 
 class PostgresPoolLibrary:
@@ -123,16 +138,21 @@ class PostgresPoolLibrary:
             raise PoolLibraryUnavailable from None
 
     def load(self, pool_id: int) -> Pool:
+        return self.get(pool_id).pool
+
+    def get(self, pool_id: int) -> SavedPool:
         try:
             ensure_default_pool(self._engine)
             with Session(self._engine) as session:
-                if session.get(PoolRecord, pool_id) is None:
+                record = session.get(PoolRecord, pool_id)
+                if record is None:
                     raise PoolNotFound(pool_id)
+                name = record.name
                 rows = session.exec(
                     select(PoolTopicRecord)
                     .where(PoolTopicRecord.pool_id == pool_id)
                     .order_by(PoolTopicRecord.position)
                 ).all()
-            return build_pool([Topic(row.name, row.explanation) for row in rows])
+            return SavedPool(name, build_pool([Topic(row.name, row.explanation) for row in rows]))
         except SQLAlchemyError:
             raise PoolLibraryUnavailable from None

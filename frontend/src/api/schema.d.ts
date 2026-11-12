@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Read Game History
-         * @description A finished game's record. Public: anyone with the game's code may read it.
+         * @description An ended game's record. Public: anyone with the game's code may read it.
          */
         get: operations["read_game_history_games__code__history_get"];
         put?: never;
@@ -216,7 +216,7 @@ export interface components {
         ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "game_ended" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "claim_not_valid" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message" | "settlement_open" | "claim_pending";
         /**
          * GameHistoryResponse
-         * @description A finished game: its draws in order, every claim with its outcome, and who won each prize.
+         * @description An ended game: its draws in order, every claim with its outcome, and who won each prize.
          */
         GameHistoryResponse: {
             /** Code */
@@ -234,6 +234,16 @@ export interface components {
             claims: components["schemas"]["ClaimLogEntry"][];
             /** Winners */
             winners: components["schemas"]["PrizeBoardEntry"][];
+        };
+        /**
+         * GamePoolResponse
+         * @description A game's pool, with the name it was chosen under (none if the game was made without one).
+         */
+        GamePoolResponse: {
+            /** Columns */
+            columns: components["schemas"]["TopicResponse"][][];
+            /** Name */
+            name?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -717,7 +727,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PoolResponse"];
+                    "application/json": components["schemas"]["GamePoolResponse"];
                 };
             };
             /** @description Validation Error */

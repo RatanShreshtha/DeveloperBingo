@@ -8,7 +8,7 @@
     "/games/{code}/history": {
       "get": {
         "summary": "Read Game History",
-        "description": "A finished game's record. Public: anyone with the game's code may read it.",
+        "description": "An ended game's record. Public: anyone with the game's code may read it.",
         "operationId": "read_game_history_games__code__history_get",
         "parameters": [
           {
@@ -335,7 +335,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PoolResponse"
+                  "$ref": "#/components/schemas/GamePoolResponse"
                 }
               }
             }
@@ -530,7 +530,38 @@
           "winners"
         ],
         "title": "GameHistoryResponse",
-        "description": "A finished game: its draws in order, every claim with its outcome, and who won each prize."
+        "description": "An ended game: its draws in order, every claim with its outcome, and who won each prize."
+      },
+      "GamePoolResponse": {
+        "properties": {
+          "columns": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/TopicResponse"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "columns"
+        ],
+        "title": "GamePoolResponse",
+        "description": "A game's pool, with the name it was chosen under (none if the game was made without one)."
       },
       "HTTPValidationError": {
         "properties": {

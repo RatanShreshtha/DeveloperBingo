@@ -7,11 +7,13 @@ const store = useLobbyStore()
 const created = ref<{ code: string; hostLink: string } | null>(null)
 const failed = ref(false)
 const pools = ref<PoolSummary[]>([])
-const poolId = ref<number | undefined>(undefined)
+// The picked pool's id. The default pool has an id like any other, so every option has a value.
+const pickedId = ref<number | undefined>(undefined)
 
 onMounted(async () => {
   try {
     pools.value = await fetchPools()
+    pickedId.value = pools.value.find((pool) => pool.is_default)?.id
   } catch {
     // Without the list the host can still create a game on the default pool.
   }
@@ -20,7 +22,9 @@ onMounted(async () => {
 async function createGame() {
   failed.value = false
   try {
-    const game = await store.create(poolId.value)
+    // The default pool is the server's fallback, so choosing it sends no pool id.
+    const picked = pools.value.find((pool) => pool.id === pickedId.value)
+    const game = await store.create(picked && !picked.is_default ? picked.id : undefined)
     created.value = {
       code: game.code,
       hostLink: `/host/${game.code}?token=${game.host_token}`,
@@ -35,8 +39,8 @@ async function createGame() {
   <section>
     <label v-if="pools.length > 1">
       Pool
-      <select v-model="poolId" data-test="pool-picker">
-        <option v-for="pool in pools" :key="pool.id" :value="pool.is_default ? undefined : pool.id">
+      <select v-model="pickedId" data-test="pool-picker">
+        <option v-for="pool in pools" :key="pool.id" :value="pool.id">
           {{ pool.name }}
         </option>
       </select>

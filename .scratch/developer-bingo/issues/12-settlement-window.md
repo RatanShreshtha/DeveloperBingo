@@ -28,4 +28,4 @@ Settled in the architecture review of claims (see 17).
 - **Unticking is refused while the player has a pending claim.** This enforces spec.md's "a player may untick a topic before a claim is made".
 
 ## Notes
-- Ticket 13 ends the game as soon as the full house is awarded (`GameRegistry._finish`). With a settlement window, simultaneous full-house claims must all win, so the end has to move to when the window closes. The full-house claim currently sets `Awarded.ends_game` itself.
+- Ticket 13 ends the game as soon as the full house is awarded (`GameRegistry._end`). With a settlement window, simultaneous full-house claims must all win, so the end has to move to when the window closes. The full-house claim currently sets `Awarded.ends_game` itself.

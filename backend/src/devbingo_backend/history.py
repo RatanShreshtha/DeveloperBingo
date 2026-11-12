@@ -1,10 +1,10 @@
-"""The History Store: where finished games are kept, behind a port the app and the tests plug into."""
+"""The History Store: where ended games are kept, behind a port the app and the tests plug into."""
 
 import threading
 from typing import Any, Protocol
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import Field, Session, SQLModel, col, delete, select
+from sqlmodel import Field, Session, SQLModel, col, select
 
 from devbingo_backend.game import Draw, GameSummary
 from devbingo_backend.pool import Topic
@@ -13,20 +13,28 @@ from devbingo_backend.settlement import ClaimRecord
 from devbingo_backend.wire import ErrorCode
 
 
+class AlreadyStored(Exception):
+    """A game with this code is already in the store. History is never overwritten."""
+
+
 class HistoryUnavailable(Exception):
     """The store cannot be reached right now, so nothing can be saved or read."""
 
 
 class HistoryStore(Protocol):
-    """Finished games, kept by the game's code."""
+    """Ended games, kept by the game's code."""
 
     def save(self, summary: GameSummary) -> None:
-        """Keep a finished game, replacing any earlier history under the same code.
-        Raises HistoryUnavailable if the store can't be written."""
+        """Keep an ended game. Raises AlreadyStored if the code already has history, which is left
+        as it was, and HistoryUnavailable if the store can't be written."""
+        ...
+
+    def exists(self, code: str) -> bool:
+        """Whether a game with this code is stored. Raises HistoryUnavailable if it can't be read."""
         ...
 
     def load(self, code: str) -> GameSummary | None:
-        """The finished game with this code, or None if none is stored.
+        """The ended game with this code, or None if none is stored.
         Raises HistoryUnavailable if the store can't be read."""
         ...
 
@@ -38,7 +46,12 @@ class InMemoryHistoryStore:
         self._games: dict[str, GameSummary] = {}
 
     def save(self, summary: GameSummary) -> None:
+        if summary.code in self._games:
+            raise AlreadyStored(summary.code)
         self._games[summary.code] = summary
+
+    def exists(self, code: str) -> bool:
+        return code in self._games
 
     def load(self, code: str) -> GameSummary | None:
         return self._games.get(code)
@@ -97,7 +110,7 @@ _create_lock = threading.Lock()
 
 
 class PostgresHistoryStore:
-    """The store the app uses: finished games kept in Postgres, tables created on first use."""
+    """The store the app uses: ended games kept in Postgres, tables created on first use."""
 
     def __init__(self, engine: Any) -> None:
         self._engine = engine
@@ -113,7 +126,8 @@ class PostgresHistoryStore:
         try:
             self._ensure_tables()
             with Session(self._engine) as session:
-                self._forget(session, summary.code)
+                if session.get(GameHistoryRecord, summary.code) is not None:
+                    raise AlreadyStored(summary.code)
                 session.add(
                     GameHistoryRecord(
                         code=summary.code, reason=summary.reason, pool_name=summary.pool_name
@@ -154,11 +168,13 @@ class PostgresHistoryStore:
         except SQLAlchemyError:
             raise HistoryUnavailable from None
 
-    @staticmethod
-    def _forget(session: Session, code: str) -> None:
-        for table in (GameWinnerRecord, GameClaimRecord, GameDrawRecord):
-            session.exec(delete(table).where(col(table.game_code) == code))
-        session.exec(delete(GameHistoryRecord).where(col(GameHistoryRecord.code) == code))
+    def exists(self, code: str) -> bool:
+        try:
+            self._ensure_tables()
+            with Session(self._engine) as session:
+                return session.get(GameHistoryRecord, code) is not None
+        except SQLAlchemyError:
+            raise HistoryUnavailable from None
 
     def load(self, code: str) -> GameSummary | None:
         try:

@@ -68,7 +68,7 @@ class Draw:
 
 @dataclass(frozen=True)
 class GameSummary:
-    """A finished game as the History Store keeps it. The game's code is its ID."""
+    """An ended game as the History Store keeps it. The game's code is its ID."""
 
     code: str
     reason: Literal["full_house", "host"]
@@ -123,13 +123,17 @@ class GameRegistry:
     def __init__(
         self,
         rng: random.Random | None = None,
-        on_finished: Callable[[GameSummary], None] | None = None,
+        on_ended: Callable[[GameSummary], None] | None = None,
+        code_taken: Callable[[str], bool] | None = None,
     ) -> None:
-        """`on_finished` is handed a summary of each game as it ends. It holds no networking or
-        storage itself: the caller decides what to do with it."""
+        """`on_ended` is handed a summary of each game as it ends. It holds no networking or
+        storage itself: the caller decides what to do with it.
+        `code_taken` says whether a code is already in use somewhere the registry cannot see, such
+        as stored history, so a new game never reuses it."""
         self._games: dict[str, _Game] = {}
         self._rng = rng or random.Random()
-        self._on_finished = on_finished
+        self._on_ended = on_ended
+        self._code_taken = code_taken
 
     def create_game(self, pool: Pool, pool_name: str | None = None) -> HostLink:
         code = self._new_code()
@@ -204,7 +208,7 @@ class GameRegistry:
             for prize in game.settlement.open_prizes()
             if (outcome := game.settlement.close(prize, self._evidence(game), refusal)) is not None
         )
-        self._finish(game, "host")
+        self._end(game, "host")
         return settled
 
     def draw(self, host: HostLink) -> Draw:
@@ -226,6 +230,10 @@ class GameRegistry:
     def pool_of(self, code: str) -> Pool:
         """The pool this game was created with. Public: it is fixed for the life of the game."""
         return self._find(code).pool
+
+    def pool_name_of(self, code: str) -> str | None:
+        """The name of the pool this game was created with, if it has one. Public, like the pool."""
+        return self._find(code).pool_name
 
     def draw_history(self, code: str) -> tuple[Draw, ...]:
         """Every draw so far, in order. Public: every player in the room may see them."""
@@ -273,7 +281,7 @@ class GameRegistry:
         refusal = GameAlreadyEnded(code) if game.status == "ended" else None
         settled = game.settlement.close(prize, self._evidence(game), refusal)
         if settled is not None and settled.awarded_to and prize is Prize.FULL_HOUSE:
-            self._finish(game, "full_house")
+            self._end(game, "full_house")
             return replace(settled, ends_game=True)
         return settled
 
@@ -307,11 +315,11 @@ class GameRegistry:
         if game.status == "ended":
             raise GameAlreadyEnded(code)
 
-    def _finish(self, game: _Game, reason: Literal["full_house", "host"]) -> None:
+    def _end(self, game: _Game, reason: Literal["full_house", "host"]) -> None:
         """The one place a game ends, whether the host ended it or the full house was awarded.
         A failing observer is logged: it never stops the game from ending."""
         game.status = "ended"
-        if self._on_finished is None:
+        if self._on_ended is None:
             return
         summary = GameSummary(
             code=game.code,
@@ -322,7 +330,7 @@ class GameRegistry:
             winners={prize: tuple(names) for prize, names in game.settlement.board().items()},
         )
         try:
-            self._on_finished(summary)
+            self._on_ended(summary)
         except Exception:
             logger.exception("could not hand over the summary of game %s", game.code)
 
@@ -352,5 +360,5 @@ class GameRegistry:
             code = "".join(
                 secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH)
             )
-            if code not in self._games:
+            if code not in self._games and not (self._code_taken and self._code_taken(code)):
                 return code

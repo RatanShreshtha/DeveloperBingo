@@ -7,7 +7,7 @@ from sqlmodel import create_engine
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.pool import Topic, build_pool
-from devbingo_backend.pool_library import InMemoryPoolLibrary, PoolNotFound, PostgresPoolLibrary
+from devbingo_backend.pool_library import DEFAULT_POOL_NAME, InMemoryPoolLibrary, PoolNotFound, PostgresPoolLibrary
 
 
 def custom_pool(prefix: str = "Custom"):
@@ -78,3 +78,25 @@ def test_each_save_gets_its_own_id(library):
 def test_loading_an_unknown_id_is_refused(library):
     with pytest.raises(PoolNotFound):
         library.load(10**9)
+
+
+def test_a_pool_comes_back_by_id_with_its_name(library):
+    pool = custom_pool("Named")
+    pool_id = library.save("Named pool", pool)
+
+    saved = library.get(pool_id)
+
+    assert saved.name == "Named pool"
+    assert saved.pool.topics == pool.topics
+
+
+def test_the_default_pool_is_got_under_the_one_default_name(library):
+    default = next(item for item in library.list_pools() if item.is_default)
+
+    assert default.name == DEFAULT_POOL_NAME
+    assert library.get(default.id).name == DEFAULT_POOL_NAME
+
+
+def test_getting_an_unknown_id_is_refused(library):
+    with pytest.raises(PoolNotFound):
+        library.get(10**9)

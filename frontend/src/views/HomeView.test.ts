@@ -41,6 +41,23 @@ describe('HomeView', () => {
     expect(createGame).toHaveBeenCalledWith(undefined)
   })
 
+  it('has the default pool selected at first, and sends no pool id when it is left alone', async () => {
+    vi.mocked(fetchPools).mockResolvedValue([
+      { id: 1, name: 'Default', is_default: true },
+      { id: 7, name: 'Rustaceans', is_default: false },
+    ])
+    vi.mocked(createGame).mockResolvedValue({ code: 'ABC123', host_token: 't' })
+    const wrapper = await mountHome()
+
+    const select = wrapper.get('select[data-test="pool-picker"]').element as HTMLSelectElement
+    expect(select.value).toBe('1')
+    expect(select.selectedOptions[0].textContent?.trim()).toBe('Default')
+
+    await wrapper.get('button[data-test="create-game"]').trigger('click')
+
+    expect(createGame).toHaveBeenCalledWith(undefined)
+  })
+
   it('offers every saved pool and creates the game on the one picked', async () => {
     vi.mocked(fetchPools).mockResolvedValue([
       { id: 1, name: 'Default', is_default: true },

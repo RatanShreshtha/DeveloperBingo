@@ -13,6 +13,7 @@ import PoolColumns from './PoolColumns.vue'
 const props = defineProps<{ code: string; token: string | undefined }>()
 const store = useLobbyStore()
 const pool = ref<TopicResponse[][] | null>(null)
+const poolName = ref<string | null>(null)
 const poolError = ref(false)
 
 function hostLink(): HostLink {
@@ -23,7 +24,9 @@ onMounted(async () => {
   store.watchAsHost(hostLink())
   store.loadDrawHistory(props.code)
   try {
-    pool.value = (await fetchGamePool(props.code)).columns
+    const gamePool = await fetchGamePool(props.code)
+    pool.value = gamePool.columns
+    poolName.value = gamePool.name ?? null
   } catch {
     poolError.value = true
   }
@@ -66,6 +69,7 @@ onMounted(async () => {
       <DrawHistory :draws="store.draws" />
       <LobbyList :players="store.players" />
     </template>
+    <p v-if="poolName" data-test="pool-name">Pool: {{ poolName }}</p>
     <PoolColumns v-if="pool" :columns="pool" />
     <p v-else-if="poolError" role="alert">Could not load this game's pool.</p>
   </section>

@@ -8,6 +8,7 @@ vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGame
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 vi.mock('../api/pools', () => ({
   fetchGamePool: vi.fn(async () => ({
+    name: 'Platform Team',
     columns: [
       [{ name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
       [{ name: 'JSON', explanation: 'A lightweight data format.' }],
@@ -30,6 +31,7 @@ describe('HostView', () => {
     })
     await flushPromises()
 
+    expect(wrapper.text()).toContain('Platform Team')
     expect(wrapper.text()).toContain('Column 1')
     expect(wrapper.text()).toContain('Algorithm')
     expect(wrapper.text()).toContain('A finite sequence of steps.')

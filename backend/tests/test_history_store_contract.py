@@ -1,12 +1,14 @@
 """What every History Store adapter must do, run against each adapter in turn."""
 
+import uuid
+
 import pytest
 from database_urls import TEST_DATABASE_URL as DATABASE_URL
 from database_urls import database_is_reachable
 from sqlmodel import create_engine
 
 from devbingo_backend.game import Draw, GameSummary
-from devbingo_backend.history import InMemoryHistoryStore, PostgresHistoryStore
+from devbingo_backend.history import AlreadyStored, InMemoryHistoryStore, PostgresHistoryStore
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
@@ -42,26 +44,41 @@ def summary(code: str = "CONTRACT1", reason="full_house", pool_name="Backend bas
     )
 
 
-def test_a_stored_game_comes_back_exactly_as_saved(store):
-    saved = summary()
+@pytest.fixture
+def code():
+    """A code no earlier run left in a persistent database."""
+    return uuid.uuid4().hex[:12].upper()
+
+
+def test_a_stored_game_comes_back_exactly_as_saved(store, code):
+    saved = summary(code)
     store.save(saved)
 
-    assert store.load("CONTRACT1") == saved
+    assert store.load(code) == saved
 
 
-def test_a_game_with_no_pool_name_and_nothing_else_round_trips(store):
-    bare = GameSummary("CONTRACT2", "host", None, (), (), {prize: () for prize in Prize})
+def test_a_game_with_no_pool_name_and_nothing_else_round_trips(store, code):
+    bare = GameSummary(code, "host", None, (), (), {prize: () for prize in Prize})
     store.save(bare)
 
-    assert store.load("CONTRACT2") == bare
+    assert store.load(code) == bare
 
 
 def test_an_unknown_game_has_no_history(store):
     assert store.load("NOSUCHGAME") is None
 
 
-def test_saving_a_game_again_replaces_its_history(store):
-    store.save(summary(reason="host"))
-    store.save(summary(reason="full_house"))
+def test_saving_a_game_again_is_refused_and_keeps_the_first_history(store, code):
+    store.save(summary(code, reason="host"))
 
-    assert store.load("CONTRACT1") == summary(reason="full_house")
+    with pytest.raises(AlreadyStored):
+        store.save(summary(code, reason="full_house"))
+
+    assert store.load(code) == summary(code, reason="host")
+
+
+def test_a_stored_game_exists_and_an_unknown_one_does_not(store, code):
+    store.save(summary(code))
+
+    assert store.exists(code) is True
+    assert store.exists("NOSUCHGAME") is False
