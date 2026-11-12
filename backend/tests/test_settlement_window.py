@@ -9,6 +9,7 @@ from devbingo_backend.game import (
     ClaimPending,
     GameAlreadyEnded,
     GameRegistry,
+    NoTopicsLeft,
     PlayerRef,
     SettlementWindowOpen,
 )
@@ -87,7 +88,9 @@ def test_draws_are_refused_while_a_window_is_open_and_resume_after_it_closes(tab
         registry.draw(game)
     registry.close_window(game.code, Prize.EARLY_FIVE)
 
-    assert registry.window_open(game.code) is False
+    # Every topic is already drawn, so the pool refuses: the settlement hold is gone.
+    with pytest.raises(NoTopicsLeft):
+        registry.draw(game)
 
 
 def test_ticks_cannot_be_taken_back_while_the_player_has_a_claim_pending(table):
@@ -133,7 +136,8 @@ def test_a_full_house_ends_the_game_when_its_window_closes_with_every_winner(tab
     registry.claim(ada(game), Prize.FULL_HOUSE)
     registry.claim(grace(game), Prize.FULL_HOUSE)
     # The window is still open, so the game is still running.
-    assert registry.window_open(game.code)
+    with pytest.raises(SettlementWindowOpen):
+        registry.draw(game)
     settled = registry.close_window(game.code, Prize.FULL_HOUSE)
 
     assert settled.awarded_to == ("Ada", "Grace")
@@ -148,11 +152,15 @@ def test_closing_a_window_that_is_not_open_does_nothing(table):
     assert registry.close_window(game.code, Prize.EARLY_FIVE) is None
 
 
-def test_a_window_closing_after_the_host_ended_the_game_refuses_its_claims(table):
+def test_a_window_still_open_when_the_full_house_ends_the_game_refuses_its_claims(table):
     registry, game, tickets = table
-    draw_all_and_tick_five(registry, game, tickets)
+    draw_everything(registry, game)
+    for name, who in (("Ada", ada(game)), ("Grace", grace(game))):
+        for topic in names_on(tickets[name]):
+            registry.tick(who, topic)
     registry.claim(ada(game), Prize.EARLY_FIVE)
-    registry.end(game)
+    registry.claim(grace(game), Prize.FULL_HOUSE)
+    registry.close_window(game.code, Prize.FULL_HOUSE)
 
     settled = registry.close_window(game.code, Prize.EARLY_FIVE)
 

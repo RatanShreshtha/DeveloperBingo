@@ -37,11 +37,11 @@ class Table:
     tickets: dict[str, list]
 
 
-def table(window_seconds=DEFAULT_WINDOW_SECONDS) -> Table:
+def table(window_seconds=DEFAULT_WINDOW_SECONDS, broadcaster=None) -> Table:
     """Ada and Grace have joined, the game has started, every topic is drawn and each has ticked five."""
     registry = GameRegistry(rng=random.Random(5))
     game = registry.create_game(DEFAULT_POOL)
-    broadcaster = RecordingBroadcaster()
+    broadcaster = broadcaster or RecordingBroadcaster()
     scheduler = ManualScheduler()
     adapter = RealtimeAdapter(registry, broadcaster, scheduler=scheduler, window_seconds=window_seconds)
     tickets: dict[str, list] = {}

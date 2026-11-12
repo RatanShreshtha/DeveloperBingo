@@ -1,8 +1,11 @@
 """The rule violations the engine reports. Each declares the wire code that tells a client why."""
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from devbingo_backend.wire import ErrorCode
+
+if TYPE_CHECKING:
+    from devbingo_backend.settlement import ClaimRecord
 
 
 class GameError(Exception):
@@ -12,6 +15,8 @@ class GameError(Exception):
     """
 
     code: ClassVar[ErrorCode]
+    # Set when refusing a claim put it in the claim log: the record of that refusal.
+    record: "ClaimRecord | None" = None
 
 
 class GameNotFound(GameError):

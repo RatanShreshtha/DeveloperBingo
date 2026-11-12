@@ -30,7 +30,7 @@ from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers impor
 from devbingo_backend.names import name_key
 from devbingo_backend.pool import Pool, Topic
 from devbingo_backend.prizes import Prize
-from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Pending, Settled
+from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Evidence, Pending, Settled
 from devbingo_backend.ticket import Ticket, build_ticket
 from devbingo_backend.wire import HostLink
 
@@ -163,11 +163,20 @@ class GameRegistry:
         game.status = "started"
         game.undrawn = list(game.pool.topics)
 
-    def end(self, host: HostLink) -> None:
-        """The host ends the game, at any time. No draws or claims are accepted after it ends."""
+    def end(self, host: HostLink) -> tuple[Settled, ...]:
+        """The host ends the game, at any time. No draws or claims are accepted after it ends.
+        Every open settlement window settles at once, its claims refused as `game_ended`; the
+        outcomes are returned so the caller can answer the claimants."""
         game = self._host_game(host)
         self._refuse_if_ended(game, host.code)
+        refusal = GameAlreadyEnded(host.code)
+        settled = tuple(
+            outcome
+            for prize in game.settlement.open_prizes()
+            if (outcome := game.settlement.close(prize, self._evidence(game), refusal)) is not None
+        )
         self._finish(game)
+        return settled
 
     def draw(self, host: HostLink) -> Draw:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final.
@@ -228,21 +237,20 @@ class GameRegistry:
         and all that earn the prize win it together. Awarding the full house ends the game.
         Returns None when no window is open for the prize."""
         game = self._find(code)
-
-        def evidence(name: str) -> tuple[Ticket, set[str]]:
-            member = game.players[name_key(name)]
-            return member.ticket, member.ticks & game.drawn_names()
-
         refusal = GameAlreadyEnded(code) if game.status == "ended" else None
-        settled = game.settlement.close(prize, evidence, refusal)
+        settled = game.settlement.close(prize, self._evidence(game), refusal)
         if settled is not None and settled.awarded_to and prize is Prize.FULL_HOUSE:
             self._finish(game)
             return replace(settled, ends_game=True)
         return settled
 
-    def window_open(self, code: str) -> bool:
-        """True while any prize in the game has a settlement window open."""
-        return self._find(code).settlement.window_open()
+    @staticmethod
+    def _evidence(game: _Game) -> Evidence:
+        def evidence(name: str) -> tuple[Ticket, set[str]]:
+            member = game.players[name_key(name)]
+            return member.ticket, member.ticks & game.drawn_names()
+
+        return evidence
 
     @staticmethod
     def _game_refusal(game: _Game, code: str) -> GameError | None:

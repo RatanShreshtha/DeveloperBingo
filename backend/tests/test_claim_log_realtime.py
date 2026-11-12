@@ -16,9 +16,12 @@ def test_the_host_is_told_of_a_refused_claim_and_the_players_are_not():
     broadcaster = RecordingBroadcaster()
     adapter, _, game = started_game_with_five_ticks_for_ada(broadcaster)
     watch_as_host(adapter, game)
+    in_the_room_before = to_room(broadcaster, game.code)
     run(adapter.claim_prize("sid-ada", claim_message(game, prize="full_house")))
 
     host_events = [event for event in broadcaster.emitted if event[0] == "claim_logged"]
+    # A refused claim is private: no event of any kind reaches the room the players are in.
+    assert to_room(broadcaster, game.code) == in_the_room_before
 
     assert host_events == [(
         "claim_logged", f"{game.code}:host",
@@ -34,8 +37,10 @@ def test_the_host_is_told_of_an_accepted_claim_as_well_as_the_room():
 
     run(adapter.claim_prize("sid-ada", claim_message(game)))
 
-    assert ("claim_logged", f"{game.code}:host",
-            {"player": "Ada", "prize": "early_five", "accepted": True, "error": None}) in broadcaster.emitted
+    assert [e for e in broadcaster.emitted if e[1] == f"{game.code}:host"] == [
+        ("claim_logged", f"{game.code}:host",
+         {"player": "Ada", "prize": "early_five", "accepted": True, "error": None})
+    ]
     assert [e for e in to_room(broadcaster, game.code) if e[0] == "claim_logged"] == []
 
 

@@ -23,6 +23,8 @@ class Settled:
     prize: Prize
     awarded_to: tuple[str, ...]
     refused: tuple[str, ...] = ()
+    # What was decided for each claimant at close, in the order they claimed.
+    records: tuple["ClaimRecord", ...] = ()
     # True when this prize is the one that ends the game.
     ends_game: bool = False
 
@@ -76,7 +78,7 @@ class ClaimSettlement:
             if waiting is None and prize not in prizes_earned(ticket, ticked_and_drawn):
                 raise ClaimNotValid(prize)
         except GameError as err:
-            self._decide(claimant, prize, err)
+            err.record = self._decide(claimant, prize, err)
             raise
         if waiting is None:
             self._windows[prize] = [claimant]
@@ -93,31 +95,36 @@ class ClaimSettlement:
             return None
         winners: list[str] = []
         refused: list[str] = []
+        records: list[ClaimRecord] = []
         for claimant in waiting:
             error = refusal
             if error is None:
                 ticket, ticked_and_drawn = evidence(claimant)
                 if prize not in prizes_earned(ticket, ticked_and_drawn):
                     error = ClaimNotValid(prize)
-            self._decide(claimant, prize, error)
+            records.append(self._decide(claimant, prize, error))
             (refused if error else winners).append(claimant)
         if winners:
             self._awards[prize] = winners
-        return Settled(prize, tuple(winners), tuple(refused))
+        return Settled(prize, tuple(winners), tuple(refused), tuple(records))
 
     def window_open(self) -> bool:
         """True while any prize has a settlement window open."""
         return bool(self._windows)
 
+    def open_prizes(self) -> list[Prize]:
+        """The prizes with a settlement window open."""
+        return list(self._windows)
+
     def has_pending(self, claimant: str) -> bool:
         """True when the player has a claim waiting in an open window."""
         return any(claimant in waiting for waiting in self._windows.values())
 
-    def _decide(self, claimant: str, prize: Prize, error: GameError | None) -> None:
+    def _decide(self, claimant: str, prize: Prize, error: GameError | None) -> ClaimRecord:
         """The one place a claim is logged: the moment it is decided."""
-        self._log.append(
-            ClaimRecord(claimant, prize, accepted=error is None, error=error.code if error else None)
-        )
+        record = ClaimRecord(claimant, prize, accepted=error is None, error=error.code if error else None)
+        self._log.append(record)
+        return record
 
     def log(self) -> list[ClaimRecord]:
         """Every decided claim, in the order it was decided."""
