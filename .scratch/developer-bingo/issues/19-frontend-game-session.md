@@ -8,7 +8,7 @@
 
 ### Snapshot
 
-- [x] `join_game` and `watch_lobby` return one game snapshot: game status, players, draws and the prize board. A player's snapshot adds their Ticket and ticks. The host's snapshot adds the game's Pool Columns
+- [x] `join_game` and `watch_lobby` return one game snapshot: game status, players, draws and the prize board. A player's snapshot adds their Ticket and ticks. The host's snapshot adds the game's Pool Columns (and the pool's name)
 - [x] `HostView` shows the Pool Columns from the snapshot and stops calling `/pools/default`
 - [x] `GET /games/{code}/draws` and `GET /games/{code}/lobby` are removed
 
@@ -37,6 +37,6 @@
 - The rejoin token closes a race: after a reload, the old socket often hasn't dropped yet, so a rejoin by name alone would be refused.
 - Splitting host and player into separate stores was considered and rejected: they share most of the state, and a host-only store would hold little.
 - Ticket 13 leaves two gaps for the snapshot to fill. `game_ended` is only broadcast live, so a host or player who reloads after the end sees no ended state (the host even sees "Start game" again): the snapshot must carry the game's status and why it ended. A rejoin after the end is refused with `game_ended`, so a player cannot see the final prize board: the snapshot should let them read it.
-- Ticks and unticks are still accepted after the game ends. The spec refuses only draws and claims. Decide whether that should change when 12 adds the untick rule.
+- Ticks and unticks are still accepted after the game ends. The spec refuses only draws and claims. Decide whether that should change when 12 adds the untick rule. **Decided in this ticket:** ticks and unticks are refused with `game_ended` once the game has ended, so a player's ticks always match the claims that were judged.
 - Ticket 12 keeps a claimant's pending state only in the browser, for as long as one `claim_prize` acknowledgement is open. After a reload or reconnect inside a settlement window the claim button comes back enabled and the claim looks lost, although the server still holds it. The snapshot should say which of the player's claims are pending, and the rejoin should reattach them to the held result (a second claim from the same player during one window already gets the same result).
-- Ticket 12 refuses draws while a window is open (`settlement_open`). The host's snapshot could say a window is open, so the host sees why a draw was refused.
+- Ticket 12 refuses draws while a window is open (`settlement_open`). The host's snapshot could say a window is open, so the host sees why a draw was refused. **Done:** the snapshot carries `window_open`, and the host is told of each change with a `window_changed` event.

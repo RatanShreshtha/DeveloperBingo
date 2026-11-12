@@ -116,14 +116,26 @@ describe('reconnecting', () => {
     expect(store.windowOpen).toBe(true)
   })
 
-  it('stops showing an open settlement window once a claim is logged', async () => {
+  it('follows the server as settlement windows open and close', async () => {
+    fake.answer('watch_lobby', hostSnapshot())
+    const store = useSessionStore()
+    await store.watchAsHost(link)
+
+    fake.emit('window_changed', { open: true })
+    expect(store.windowOpen).toBe(true)
+
+    fake.emit('window_changed', { open: false })
+    expect(store.windowOpen).toBe(false)
+  })
+
+  it('keeps showing an open window when a claim is logged while another window is still open', async () => {
     fake.answer('watch_lobby', hostSnapshot({ window_open: true }))
     const store = useSessionStore()
     await store.watchAsHost(link)
 
-    fake.emit('claim_logged', { player: 'Ada', prize: 'early_five', accepted: true, error: null })
+    fake.emit('claim_logged', { player: 'Ada', prize: 'early_five', accepted: false, error: 'claim_not_valid' })
 
-    expect(store.windowOpen).toBe(false)
+    expect(store.windowOpen).toBe(true)
   })
 })
 
@@ -178,6 +190,37 @@ describe('claims pending across a reconnect', () => {
     expect(store.isPending('early_five')).toBe(true)
     answers[1]({ ok: true })
     await vi.waitFor(() => expect(store.isPending('early_five')).toBe(false))
+  })
+})
+
+describe('answers to abandoned claims and unreachable servers', () => {
+  it('does not show the refusal of a claim the reconnect abandoned', async () => {
+    const answers: ((ack: { ok: false; error: 'claim_not_valid' } | { ok: true }) => void)[] = []
+    fake.answer('join_game', playerSnapshot())
+    fake.answer('claim_prize', () => new Promise((resolve) => answers.push(resolve)))
+    const store = useSessionStore()
+    await store.join('ABC123', 'Ada')
+    void store.claimPrize('early_five')
+    fake.answer('join_game', playerSnapshot({ pending_claims: ['early_five'] }))
+
+    await fake.reconnect()
+    answers[0]({ ok: false, error: 'claim_not_valid' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(store.actionError).toBeNull()
+  })
+
+  it('keeps the saved session and says so when the server cannot be reached on a reload', async () => {
+    sessionStorage.setItem('devbingo:player', JSON.stringify({ code: 'ABC123', name: 'Ada', token: 'tok-1' }))
+    fake.answer('join_game', () => Promise.reject(new Error('timeout')))
+    const store = useSessionStore()
+
+    const resumed = await store.resume('ABC123')
+
+    expect(resumed).toBe(false)
+    expect(store.error).toBe('Could not reach the server. Check your connection and try again.')
+    expect(savedSessionFor('ABC123')).not.toBeNull()
   })
 })
 

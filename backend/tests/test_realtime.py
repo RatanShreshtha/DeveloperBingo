@@ -15,6 +15,7 @@ class RecordingBroadcaster:
     def __init__(self) -> None:
         self.entered: list[tuple[str, str]] = []
         self.left: list[tuple[str, str]] = []
+        self.window_changes: list[tuple[str, str, object]] = []
         self.emitted: list[tuple[str, str, object]] = []
 
     async def enter_room(self, sid: str, room: str) -> None:
@@ -25,7 +26,9 @@ class RecordingBroadcaster:
 
     async def emit(self, event: str, data: object, room: str | None = None,
                    to: str | None = None) -> None:
-        self.emitted.append((event, room or to or "", data))
+        # Window changes are the host's hint only, so they are kept apart from the announcements.
+        target = self.window_changes if event == "window_changed" else self.emitted
+        target.append((event, room or to or "", data))
 
 
 def to_room(broadcaster, code):

@@ -96,12 +96,12 @@ describe('HostView game flow', () => {
     expect(wrapper.get('[data-test="window-open"]').text()).toContain('A claim is being settled')
   })
 
-  it('stops saying so once the claim is logged', async () => {
+  it('stops saying so once the server says no window is open', async () => {
     fake.answer('watch_lobby', hostSnapshot({ status: 'started', window_open: true }))
     const wrapper = mountHost()
     await flushPromises()
 
-    fake.emit('claim_logged', { player: 'Ada', prize: 'early_five', accepted: true, error: null })
+    fake.emit('window_changed', { open: false })
     await flushPromises()
 
     expect(wrapper.find('[data-test="window-open"]').exists()).toBe(false)

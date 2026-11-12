@@ -283,3 +283,31 @@ def test_a_takeover_during_a_pending_claim_reattaches_it_without_logging_it_twic
     assert first == {"ok": True}
     assert second == {"ok": True}
     assert [entry.player for entry in registry.claim_log(game.code)] == ["Ada"]
+
+
+def window_events(broadcaster):
+    return [data for _, _, data in broadcaster.window_changes]
+
+
+def test_the_host_is_told_when_a_window_opens_and_when_the_last_one_closes():
+    scheduler = ManualScheduler()
+    adapter, registry, game, broadcaster = a_game(scheduler)
+    ada = join(adapter, game)
+    start_and_draw_everything(registry, game)
+    for topic in topics_on(ada["ticket"]):
+        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+
+    async def scenario():
+        claim = asyncio.ensure_future(adapter.claim_prize("sid-ada", {"prize": "early_five"}))
+        await asyncio.sleep(0)
+        opened = list(window_events(broadcaster))
+        for action in scheduler.pending:
+            await action()
+        await claim
+        return opened
+
+    opened = asyncio.run(scenario())
+
+    assert opened == [{"open": True}]
+    assert window_events(broadcaster) == [{"open": True}, {"open": False}]
+    assert {room for _, room, _ in broadcaster.window_changes} == {f"{game.code}:host"}

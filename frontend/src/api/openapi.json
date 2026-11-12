@@ -1136,6 +1136,20 @@
         ],
         "title": "WatchAck",
         "type": "object"
+      },
+      "WindowChanged": {
+        "description": "Whether any settlement window is open, which is why the server refuses draws.",
+        "properties": {
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "open"
+        ],
+        "title": "WindowChanged",
+        "type": "object"
       }
     }
   }

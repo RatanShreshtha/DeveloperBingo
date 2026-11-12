@@ -39,6 +39,7 @@ from devbingo_backend.wire import (
     ServerEvent,
     TickPayload,
     WatchAck,
+    WindowChanged,
 )
 
 
@@ -265,6 +266,7 @@ class RealtimeAdapter:
             settled,
             lambda: self._announce_end(host.code, "host"),
         )
+        await self._tell_window(host.code)
         return Accepted().model_dump(mode="json")
 
     async def claim_prize(self, sid: str, payload: object) -> Ack:
@@ -289,6 +291,7 @@ class RealtimeAdapter:
         answer: asyncio.Future[Ack] = asyncio.get_running_loop().create_future()
         self._held.setdefault((player.code, prize), []).append((player.name, answer))
         if pending.opened_window:
+            await self._tell_window(player.code)
             self._scheduler.call_later(
                 self._window_seconds, lambda: self.close_window(player.code, prize)
             )
@@ -312,6 +315,7 @@ class RealtimeAdapter:
                 await self._announce_end(code, "full_house")
 
         await self._announce(code, [settled], announce_room)
+        await self._tell_window(code)
 
     async def _announce(
         self,
@@ -344,6 +348,17 @@ class RealtimeAdapter:
                 result = Refusal(error=record.error).model_dump(mode="json")
             if not answer.done():
                 answer.set_result(result)
+
+    async def _tell_window(self, code: str) -> None:
+        """Tells the host whether a settlement window is open now. A failure is only logged."""
+        try:
+            await self._broadcaster.emit(
+                ServerEvent.WINDOW_CHANGED,
+                WindowChanged(open=self._registry.window_open(code)).model_dump(mode="json"),
+                room=_host_room(code),
+            )
+        except Exception:
+            logger.exception("could not tell the host about the settlement window in game %s", code)
 
     async def _tell_host(self, code: str, record: ClaimRecord) -> None:
         """Sends the host one decided claim, and nobody else."""

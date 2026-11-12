@@ -41,6 +41,8 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   invalid_message: 'That request was not understood. Please reload the page.',
 }
 
+const UNREACHABLE = 'Could not reach the server. Check your connection and try again.'
+
 export function messageFor(code: ErrorCode): string {
   return ERROR_MESSAGES[code]
 }
@@ -111,7 +113,9 @@ export const useSessionStore = defineStore('session', () => {
   })
   net.listen('claim_logged', (claim) => {
     claims.value.push(claim)
-    windowOpen.value = false
+  })
+  net.listen('window_changed', (change) => {
+    windowOpen.value = change.open
   })
   net.listen('replaced', () => {
     replaced.value = true
@@ -182,7 +186,14 @@ export const useSessionStore = defineStore('session', () => {
     }
     error.value = null
     const who = { code, name: saved.name }
-    const result = await net.send('join_game', { ...who, rejoin_token: saved.token })
+    let result
+    try {
+      result = await net.send('join_game', { ...who, rejoin_token: saved.token })
+    } catch {
+      // The saved session may still be good: keep it, and let the player try again.
+      error.value = UNREACHABLE
+      return false
+    }
     if (!result.ok) {
       forgetSession()
       error.value = messageFor(result.error)
@@ -245,8 +256,17 @@ export const useSessionStore = defineStore('session', () => {
     const mine = ++attempts
     claimAttempts.set(prize, mine)
     pendingClaims.value = [...pendingClaims.value.filter((known) => known !== prize), prize]
+    actionError.value = null
     try {
-      await attempt(() => net.send('claim_prize', { prize }))
+      const result = await net.send('claim_prize', { prize })
+      // An answer to a claim a reconnect abandoned is no longer news.
+      if (!result.ok && claimAttempts.get(prize) === mine) {
+        actionError.value = messageFor(result.error)
+      }
+    } catch {
+      if (claimAttempts.get(prize) === mine) {
+        actionError.value = UNREACHABLE
+      }
     } finally {
       if (claimAttempts.get(prize) === mine) {
         claimAttempts.delete(prize)

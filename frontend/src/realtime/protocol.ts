@@ -45,6 +45,8 @@ export type Announcements = {
   prize_awarded: PrizeAward
   // Sent to the host only.
   claim_logged: ClaimLogEntry
+  // Sent to the host only: whether any settlement window is open now.
+  window_changed: Schemas['WindowChanged']
   // Sent to one socket only: another socket took over its player.
   replaced: Schemas['Replaced']
 }

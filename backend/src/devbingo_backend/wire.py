@@ -64,6 +64,8 @@ class ServerEvent(StrEnum):
     PRIZE_AWARDED = "prize_awarded"
     # Sent to the host only: refused claims stay private to the claimant among players.
     CLAIM_LOGGED = "claim_logged"
+    # Sent to the host only: a settlement window opened or the last one closed.
+    WINDOW_CHANGED = "window_changed"
     # Sent to one socket only: another socket took over its player with their rejoin token.
     REPLACED = "replaced"
 
@@ -232,6 +234,12 @@ class PrizeAwarded(_Message):
     awarded_to: list[str]
 
 
+class WindowChanged(_Message):
+    """Whether any settlement window is open, which is why the server refuses draws."""
+
+    open: bool
+
+
 class Replaced(_Message):
     """Another socket took over this socket's player, which has left the game."""
 
@@ -256,4 +264,5 @@ SOCKET_MODELS: list[type[BaseModel]] = [
     GameEnded,
     PrizeAwarded,
     Replaced,
+    WindowChanged,
 ]

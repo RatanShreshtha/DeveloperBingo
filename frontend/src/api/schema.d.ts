@@ -470,6 +470,14 @@ export interface components {
             /** Window Open */
             window_open: boolean;
         };
+        /**
+         * WindowChanged
+         * @description Whether any settlement window is open, which is why the server refuses draws.
+         */
+        WindowChanged: {
+            /** Open */
+            open: boolean;
+        };
     };
     responses: never;
     parameters: never;
