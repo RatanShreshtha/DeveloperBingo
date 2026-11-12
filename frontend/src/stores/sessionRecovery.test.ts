@@ -167,60 +167,52 @@ describe('being replaced', () => {
 })
 
 describe('claims pending across a reconnect', () => {
-  it('claims again for each pending prize and keeps it pending until the held answer arrives', async () => {
-    let answer: (ack: { ok: true }) => void = () => {}
+  it('takes the pending claims from the snapshot and claims nothing again', async () => {
     fake.answer('join_game', playerSnapshot({ pending_claims: ['early_five'] }))
-    fake.answer('claim_prize', () => new Promise((resolve) => (answer = resolve)))
     const store = useSessionStore()
 
     await store.join('ABC123', 'Ada')
 
-    expect(fake.payloads('claim_prize')).toEqual([{ prize: 'early_five' }])
     expect(store.isPending('early_five')).toBe(true)
-
-    answer({ ok: true })
-    await vi.waitFor(() => expect(store.isPending('early_five')).toBe(false))
+    expect(fake.payloads('claim_prize')).toEqual([])
   })
 
-  it('is not cleared by the stale answer of a claim the reconnect abandoned', async () => {
-    const answers: ((ack: { ok: true }) => void)[] = []
+  it('settles a claim still waiting after a reconnect when its result arrives', async () => {
     fake.answer('join_game', playerSnapshot())
-    fake.answer('claim_prize', () => new Promise((resolve) => answers.push(resolve)))
+    fake.answer('claim_prize', { ok: true, waiting: true })
     const store = useSessionStore()
     await store.join('ABC123', 'Ada')
-    void store.claimPrize('early_five')
+    await store.claimPrize('early_five')
     fake.answer('join_game', playerSnapshot({ pending_claims: ['early_five'] }))
 
     await fake.reconnect()
-    answers[0]({ ok: true })
-    await Promise.resolve()
-    await Promise.resolve()
+    fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
 
-    expect(answers).toHaveLength(2)
-    expect(store.isPending('early_five')).toBe(true)
-    answers[1]({ ok: true })
-    await vi.waitFor(() => expect(store.isPending('early_five')).toBe(false))
+    expect(store.isPending('early_five')).toBe(false)
+    expect(fake.payloads('claim_prize')).toHaveLength(1)
+  })
+
+  it('shows a refusal decided while the player was away, from the decided claims', async () => {
+    fake.answer('join_game', playerSnapshot())
+    fake.answer('claim_prize', { ok: true, waiting: true })
+    const store = useSessionStore()
+    await store.join('ABC123', 'Ada')
+    await store.claimPrize('early_five')
+    fake.answer(
+      'join_game',
+      playerSnapshot({
+        decided_claims: [{ prize: 'early_five', accepted: false, error: 'claim_not_valid' }],
+      }),
+    )
+
+    await fake.reconnect()
+
+    expect(store.isPending('early_five')).toBe(false)
+    expect(store.actionError).toBe('This claim does not complete the prize yet')
   })
 })
 
-describe('answers to abandoned claims and unreachable servers', () => {
-  it('does not show the refusal of a claim the reconnect abandoned', async () => {
-    const answers: ((ack: { ok: false; error: 'claim_not_valid' } | { ok: true }) => void)[] = []
-    fake.answer('join_game', playerSnapshot())
-    fake.answer('claim_prize', () => new Promise((resolve) => answers.push(resolve)))
-    const store = useSessionStore()
-    await store.join('ABC123', 'Ada')
-    void store.claimPrize('early_five')
-    fake.answer('join_game', playerSnapshot({ pending_claims: ['early_five'] }))
-
-    await fake.reconnect()
-    answers[0]({ ok: false, error: 'claim_not_valid' })
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(store.actionError).toBeNull()
-  })
-
+describe('unreachable servers', () => {
   it('keeps the saved session and says so when the server cannot be reached on a reload', async () => {
     sessionStorage.setItem('devbingo:player', JSON.stringify({ code: 'ABC123', name: 'Ada', token: 'tok-1' }))
     fake.answer('join_game', () => Promise.reject(new Error('timeout')))

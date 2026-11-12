@@ -1,6 +1,6 @@
 import random
 
-from helpers import start_and_draw_everything
+from helpers import ManualScheduler, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import GameRegistry, PlayerRef
@@ -14,7 +14,7 @@ def custom_pool(prefix: str):
 
 def test_a_game_deals_tickets_from_the_pool_it_was_created_with():
     pool = custom_pool("Alpha")
-    registry = GameRegistry(rng=random.Random(3))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(3))
     game = registry.create_game(pool)
 
     ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
@@ -24,7 +24,7 @@ def test_a_game_deals_tickets_from_the_pool_it_was_created_with():
 
 def test_a_game_draws_from_the_pool_it_was_created_with():
     pool = custom_pool("Alpha")
-    registry = GameRegistry(rng=random.Random(3))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(3))
     game = registry.create_game(pool)
     registry.join(PlayerRef(game.code, "Ada"))
 
@@ -36,7 +36,7 @@ def test_a_game_draws_from_the_pool_it_was_created_with():
 
 
 def test_two_games_keep_their_own_pools():
-    registry = GameRegistry(rng=random.Random(3))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(3))
     alpha = registry.create_game(custom_pool("Alpha"))
     beta = registry.create_game(custom_pool("Beta"))
 
@@ -49,7 +49,7 @@ def test_two_games_keep_their_own_pools():
 
 def test_the_registry_reports_the_pool_a_game_was_created_with():
     pool = custom_pool("Alpha")
-    registry = GameRegistry(rng=random.Random(3))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(3))
     game = registry.create_game(pool)
 
     assert registry.pool_of(game.code) is pool

@@ -6,7 +6,7 @@ types from them rather than writing them by hand.
 """
 
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,6 +15,12 @@ from devbingo_backend.prizes import Prize
 if TYPE_CHECKING:
     from devbingo_backend.game import Draw
     from devbingo_backend.pool import Pool
+
+
+# Where a game stands.
+GameStatus: TypeAlias = Literal["lobby", "started", "ended"]
+# Why a game ended: the full house was awarded, or the host ended it.
+EndReason: TypeAlias = Literal["full_house", "host"]
 
 
 class ErrorCode(StrEnum):
@@ -68,6 +74,8 @@ class ServerEvent(StrEnum):
     WINDOW_CHANGED = "window_changed"
     # Sent to one socket only: another socket took over its player with their rejoin token.
     REPLACED = "replaced"
+    # Sent to the claimant's sockets only: the settlement window their claim waited in has closed.
+    CLAIM_SETTLED = "claim_settled"
 
 
 class _Message(BaseModel):
@@ -171,13 +179,29 @@ class Accepted(_Message):
     ok: Literal[True] = True
 
 
+class ClaimWaiting(_Message):
+    """A valid claim is in its prize's settlement window. Its result follows as one `claim_settled`
+    event when the window closes."""
+
+    ok: Literal[True] = True
+    waiting: Literal[True] = True
+
+
+class ClaimSettled(_Message):
+    """One player's own claim, decided at the close of its settlement window. A refusal says why."""
+
+    prize: Prize
+    accepted: bool
+    error: ErrorCode | None
+
+
 class GameSnapshot(_Message):
     """What a client needs to show a game from scratch: where it stands, who is in it, what has
     been drawn and who has been awarded what."""
 
-    status: Literal["lobby", "started", "ended"]
+    status: GameStatus
     # Why the game ended. None while it has not.
-    end_reason: Literal["full_house", "host"] | None
+    end_reason: EndReason | None
     players: list[str]
     draws: list[DrawAnnouncement]
     prizes: list[PrizeBoardEntry]
@@ -194,6 +218,9 @@ class JoinAck(GameSnapshot):
     ticks: list[str]
     # Prizes this player has claimed whose settlement window has not closed.
     pending_claims: list[Prize]
+    # This player's own decided claims, in the order decided. A player who was not connected when
+    # a window closed learns the result, and why, from here.
+    decided_claims: list[ClaimSettled]
     # Kept private by the player. Every join issues a new one, replacing the last.
     rejoin_token: str
 
@@ -229,7 +256,7 @@ class GameStarted(_Message):
 class GameEnded(_Message):
     """The game is over: someone claimed the full house, or the host ended it."""
 
-    reason: Literal["full_house", "host"]
+    reason: EndReason
 
 
 class PrizeAwarded(_Message):
@@ -259,6 +286,8 @@ SOCKET_MODELS: list[type[BaseModel]] = [
     TopicResponse,
     Refusal,
     Accepted,
+    ClaimWaiting,
+    ClaimSettled,
     JoinAck,
     WatchAck,
     DrawAck,

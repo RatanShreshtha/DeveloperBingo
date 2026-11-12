@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from helpers import draw_everything, names_on
+from helpers import ManualScheduler, draw_everything, names_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -18,7 +18,7 @@ from devbingo_backend.prizes import Prize
 
 @pytest.fixture
 def table():
-    registry = GameRegistry(rng=random.Random(7))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(7))
     game = registry.create_game(DEFAULT_POOL)
     tickets = {
         name: registry.join(PlayerRef(game.code, name)).ticket for name in ("Ada", "Grace")
@@ -50,9 +50,9 @@ def test_a_valid_claim_opens_a_window_and_the_prize_stays_open_until_it_closes(t
     registry, game, tickets = table
     draw_all_and_tick_five(registry, game, tickets)
 
-    pending = registry.claim(ada(game), Prize.EARLY_FIVE)
+    outcome = registry.claim(ada(game), Prize.EARLY_FIVE)
 
-    assert pending.opened_window is True
+    assert outcome.window_open is True
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
 
 
@@ -62,9 +62,10 @@ def test_two_claims_in_one_window_win_the_prize_together(table):
     registry.claim(ada(game), Prize.EARLY_FIVE)
 
     second = registry.claim(grace(game), Prize.EARLY_FIVE)
-    settled = registry.close_window(game.code, Prize.EARLY_FIVE)
+    (settled,) = registry.close_window(game.code, Prize.EARLY_FIVE).settled
 
-    assert second.opened_window is False
+    # The window was already open, so nothing about it changed.
+    assert second.window_open is None
     assert settled.awarded_to == ("Ada", "Grace")
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada", "Grace"]
 
@@ -116,7 +117,7 @@ def test_a_queued_claim_is_judged_at_close_on_what_the_player_has_ticked_then(ta
     registry.claim(ada(game), Prize.EARLY_FIVE)
     registry.claim(grace(game), Prize.EARLY_FIVE)
 
-    settled = registry.close_window(game.code, Prize.EARLY_FIVE)
+    (settled,) = registry.close_window(game.code, Prize.EARLY_FIVE).settled
 
     assert settled.awarded_to == ("Ada",)
     assert settled.refused == ("Grace",)
@@ -138,10 +139,10 @@ def test_a_full_house_ends_the_game_when_its_window_closes_with_every_winner(tab
     # The window is still open, so the game is still running.
     with pytest.raises(SettlementWindowOpen):
         registry.draw(game)
-    settled = registry.close_window(game.code, Prize.FULL_HOUSE)
+    outcome = registry.close_window(game.code, Prize.FULL_HOUSE)
 
-    assert settled.awarded_to == ("Ada", "Grace")
-    assert settled.ends_game is True
+    assert outcome.settled[0].awarded_to == ("Ada", "Grace")
+    assert outcome.ended == "full_house"
     with pytest.raises(GameAlreadyEnded):
         registry.draw(game)
 
@@ -162,7 +163,7 @@ def test_a_window_still_open_when_the_full_house_ends_the_game_refuses_its_claim
     registry.claim(grace(game), Prize.FULL_HOUSE)
     registry.close_window(game.code, Prize.FULL_HOUSE)
 
-    settled = registry.close_window(game.code, Prize.EARLY_FIVE)
+    (settled,) = registry.close_window(game.code, Prize.EARLY_FIVE).settled
 
     assert settled.awarded_to == ()
     assert settled.refused == ("Ada",)

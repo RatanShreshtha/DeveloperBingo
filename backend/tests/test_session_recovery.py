@@ -1,10 +1,9 @@
 """A client that reloads or reconnects gets the whole game back in one snapshot, and a player who
 reloads can take their name over from a socket the server has not yet noticed dropping."""
 
-import asyncio
 import random
 
-from helpers import start_and_draw_everything, wire_board_of
+from helpers import ManualScheduler, start_and_draw_everything, wire_board_of
 from test_realtime import RecordingBroadcaster, host_message, run, topics_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
@@ -13,26 +12,11 @@ from devbingo_backend.prizes import Prize
 from devbingo_backend.realtime import RealtimeAdapter
 
 
-class ManualScheduler:
-    """Keeps closes until the test asks for them."""
-
-    def __init__(self) -> None:
-        self.pending: list = []
-
-    def call_later(self, delay, action) -> None:
-        self.pending.append(action)
-
-    def close_all(self) -> None:
-        for action in self.pending:
-            run(action())
-        self.pending = []
-
-
 def a_game(scheduler=None):
-    registry = GameRegistry(rng=random.Random(5))
+    registry = GameRegistry(rng=random.Random(5), scheduler=scheduler or ManualScheduler())
     game = registry.create_game(DEFAULT_POOL, pool_name="Default")
     broadcaster = RecordingBroadcaster()
-    adapter = RealtimeAdapter(registry, broadcaster, scheduler, window_seconds=0)
+    adapter = RealtimeAdapter(registry, broadcaster)
     return adapter, registry, game, broadcaster
 
 
@@ -114,49 +98,54 @@ def test_a_snapshot_after_the_game_ends_says_why_and_shows_the_final_prize_board
     assert host["prizes"] == wire_board_of()
 
 
+def ready_to_claim(adapter, registry, game, sid="sid-ada", name="Ada"):
+    """Ada has joined, every topic is drawn and she has ticked her whole ticket."""
+    ada = join(adapter, game, sid, name)
+    start_and_draw_everything(registry, game)
+    for topic in topics_on(ada["ticket"]):
+        run(adapter.tick_topic(sid, {"topic": topic}))
+    return ada
+
+
+def claim(adapter, sid="sid-ada", prize="early_five"):
+    return run(adapter.claim_prize(sid, {"prize": prize}))
+
+
 def test_the_hosts_snapshot_says_while_a_settlement_window_is_open():
     scheduler = ManualScheduler()
     adapter, registry, game, _ = a_game(scheduler)
-    ada = join(adapter, game)
-    start_and_draw_everything(registry, game)
-    for topic in topics_on(ada["ticket"]):
-        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+    ready_to_claim(adapter, registry, game)
+    claim(adapter)
 
-    async def claim_then_watch():
-        claim = asyncio.ensure_future(adapter.claim_prize("sid-ada", {"prize": "early_five"}))
-        await asyncio.sleep(0)
-        watched = await adapter.watch_lobby("sid-host", host_message(game))
-        for action in scheduler.pending:
-            await action()
-        await claim
-        return watched
-
-    watched = asyncio.run(claim_then_watch())
+    watched = run(adapter.watch_lobby("sid-host", host_message(game)))
 
     assert watched["window_open"] is True
 
 
 def test_a_reconnect_inside_a_settlement_window_says_which_claims_are_pending():
-    scheduler = ManualScheduler()
-    adapter, registry, game, _ = a_game(scheduler)
-    ada = join(adapter, game)
-    start_and_draw_everything(registry, game)
-    for topic in topics_on(ada["ticket"]):
-        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+    adapter, registry, game, _ = a_game()
+    ready_to_claim(adapter, registry, game)
+    claim(adapter)
+    run(adapter.disconnect("sid-ada"))
 
-    async def scenario():
-        claim = asyncio.ensure_future(adapter.claim_prize("sid-ada", {"prize": "early_five"}))
-        await asyncio.sleep(0)
-        await adapter.disconnect("sid-ada")
-        snapshot = await adapter.join_game("sid-ada-2", {"code": game.code, "name": "Ada"})
-        for action in scheduler.pending:
-            await action()
-        await claim
-        return snapshot
-
-    snapshot = asyncio.run(scenario())
+    snapshot = join(adapter, game, "sid-ada-2")
 
     assert snapshot["pending_claims"] == ["early_five"]
+    assert snapshot["decided_claims"] == []
+
+
+def test_a_rejoin_after_the_window_closed_carries_the_players_decided_claims():
+    scheduler = ManualScheduler()
+    adapter, registry, game, _ = a_game(scheduler)
+    ready_to_claim(adapter, registry, game)
+    claim(adapter)
+    run(adapter.disconnect("sid-ada"))
+    scheduler.close_all()
+
+    snapshot = join(adapter, game, "sid-ada-2")
+
+    assert snapshot["pending_claims"] == []
+    assert snapshot["decided_claims"] == [{"prize": "early_five", "accepted": True, "error": None}]
 
 
 # --- the rejoin token ---
@@ -257,32 +246,26 @@ def test_a_takeover_does_not_announce_a_change_to_the_lobby():
     assert [e for e in broadcaster.emitted[before:] if e[0] == "lobby_updated"] == []
 
 
-def test_a_takeover_during_a_pending_claim_reattaches_it_without_logging_it_twice():
+def settled_to(broadcaster):
+    return [(target, data) for event, target, data in broadcaster.emitted if event == "claim_settled"]
+
+
+def test_a_takeover_during_a_pending_claim_sends_the_result_to_the_new_socket_only():
+    # The client used to claim again after a rejoin to get its answer back; a window closing in
+    # between made that a false `prize_taken` refusal in the host's log. Nothing is claimed again now.
     scheduler = ManualScheduler()
-    adapter, registry, game, _ = a_game(scheduler)
-    ada = join(adapter, game)
-    start_and_draw_everything(registry, game)
-    for topic in topics_on(ada["ticket"]):
-        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+    adapter, registry, game, broadcaster = a_game(scheduler)
+    ada = ready_to_claim(adapter, registry, game)
+    claim(adapter)
 
-    async def scenario():
-        first_claim = asyncio.ensure_future(adapter.claim_prize("sid-ada", {"prize": "early_five"}))
-        await asyncio.sleep(0)
-        takeover = await adapter.join_game(
-            "sid-ada-2", {"code": game.code, "name": "Ada", "rejoin_token": ada["rejoin_token"]}
-        )
-        reattached = asyncio.ensure_future(adapter.claim_prize("sid-ada-2", {"prize": "early_five"}))
-        await asyncio.sleep(0)
-        for action in scheduler.pending:
-            await action()
-        return takeover, await first_claim, await reattached
-
-    takeover, first, second = asyncio.run(scenario())
+    takeover = join(adapter, game, "sid-ada-2", rejoin_token=ada["rejoin_token"])
+    scheduler.close_all()
 
     assert takeover["pending_claims"] == ["early_five"]
-    assert first == {"ok": True}
-    assert second == {"ok": True}
-    assert [entry.player for entry in registry.claim_log(game.code)] == ["Ada"]
+    assert settled_to(broadcaster) == [
+        ("sid-ada-2", {"prize": "early_five", "accepted": True, "error": None})
+    ]
+    assert [(entry.player, entry.accepted) for entry in registry.claim_log(game.code)] == [("Ada", True)]
 
 
 def window_events(broadcaster):
@@ -292,21 +275,11 @@ def window_events(broadcaster):
 def test_the_host_is_told_when_a_window_opens_and_when_the_last_one_closes():
     scheduler = ManualScheduler()
     adapter, registry, game, broadcaster = a_game(scheduler)
-    ada = join(adapter, game)
-    start_and_draw_everything(registry, game)
-    for topic in topics_on(ada["ticket"]):
-        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+    ready_to_claim(adapter, registry, game)
 
-    async def scenario():
-        claim = asyncio.ensure_future(adapter.claim_prize("sid-ada", {"prize": "early_five"}))
-        await asyncio.sleep(0)
-        opened = list(window_events(broadcaster))
-        for action in scheduler.pending:
-            await action()
-        await claim
-        return opened
-
-    opened = asyncio.run(scenario())
+    claim(adapter)
+    opened = list(window_events(broadcaster))
+    scheduler.close_all()
 
     assert opened == [{"open": True}]
     assert window_events(broadcaster) == [{"open": True}, {"open": False}]
@@ -330,50 +303,28 @@ def test_a_rejoin_by_another_case_is_told_the_name_first_stored():
     assert join(adapter, game, "sid-ada-2", name="ada")["name"] == "Ada"
 
 
-def claim_and_close(adapter, scheduler, sid):
-    async def scenario():
-        claim = asyncio.ensure_future(adapter.claim_prize(sid, {"prize": "early_five"}))
-        await asyncio.sleep(0)
-        for action in scheduler.pending:
-            await action()
-        return await asyncio.wait_for(claim, timeout=1)
-
-    return asyncio.run(scenario())
-
-
 def test_a_claim_by_a_player_who_joined_with_spaces_is_answered():
     scheduler = ManualScheduler()
-    adapter, registry, game, _ = a_game(scheduler)
-    ada = join(adapter, game, name="Ada ")
-    start_and_draw_everything(registry, game)
-    for topic in topics_on(ada["ticket"]):
-        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+    adapter, registry, game, broadcaster = a_game(scheduler)
+    ready_to_claim(adapter, registry, game, name="Ada ")
 
-    assert claim_and_close(adapter, scheduler, "sid-ada") == {"ok": True}
+    claim(adapter)
+    scheduler.close_all()
+
+    assert settled_to(broadcaster) == [("sid-ada", {"prize": "early_five", "accepted": True, "error": None})]
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada"]
 
 
-def test_a_claim_reattached_after_a_takeover_by_another_case_is_answered():
+def test_a_claim_waiting_through_a_takeover_by_another_case_is_answered():
     scheduler = ManualScheduler()
-    adapter, registry, game, _ = a_game(scheduler)
-    ada = join(adapter, game)
-    start_and_draw_everything(registry, game)
-    for topic in topics_on(ada["ticket"]):
-        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+    adapter, registry, game, broadcaster = a_game(scheduler)
+    ada = ready_to_claim(adapter, registry, game)
+    claim(adapter)
 
-    async def scenario():
-        first_claim = asyncio.ensure_future(adapter.claim_prize("sid-ada", {"prize": "early_five"}))
-        await asyncio.sleep(0)
-        await adapter.join_game(
-            "sid-ada-2", {"code": game.code, "name": "ada", "rejoin_token": ada["rejoin_token"]}
-        )
-        reattached = asyncio.ensure_future(adapter.claim_prize("sid-ada-2", {"prize": "early_five"}))
-        await asyncio.sleep(0)
-        for action in scheduler.pending:
-            await action()
-        return await asyncio.wait_for(asyncio.gather(first_claim, reattached), timeout=1)
+    join(adapter, game, "sid-ada-2", name="ada", rejoin_token=ada["rejoin_token"])
+    scheduler.close_all()
 
-    assert asyncio.run(scenario()) == [{"ok": True}, {"ok": True}]
+    assert settled_to(broadcaster) == [("sid-ada-2", {"prize": "early_five", "accepted": True, "error": None})]
 
 
 def test_a_takeover_by_another_case_replaces_the_old_socket():

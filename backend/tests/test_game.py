@@ -14,11 +14,12 @@ from devbingo_backend.game import (
     NotHost,
 )
 from devbingo_backend.wire import HostLink
+from helpers import ManualScheduler
 
 
 @pytest.fixture
 def registry() -> GameRegistry:
-    return GameRegistry()
+    return GameRegistry(scheduler=ManualScheduler())
 
 
 def test_creating_a_game_returns_a_code_and_a_private_host_token(registry):
@@ -47,7 +48,7 @@ def test_a_first_join_is_reported_as_a_new_player(registry):
 
 
 def test_no_two_tickets_in_a_game_are_identical():
-    registry = GameRegistry(rng=random.Random(99))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(99))
     game = registry.create_game(DEFAULT_POOL)
 
     tickets = [registry.join(PlayerRef(game.code, f"player-{i}")).ticket for i in range(MAX_PLAYERS)]

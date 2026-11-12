@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
-from devbingo_backend.game import GameRegistry
+from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry
 from devbingo_backend.history import HistoryStore, HistoryUnavailable, PostgresHistoryStore
 from devbingo_backend.history_api import history_router
 from devbingo_backend.pool_library import (
@@ -21,7 +21,7 @@ from devbingo_backend.pool_library import (
 )
 from devbingo_backend.pool_store import DEFAULT_POOL_NAME
 from devbingo_backend.pools_api import PoolResponse, build_pools_router, pool_response
-from devbingo_backend.realtime import DEFAULT_WINDOW_SECONDS, build_socket_server
+from devbingo_backend.realtime import build_socket_server
 from devbingo_backend.wire import SOCKET_MODELS, HostLink
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
@@ -56,7 +56,14 @@ def create_app(
         except HistoryUnavailable:
             return False
 
-    registry = GameRegistry(on_ended=history.save, code_taken=code_has_history)
+    window_seconds = (
+        settlement_window_seconds
+        if settlement_window_seconds is not None
+        else float(os.environ.get("SETTLEMENT_WINDOW_SECONDS", DEFAULT_WINDOW_SECONDS))
+    )
+    registry = GameRegistry(
+        on_ended=history.save, code_taken=code_has_history, window_seconds=window_seconds
+    )
     library = pool_library or PostgresPoolLibrary(engine)
 
     def database_is_up() -> bool:
@@ -123,12 +130,7 @@ def create_app(
 
     app.openapi = openapi_with_socket_messages  # type: ignore[method-assign]
 
-    window_seconds = (
-        settlement_window_seconds
-        if settlement_window_seconds is not None
-        else float(os.environ.get("SETTLEMENT_WINDOW_SECONDS", DEFAULT_WINDOW_SECONDS))
-    )
-    socket_server = build_socket_server(registry, window_seconds)
+    socket_server = build_socket_server(registry)
     app.mount("/socket.io", socketio.ASGIApp(socket_server))
 
     return app

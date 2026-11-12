@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from helpers import claim_and_settle, names_on, start_and_draw_everything
+from helpers import ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -17,7 +17,7 @@ from devbingo_backend.wire import HostLink
 
 @pytest.fixture
 def lobby():
-    registry = GameRegistry(rng=random.Random(41))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(41))
     game = registry.create_game(DEFAULT_POOL)
     ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     return registry, game, ticket
@@ -41,7 +41,7 @@ def test_claiming_full_house_ends_the_game(started_with_every_topic_drawn):
 
     outcome = claim_and_settle(registry, PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
 
-    assert outcome.ends_game is True
+    assert outcome.ended == "full_house"
     with pytest.raises(GameAlreadyEnded):
         registry.draw(game)
 
@@ -53,7 +53,7 @@ def test_claiming_any_other_prize_leaves_the_game_running(started_with_every_top
 
     outcome = claim_and_settle(registry, PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
 
-    assert outcome.ends_game is False
+    assert outcome.ended is None
 
 
 def test_a_refused_full_house_claim_does_not_end_the_game(started_with_every_topic_drawn):

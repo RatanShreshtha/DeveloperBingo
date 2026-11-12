@@ -15,6 +15,7 @@ export function playerSnapshot(overrides: Partial<PlayerSnapshot> = {}): PlayerS
     ticket: [['Algorithm', null, 'JSON']],
     ticks: [],
     pending_claims: [],
+    decided_claims: [],
     rejoin_token: 'token-1',
     ...overrides,
   }
