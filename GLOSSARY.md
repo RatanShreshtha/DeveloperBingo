@@ -67,3 +67,7 @@ _Avoid_: Corners
 **Full house**:
 Every topic on a ticket ticked.
 _Avoid_: Block, all cells, house
+
+**Ended game**:
+A game that accepts no more draws or claims. It ends when the full house is awarded, or when the host ends it, and it stays ended.
+_Avoid_: Finished, closed, over

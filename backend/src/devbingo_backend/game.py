@@ -112,8 +112,7 @@ class GameRegistry:
         a connected player is refused; any other name is a new join while the lobby is open.
         Names match without regard to case, so "Ada" and "ada" are the same player."""
         game = self._find(player.code)
-        if game.status == "ended":
-            raise GameAlreadyEnded(player.code)
+        self._refuse_if_ended(game, player.code)
         key = name_key(player.name)
         member = game.players.get(key)
         if member is not None:
@@ -155,8 +154,7 @@ class GameRegistry:
     def start(self, host: HostLink) -> None:
         """Start the game: joining closes and the pool locks."""
         game = self._host_game(host)
-        if game.status == "ended":
-            raise GameAlreadyEnded(host.code)
+        self._refuse_if_ended(game, host.code)
         if game.status != "lobby":
             raise GameAlreadyStarted(host.code)
         game.status = "started"
@@ -165,9 +163,8 @@ class GameRegistry:
     def end(self, host: HostLink) -> None:
         """The host ends the game, at any time. No draws or claims are accepted after it ends."""
         game = self._host_game(host)
-        if game.status == "ended":
-            raise GameAlreadyEnded(host.code)
-        game.status = "ended"
+        self._refuse_if_ended(game, host.code)
+        self._finish(game)
 
     def is_pool_locked(self, code: str) -> bool:
         """The pool locks when the game starts and stays locked, including after it ends."""
@@ -176,8 +173,7 @@ class GameRegistry:
     def draw(self, host: HostLink) -> Draw:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final."""
         game = self._host_game(host)
-        if game.status == "ended":
-            raise GameAlreadyEnded(host.code)
+        self._refuse_if_ended(game, host.code)
         if game.status != "started":
             raise GameNotStarted(host.code)
         if not game.undrawn:
@@ -217,20 +213,29 @@ class GameRegistry:
         """Claim a prize. The claim is checked against what the player has ticked and what has
         been drawn. A valid claim awards the prize. Awarding the full house ends the game."""
         game, member = self._player_game(player)
-        if game.status == "ended":
-            raise GameAlreadyEnded(player.code)
+        self._refuse_if_ended(game, player.code)
         if game.status != "started":
             raise GameNotStarted(player.code)
         ticked_and_drawn = member.ticks & game.drawn_names()
         awarded = game.settlement.claim(prize, member.name, member.ticket, ticked_and_drawn)
         if prize is Prize.FULL_HOUSE:
-            game.status = "ended"
+            self._finish(game)
             return replace(awarded, ends_game=True)
         return awarded
 
     def prize_board(self, code: str) -> dict[Prize, list[str]]:
         """Each prize and the names of the players it was awarded to. Empty while it is still open."""
         return self._find(code).settlement.board()
+
+    @staticmethod
+    def _refuse_if_ended(game: _Game, code: str) -> None:
+        if game.status == "ended":
+            raise GameAlreadyEnded(code)
+
+    @staticmethod
+    def _finish(game: _Game) -> None:
+        """The one place a game ends, whether the host ended it or the full house was awarded."""
+        game.status = "ended"
 
     def _player_game(self, player: PlayerRef) -> tuple[_Game, _Player]:
         """The game and the player's record. Refuses anyone not in the game."""

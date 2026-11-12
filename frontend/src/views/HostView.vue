@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { fetchDefaultPool, type TopicResponse } from '../api/pools'
 import type { HostLink } from '../api/games'
+import { END_MESSAGES } from '../endMessages'
 import { useLobbyStore } from '../stores/lobby'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
@@ -33,9 +34,7 @@ onMounted(async () => {
     <p>Game code: <strong>{{ code }}</strong></p>
     <p v-if="store.error" role="alert">{{ store.error }}</p>
     <template v-else>
-      <p v-if="store.ended">
-        {{ store.endReason === 'full_house' ? 'The game is over: the full house was claimed.' : 'You ended the game.' }}
-      </p>
+      <p v-if="store.endReason">{{ END_MESSAGES.host[store.endReason] }}</p>
       <div v-else>
         <button
           v-if="!store.started"

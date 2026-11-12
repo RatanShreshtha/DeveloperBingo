@@ -1,5 +1,5 @@
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol, TypeVar
+from typing import Any, Literal, Protocol, TypeVar
 
 import socketio
 from pydantic import BaseModel, ValidationError
@@ -162,16 +162,20 @@ class RealtimeAdapter:
         )
         return DrawAck(draw=announcement).model_dump(mode="json")
 
+    async def _announce_end(self, code: str, reason: Literal["full_house", "host"]) -> None:
+        await self._broadcaster.emit(
+            ServerEvent.GAME_ENDED, GameEnded(reason=reason).model_dump(mode="json"), room=code
+        )
+
     async def end_game(self, sid: str, payload: object) -> Ack:
+        """The host ends the game. Everyone in the room is told."""
         try:
             host = _parse(HostLink, payload)
             self._registry.end(host)
         except GameError as err:
             return _refusal(err)
 
-        await self._broadcaster.emit(
-            ServerEvent.GAME_ENDED, GameEnded(reason="host").model_dump(mode="json"), room=host.code
-        )
+        await self._announce_end(host.code, "host")
         return Accepted().model_dump(mode="json")
 
     async def claim_prize(self, sid: str, payload: object) -> Ack:
@@ -193,11 +197,7 @@ class RealtimeAdapter:
             room=player.code,
         )
         if awarded.ends_game:
-            await self._broadcaster.emit(
-                ServerEvent.GAME_ENDED,
-                GameEnded(reason="full_house").model_dump(mode="json"),
-                room=player.code,
-            )
+            await self._announce_end(player.code, "full_house")
         return Accepted().model_dump(mode="json")
 
     # Ticks are private, and nothing is broadcast. The acknowledgement says only

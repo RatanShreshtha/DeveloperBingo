@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { PRIZE_LABELS } from '../prizes'
+import { END_MESSAGES } from '../endMessages'
 import { useLobbyStore } from '../stores/lobby'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
@@ -17,9 +18,7 @@ onMounted(() => {
 <template>
   <section>
     <p>Game code: <strong>{{ code }}</strong></p>
-    <p v-if="store.ended">
-      {{ store.endReason === 'full_house' ? 'The game is over: the full house was claimed.' : 'The host ended the game.' }}
-    </p>
+    <p v-if="store.endReason">{{ END_MESSAGES.player[store.endReason] }}</p>
     <p v-else-if="store.started">The game has started.</p>
     <p v-else>Waiting for the host to start the game.</p>
     <table v-if="store.ticket" class="ticket" aria-label="Your ticket">

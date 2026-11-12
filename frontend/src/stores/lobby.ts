@@ -58,9 +58,9 @@ export const useLobbyStore = defineStore('lobby', () => {
   const players = ref<string[]>([])
   const ticket = ref<JoinAck['ticket'] | null>(null)
   const started = ref(false)
-  // Set once the game is over, with why: someone claimed the full house, or the host ended it.
-  const ended = ref(false)
+  // Why the game is over: someone claimed the full house, or the host ended it. Null while it runs.
   const endReason = ref<GameEnd['reason'] | null>(null)
+  const ended = computed(() => endReason.value !== null)
   const draws = ref<DrawnTopic[]>([])
   // This player's own identity in the game, and the topics they have ticked.
   const player = ref<PlayerRef | null>(null)
@@ -93,7 +93,6 @@ export const useLobbyStore = defineStore('lobby', () => {
   })
 
   function recordEnd(reason: GameEnd['reason']) {
-    ended.value = true
     endReason.value = reason
   }
 

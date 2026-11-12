@@ -47,7 +47,6 @@ describe('HostView ending the game', () => {
     await flushPromises()
     const store = useLobbyStore()
     store.started = true
-    store.ended = true
     store.endReason = 'host'
     await flushPromises()
 
@@ -71,7 +70,6 @@ describe('PlayerLobbyView when the game ends', () => {
   it('tells the player the full house was claimed and removes the claim buttons', async () => {
     const store = setUpPlayer()
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
-    store.ended = true
     store.endReason = 'full_house'
     await flushPromises()
 
@@ -82,7 +80,6 @@ describe('PlayerLobbyView when the game ends', () => {
   it('tells the player the host ended the game', async () => {
     const store = setUpPlayer()
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
-    store.ended = true
     store.endReason = 'host'
     await flushPromises()
 
@@ -92,7 +89,6 @@ describe('PlayerLobbyView when the game ends', () => {
   it('still shows the prizes that were awarded', async () => {
     const store = setUpPlayer()
     store.prizes = [{ prize: 'early_five', awarded_to: ['Grace'] }]
-    store.ended = true
     store.endReason = 'host'
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 

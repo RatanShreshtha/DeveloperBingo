@@ -11,3 +11,6 @@
 - [ ] A finished game stores its winners
 - [ ] The stored history can be viewed by game ID
 - [ ] The stored history round-trips correctly
+
+## Notes
+- Ticket 13 ends a game in one place, `GameRegistry._finish`, whether the host ended it or the full house was awarded. Saving the history belongs there, so neither path can skip it.
