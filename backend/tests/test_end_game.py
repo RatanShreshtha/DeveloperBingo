@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from helpers import names_on, start_and_draw_everything
+from helpers import claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -39,7 +39,7 @@ def test_claiming_full_house_ends_the_game(started_with_every_topic_drawn):
     registry, game, ticket = started_with_every_topic_drawn
     tick_everything(registry, game, ticket)
 
-    outcome = registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+    outcome = claim_and_settle(registry, PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
 
     assert outcome.ends_game is True
     with pytest.raises(GameAlreadyEnded):
@@ -51,7 +51,7 @@ def test_claiming_any_other_prize_leaves_the_game_running(started_with_every_top
     for topic in names_on(ticket)[:5]:
         registry.tick(PlayerRef(game.code, "Ada"), topic)
 
-    outcome = registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+    outcome = claim_and_settle(registry, PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
 
     assert outcome.ends_game is False
 
@@ -64,7 +64,7 @@ def test_a_refused_full_house_claim_does_not_end_the_game(started_with_every_top
     with pytest.raises(ClaimNotValid):
         registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
 
-    registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+    claim_and_settle(registry, PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
 
 
 def test_the_host_can_end_a_running_game(started_with_every_topic_drawn):

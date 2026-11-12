@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from helpers import names_on, start_and_draw_everything
+from helpers import claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -48,7 +48,7 @@ def test_a_complete_pattern_wins_its_prize(started_with_every_topic_drawn, prize
     registry, game, ada_ticket, _ = started_with_every_topic_drawn
     tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket))
 
-    outcome = registry.claim(PlayerRef(game.code, "Ada"), prize)
+    outcome = claim_and_settle(registry, PlayerRef(game.code, "Ada"), prize)
 
     assert outcome.prize is prize
     assert outcome.awarded_to == ("Ada",)
@@ -74,7 +74,7 @@ def test_each_prize_is_awarded_once_per_game(started_with_every_topic_drawn, pri
     registry, game, ada_ticket, grace_ticket = started_with_every_topic_drawn
     tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket))
     tick(registry, game, "Grace", PRIZE_TOPICS[prize](grace_ticket))
-    registry.claim(PlayerRef(game.code, "Ada"), prize)
+    claim_and_settle(registry, PlayerRef(game.code, "Ada"), prize)
 
     # Awarding the full house also ends the game, so a second claim meets that first.
     refusal = GameAlreadyEnded if prize is Prize.FULL_HOUSE else PrizeAlreadyAwarded
@@ -90,7 +90,7 @@ def test_one_player_can_win_several_line_prizes(started_with_every_topic_drawn):
         tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket))
 
     for prize, _ in LINE_PRIZES:
-        registry.claim(PlayerRef(game.code, "Ada"), prize)
+        claim_and_settle(registry, PlayerRef(game.code, "Ada"), prize)
 
     board = registry.prize_board(game.code)
     assert [board[prize] for prize, _ in LINE_PRIZES] == [["Ada"], ["Ada"], ["Ada"]]

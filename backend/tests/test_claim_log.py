@@ -35,6 +35,10 @@ def test_the_log_holds_accepted_and_refused_claims_in_order(table):
 
     attempt(registry, game, "Grace", Prize.EARLY_FIVE)
     attempt(registry, game, "Ada", Prize.EARLY_FIVE)
+    assert registry.claim_log(game.code) == [
+        ClaimRecord("Grace", Prize.EARLY_FIVE, False, ErrorCode.CLAIM_NOT_VALID),
+    ]  # Ada's claim is logged when its window settles, not before
+    registry.close_window(game.code, Prize.EARLY_FIVE)
     attempt(registry, game, "Grace", Prize.EARLY_FIVE)
 
     assert registry.claim_log(game.code) == [

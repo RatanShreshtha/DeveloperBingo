@@ -442,7 +442,9 @@
           "already_joined",
           "not_joined",
           "unknown_prize",
-          "invalid_message"
+          "invalid_message",
+          "settlement_open",
+          "claim_pending"
         ],
         "title": "ErrorCode",
         "type": "string"

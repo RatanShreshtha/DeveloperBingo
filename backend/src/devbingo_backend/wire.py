@@ -36,6 +36,8 @@ class ErrorCode(StrEnum):
     NOT_JOINED = "not_joined"
     UNKNOWN_PRIZE = "unknown_prize"
     INVALID_MESSAGE = "invalid_message"
+    SETTLEMENT_OPEN = "settlement_open"
+    CLAIM_PENDING = "claim_pending"
 
 
 class ClientEvent(StrEnum):

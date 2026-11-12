@@ -47,6 +47,8 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   claim_not_valid: 'This claim does not complete the prize yet',
   prize_taken: 'Someone has already been awarded this prize',
   unknown_prize: 'That prize does not exist',
+  settlement_open: 'A claim is being settled. Draws resume in a moment.',
+  claim_pending: 'Your claim is waiting to be settled, so you cannot untick a topic now',
   invalid_message: 'That request was not understood. Please reload the page.',
 }
 
@@ -70,6 +72,9 @@ export const useLobbyStore = defineStore('lobby', () => {
   const drawnNames = computed(() => draws.value.map((draw) => draw.name))
   // Each prize in the order the server lists them, and who it was awarded to.
   const prizes = ref<PrizeBoardEntry[]>([])
+  // Prizes this player has claimed whose settlement window has not closed yet.
+  const pendingClaims = ref<Prize[]>([])
+  const isPending = (prize: Prize) => pendingClaims.value.includes(prize)
   const isAwarded = (prize: Prize) =>
     prizes.value.some((entry) => entry.prize === prize && entry.awarded_to.length > 0)
   // Every claim in the game, accepted or refused, in order. Only the host is told these.
@@ -161,12 +166,18 @@ export const useLobbyStore = defineStore('lobby', () => {
     prizes.value = result.prizes
   }
 
-  // Claims a prize. A valid claim is announced to the room, which updates the board.
+  // Claims a prize. The server answers once the prize's settlement window closes, so the claim
+  // is pending until then. Winners are announced to the room, which updates the board.
   async function claimPrize(prize: Prize) {
-    if (!player.value) {
+    if (!player.value || isPending(prize)) {
       return
     }
-    await attempt(() => sendClaim(prize))
+    pendingClaims.value = [...pendingClaims.value, prize]
+    try {
+      await attempt(() => sendClaim(prize))
+    } finally {
+      pendingClaims.value = pendingClaims.value.filter((known) => known !== prize)
+    }
   }
 
   // Ticks the topic if it isn't ticked, otherwise unticks it. The list changes only
@@ -241,6 +252,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     ticks,
     prizes,
     isAwarded,
+    isPending,
     claims,
     messageFor,
     error,
