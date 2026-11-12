@@ -2,7 +2,7 @@
 import { onMounted } from 'vue'
 import { PRIZE_LABELS } from '../prizes'
 import { useHistoryStore } from '../stores/history'
-import { messageFor } from '../stores/lobby'
+import { messageFor } from '../stores/session'
 
 const props = defineProps<{ code: string }>()
 const store = useHistoryStore()

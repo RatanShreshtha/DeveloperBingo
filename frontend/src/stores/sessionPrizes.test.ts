@@ -1,60 +1,55 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { claimPrize, joinGame, onPrizeAwarded } from '../realtime/socket'
-import { joinedResult } from '../testing/joinMock'
-import { useLobbyStore } from './lobby'
+import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import { playerSnapshot } from '../testing/snapshots'
+import { useSessionStore } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
-const ticket = [['Algorithm', null, 'JSON']]
-
+let fake: FakeTransport
 beforeEach(() => {
+  sessionStorage.clear()
+  fake = installFakeTransport()
+  fake.answer('join_game', playerSnapshot())
   setActivePinia(createPinia())
-  vi.mocked(claimPrize).mockReset()
-  vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket))
 })
 
-describe('lobby store prizes', () => {
+describe('session store prizes', () => {
   it('lists no prizes until the server sends the board', () => {
-    const store = useLobbyStore()
-
-    expect(store.prizes).toEqual([])
+    expect(useSessionStore().prizes).toEqual([])
   })
 
   it('shows who was awarded a prize when the room announces it', async () => {
-    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket))
-    const store = useLobbyStore()
+    const store = useSessionStore()
     await store.join('ABC123', 'Ada')
-    const announced = vi.mocked(onPrizeAwarded).mock.calls[0][0]
 
-    announced({ prize: 'early_five', awarded_to: ['Ada'] })
+    fake.emit('prize_awarded', { prize: 'early_five', awarded_to: ['Ada'] })
 
     expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: ['Ada'] }])
   })
 
   it('restores the prize board a player gets when they join', async () => {
-    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket, [], [{ prize: 'early_five', awarded_to: ['Grace'] }]))
-    const store = useLobbyStore()
+    fake.answer('join_game', playerSnapshot({ prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }] }))
+    const store = useSessionStore()
 
     await store.join('ABC123', 'Ada')
 
     expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: ['Grace'] }])
   })
 
-  it('sends a claim for the player and prize', async () => {
-    vi.mocked(claimPrize).mockResolvedValue({ ok: true })
-    const store = useLobbyStore()
+  it('sends a claim for the prize', async () => {
+    fake.answer('claim_prize', { ok: true })
+    const store = useSessionStore()
     await store.join('ABC123', 'Ada')
 
     await store.claimPrize('early_five')
 
-    expect(claimPrize).toHaveBeenCalledWith('early_five')
+    expect(fake.payloads('claim_prize')).toEqual([{ prize: 'early_five' }])
   })
 
   it('shows why a claim was refused, and changes no prize', async () => {
-    vi.mocked(claimPrize).mockResolvedValue({ ok: false, error: 'claim_not_valid' })
-    const store = useLobbyStore()
+    fake.answer('claim_prize', { ok: false, error: 'claim_not_valid' })
+    const store = useSessionStore()
     await store.join('ABC123', 'Ada')
 
     await store.claimPrize('early_five')
@@ -64,8 +59,8 @@ describe('lobby store prizes', () => {
   })
 
   it('says a prize is taken when someone else has been awarded it', async () => {
-    vi.mocked(claimPrize).mockResolvedValue({ ok: false, error: 'prize_taken' })
-    const store = useLobbyStore()
+    fake.answer('claim_prize', { ok: false, error: 'prize_taken' })
+    const store = useSessionStore()
     await store.join('ABC123', 'Ada')
 
     await store.claimPrize('early_five')

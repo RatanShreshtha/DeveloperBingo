@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PRIZE_LABELS } from '../prizes'
-import type { PrizeBoardEntry } from '../realtime/socket'
+import type { PrizeBoardEntry } from '../realtime/protocol'
 
 defineProps<{ prizes: PrizeBoardEntry[] }>()
 </script>

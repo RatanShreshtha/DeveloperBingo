@@ -109,95 +109,6 @@
         }
       }
     },
-    "/games/{code}/lobby": {
-      "get": {
-        "summary": "Read Lobby",
-        "operationId": "read_lobby_games__code__lobby_get",
-        "parameters": [
-          {
-            "name": "code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Code"
-            }
-          },
-          {
-            "name": "x-host-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Host-Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LobbyResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/games/{code}/draws": {
-      "get": {
-        "summary": "Read Draw History",
-        "description": "Every draw so far, in order. Public, so a player who arrives late can catch up.",
-        "operationId": "read_draw_history_games__code__draws_get",
-        "parameters": [
-          {
-            "name": "code",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Code"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DrawHistoryResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/pools/default": {
       "get": {
         "summary": "Read Default Pool",
@@ -431,22 +342,6 @@
         "title": "DrawAnnouncement",
         "type": "object"
       },
-      "DrawHistoryResponse": {
-        "properties": {
-          "draws": {
-            "items": {
-              "$ref": "#/components/schemas/DrawAnnouncement"
-            },
-            "type": "array",
-            "title": "Draws"
-          }
-        },
-        "type": "object",
-        "required": [
-          "draws"
-        ],
-        "title": "DrawHistoryResponse"
-      },
       "ErrorCode": {
         "description": "Why a request was refused. Each engine error declares the code it maps to.",
         "enum": [
@@ -558,7 +453,8 @@
         },
         "type": "object",
         "required": [
-          "columns"
+          "columns",
+          "name"
         ],
         "title": "GamePoolResponse",
         "description": "A game's pool, with the name it was chosen under (none if the game was made without one)."
@@ -621,22 +517,6 @@
         "title": "HostLink",
         "description": "The private handle on one game: whoever holds it controls that game.\n\nIt is what creating a game returns, and what every host command sends."
       },
-      "LobbyResponse": {
-        "properties": {
-          "players": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Players"
-          }
-        },
-        "type": "object",
-        "required": [
-          "players"
-        ],
-        "title": "LobbyResponse"
-      },
       "NewPool": {
         "properties": {
           "name": {
@@ -689,6 +569,7 @@
         "title": "PoolRefused"
       },
       "PoolResponse": {
+        "description": "A pool as columns of topics.",
         "properties": {
           "columns": {
             "items": {
@@ -697,15 +578,15 @@
               },
               "type": "array"
             },
-            "type": "array",
-            "title": "Columns"
+            "title": "Columns",
+            "type": "array"
           }
         },
-        "type": "object",
         "required": [
           "columns"
         ],
-        "title": "PoolResponse"
+        "title": "PoolResponse",
+        "type": "object"
       },
       "PoolSummaryResponse": {
         "properties": {
@@ -767,20 +648,20 @@
       "TopicResponse": {
         "properties": {
           "name": {
-            "type": "string",
-            "title": "Name"
+            "title": "Name",
+            "type": "string"
           },
           "explanation": {
-            "type": "string",
-            "title": "Explanation"
+            "title": "Explanation",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
           "name",
           "explanation"
         ],
-        "title": "TopicResponse"
+        "title": "TopicResponse",
+        "type": "object"
       },
       "ValidationError": {
         "properties": {
@@ -887,13 +768,118 @@
         "title": "GameEnded",
         "type": "object"
       },
+      "GameSnapshot": {
+        "description": "What a client needs to show a game from scratch: where it stands, who is in it, what has\nbeen drawn and who has been awarded what.",
+        "properties": {
+          "status": {
+            "enum": [
+              "lobby",
+              "started",
+              "ended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "full_house",
+                  "host"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "players": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "draws": {
+            "items": {
+              "$ref": "#/components/schemas/DrawAnnouncement"
+            },
+            "title": "Draws",
+            "type": "array"
+          },
+          "prizes": {
+            "items": {
+              "$ref": "#/components/schemas/PrizeBoardEntry"
+            },
+            "title": "Prizes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "end_reason",
+          "players",
+          "draws",
+          "prizes"
+        ],
+        "title": "GameSnapshot",
+        "type": "object"
+      },
       "GameStarted": {
         "properties": {},
         "title": "GameStarted",
         "type": "object"
       },
       "JoinAck": {
+        "description": "A player's snapshot: the game, plus their own ticket, ticks and pending claims.",
         "properties": {
+          "status": {
+            "enum": [
+              "lobby",
+              "started",
+              "ended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "full_house",
+                  "host"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "players": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "draws": {
+            "items": {
+              "$ref": "#/components/schemas/DrawAnnouncement"
+            },
+            "title": "Draws",
+            "type": "array"
+          },
+          "prizes": {
+            "items": {
+              "$ref": "#/components/schemas/PrizeBoardEntry"
+            },
+            "title": "Prizes",
+            "type": "array"
+          },
           "ok": {
             "const": true,
             "default": true,
@@ -924,19 +910,29 @@
             "title": "Ticks",
             "type": "array"
           },
-          "prizes": {
+          "pending_claims": {
             "items": {
-              "$ref": "#/components/schemas/PrizeBoardEntry"
+              "$ref": "#/components/schemas/Prize"
             },
-            "title": "Prizes",
+            "title": "Pending Claims",
             "type": "array"
+          },
+          "rejoin_token": {
+            "title": "Rejoin Token",
+            "type": "string"
           }
         },
         "required": [
+          "status",
+          "end_reason",
+          "players",
+          "draws",
+          "prizes",
           "ok",
           "ticket",
           "ticks",
-          "prizes"
+          "pending_claims",
+          "rejoin_token"
         ],
         "title": "JoinAck",
         "type": "object"
@@ -950,11 +946,24 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "rejoin_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rejoin Token"
           }
         },
         "required": [
           "code",
-          "name"
+          "name",
+          "rejoin_token"
         ],
         "title": "JoinPayload",
         "type": "object"
@@ -1014,6 +1023,12 @@
         "title": "Refusal",
         "type": "object"
       },
+      "Replaced": {
+        "description": "Another socket took over this socket's player, which has left the game.",
+        "properties": {},
+        "title": "Replaced",
+        "type": "object"
+      },
       "TickPayload": {
         "properties": {
           "topic": {
@@ -1028,18 +1043,44 @@
         "type": "object"
       },
       "WatchAck": {
+        "description": "The host's snapshot: the game, plus the claim log, the pool and whether a window is open.",
         "properties": {
-          "ok": {
-            "const": true,
-            "default": true,
-            "title": "Ok",
-            "type": "boolean"
+          "status": {
+            "enum": [
+              "lobby",
+              "started",
+              "ended"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "full_house",
+                  "host"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
           },
           "players": {
             "items": {
               "type": "string"
             },
             "title": "Players",
+            "type": "array"
+          },
+          "draws": {
+            "items": {
+              "$ref": "#/components/schemas/DrawAnnouncement"
+            },
+            "title": "Draws",
             "type": "array"
           },
           "prizes": {
@@ -1049,21 +1090,65 @@
             "title": "Prizes",
             "type": "array"
           },
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
           "claims": {
             "items": {
               "$ref": "#/components/schemas/ClaimLogEntry"
             },
             "title": "Claims",
             "type": "array"
+          },
+          "pool": {
+            "$ref": "#/components/schemas/PoolResponse"
+          },
+          "pool_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Name"
+          },
+          "window_open": {
+            "title": "Window Open",
+            "type": "boolean"
           }
         },
         "required": [
-          "ok",
+          "status",
+          "end_reason",
           "players",
+          "draws",
           "prizes",
-          "claims"
+          "ok",
+          "claims",
+          "pool",
+          "pool_name",
+          "window_open"
         ],
         "title": "WatchAck",
+        "type": "object"
+      },
+      "WindowChanged": {
+        "description": "Whether any settlement window is open, which is why the server refuses draws.",
+        "properties": {
+          "open": {
+            "title": "Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "open"
+        ],
+        "title": "WindowChanged",
         "type": "object"
       }
     }

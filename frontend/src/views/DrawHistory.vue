@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DrawnTopic } from '../realtime/socket'
+import type { DrawnTopic } from '../realtime/protocol'
 
 defineProps<{ draws: DrawnTopic[] }>()
 </script>

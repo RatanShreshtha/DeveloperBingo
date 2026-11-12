@@ -15,6 +15,7 @@ from devbingo_backend.game import (
     PlayerRef,
     UnknownPrize,
 )
+from devbingo_backend.names import name_key
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord, Settled
 from devbingo_backend.wire import (
@@ -31,11 +32,14 @@ from devbingo_backend.wire import (
     JoinPayload,
     LobbyUpdated,
     PrizeAwarded,
+    PoolResponse,
     PrizeBoardEntry,
     Refusal,
+    Replaced,
     ServerEvent,
     TickPayload,
     WatchAck,
+    WindowChanged,
 )
 
 
@@ -43,6 +47,8 @@ class Broadcaster(Protocol):
     """The part of the Socket.IO server the adapter needs, so tests can fake it."""
 
     async def enter_room(self, sid: str, room: str) -> None: ...
+
+    async def leave_room(self, sid: str, room: str) -> None: ...
 
     async def emit(
         self,
@@ -150,10 +156,12 @@ class RealtimeAdapter:
             if sid in self._sessions:
                 raise AlreadyJoined
             player = PlayerRef(code=message.code, name=message.name)
-            joined = self._registry.join(player)
+            joined = self._registry.join(player, message.rejoin_token)
         except GameError as err:
             return _refusal(err)
 
+        if joined.took_over:
+            await self._replace_sockets_of(player, keep=sid)
         self._sessions[sid] = player
         await self._broadcaster.enter_room(sid, player.code)
         # Only a new player changes the lobby. A rejoin changes nothing for the others.
@@ -165,10 +173,32 @@ class RealtimeAdapter:
             )
         # A rejoin restores the ticks the player already had, so they come back here.
         return JoinAck(
+            **self._snapshot(player.code),
             ticket=joined.ticket.to_cells(),
             ticks=sorted(self._registry.ticks(player)),
-            prizes=_prize_board(self._registry.prize_board(player.code)),
+            pending_claims=self._registry.pending_claims(player),
+            rejoin_token=joined.rejoin_token,
         ).model_dump(mode="json")
+
+    def _snapshot(self, code: str) -> dict[str, Any]:
+        """The parts of a snapshot that every client gets."""
+        return {
+            "status": self._registry.status(code),
+            "end_reason": self._registry.end_reason(code),
+            "players": self._registry.players(code),
+            "draws": [DrawAnnouncement.from_draw(draw) for draw in self._registry.draw_history(code)],
+            "prizes": _prize_board(self._registry.prize_board(code)),
+        }
+
+    async def _replace_sockets_of(self, player: PlayerRef, keep: str) -> None:
+        """Tells every other socket holding this player that it was replaced, and takes it out of the game."""
+        for old, held in list(self._sessions.items()):
+            if old != keep and held.code == player.code and name_key(held.name) == name_key(player.name):
+                del self._sessions[old]
+                await self._broadcaster.leave_room(old, player.code)
+                await self._broadcaster.emit(
+                    ServerEvent.REPLACED, Replaced().model_dump(mode="json"), to=old
+                )
 
     async def disconnect(self, sid: str) -> None:
         """A socket has dropped. The player keeps their place and can rejoin by name."""
@@ -179,16 +209,18 @@ class RealtimeAdapter:
     async def watch_lobby(self, sid: str, payload: object) -> Ack:
         try:
             host = _parse(HostLink, payload)
-            players = self._registry.lobby(host)
+            self._registry.lobby(host)
         except GameError as err:
             return _refusal(err)
 
         await self._broadcaster.enter_room(sid, host.code)
         await self._broadcaster.enter_room(sid, _host_room(host.code))
         return WatchAck(
-            players=players,
-            prizes=_prize_board(self._registry.prize_board(host.code)),
+            **self._snapshot(host.code),
             claims=[_claim_entry(record) for record in self._registry.claim_log(host.code)],
+            pool=PoolResponse.from_pool(self._registry.pool_of(host.code)),
+            pool_name=self._registry.pool_name_of(host.code),
+            window_open=self._registry.window_open(host.code),
         ).model_dump(mode="json")
 
     async def start_game(self, sid: str, payload: object) -> Ack:
@@ -234,6 +266,7 @@ class RealtimeAdapter:
             settled,
             lambda: self._announce_end(host.code, "host"),
         )
+        await self._tell_window(host.code)
         return Accepted().model_dump(mode="json")
 
     async def claim_prize(self, sid: str, payload: object) -> Ack:
@@ -258,6 +291,7 @@ class RealtimeAdapter:
         answer: asyncio.Future[Ack] = asyncio.get_running_loop().create_future()
         self._held.setdefault((player.code, prize), []).append((player.name, answer))
         if pending.opened_window:
+            await self._tell_window(player.code)
             self._scheduler.call_later(
                 self._window_seconds, lambda: self.close_window(player.code, prize)
             )
@@ -281,6 +315,7 @@ class RealtimeAdapter:
                 await self._announce_end(code, "full_house")
 
         await self._announce(code, [settled], announce_room)
+        await self._tell_window(code)
 
     async def _announce(
         self,
@@ -313,6 +348,17 @@ class RealtimeAdapter:
                 result = Refusal(error=record.error).model_dump(mode="json")
             if not answer.done():
                 answer.set_result(result)
+
+    async def _tell_window(self, code: str) -> None:
+        """Tells the host whether a settlement window is open now. A failure is only logged."""
+        try:
+            await self._broadcaster.emit(
+                ServerEvent.WINDOW_CHANGED,
+                WindowChanged(open=self._registry.window_open(code)).model_dump(mode="json"),
+                room=_host_room(code),
+            )
+        except Exception:
+            logger.exception("could not tell the host about the settlement window in game %s", code)
 
     async def _tell_host(self, code: str, record: ClaimRecord) -> None:
         """Sends the host one decided claim, and nobody else."""
@@ -349,6 +395,9 @@ class _SocketIOBroadcaster:
 
     async def enter_room(self, sid: str, room: str) -> None:
         await self._server.enter_room(sid, room)
+
+    async def leave_room(self, sid: str, room: str) -> None:
+        await self._server.leave_room(sid, room)
 
     async def emit(
         self,

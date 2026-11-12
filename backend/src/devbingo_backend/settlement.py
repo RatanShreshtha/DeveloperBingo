@@ -120,6 +120,10 @@ class ClaimSettlement:
         """True when the player has a claim waiting in an open window."""
         return any(claimant in waiting for waiting in self._windows.values())
 
+    def pending_prizes(self, claimant: str) -> list[Prize]:
+        """The prizes the player has a claim waiting on, in the order of Prize."""
+        return [prize for prize in Prize if claimant in self._windows.get(prize, [])]
+
     def _decide(self, claimant: str, prize: Prize, error: GameError | None) -> ClaimRecord:
         """The one place a claim is logged: the moment it is decided."""
         record = ClaimRecord(claimant, prize, accepted=error is None, error=error.code if error else None)

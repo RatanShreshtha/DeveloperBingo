@@ -1,58 +1,64 @@
-import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { tickTopic } from '../realtime/socket'
-import { useLobbyStore } from '../stores/lobby'
+import { useSessionStore } from '../stores/session'
 import PlayerLobbyView from './PlayerLobbyView.vue'
+import { joinedAda, startFresh } from './testSetup'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
+
+let fake: ReturnType<typeof startFresh>
 
 beforeEach(() => {
-  setActivePinia(createPinia())
-  vi.mocked(tickTopic).mockReset()
+  fake = startFresh()
 })
 
-function setUpTicket() {
-  const store = useLobbyStore()
-  store.player = { code: 'ABC123', name: 'Ada' }
-  store.ticket = [
-    ['Algorithm', null, 'JSON'],
-    [null, 'Cache', null],
-  ]
-  store.draws = [{ position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }]
-  return store
+function setUpTicket(overrides = {}) {
+  return joinedAda(fake, {
+    status: 'started',
+    ticket: [
+      ['Algorithm', null, 'JSON'],
+      [null, 'Cache', null],
+    ],
+    draws: [{ position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+    ...overrides,
+  })
 }
 
 describe('PlayerLobbyView ticking', () => {
   it('lets the player tick a drawn topic on their ticket', async () => {
-    vi.mocked(tickTopic).mockResolvedValue({ ok: true })
-    const store = setUpTicket()
+    fake.answer('tick_topic', { ok: true })
+    const store = await setUpTicket()
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     await wrapper.findAll('[data-test="tick-cell"]')[0].trigger('click')
     await flushPromises()
 
-    expect(tickTopic).toHaveBeenCalledWith('Algorithm')
+    expect(fake.payloads('tick_topic')).toEqual([{ topic: 'Algorithm' }])
     expect(store.ticks).toEqual(['Algorithm'])
   })
 
-  it('disables topics that have not been drawn yet', () => {
-    setUpTicket()
+  it('disables topics that have not been drawn yet', async () => {
+    await setUpTicket()
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     const cells = wrapper.findAll('[data-test="tick-cell"]')
     const cacheCell = cells.find((cell) => cell.text() === 'Cache')
     expect(cacheCell?.attributes('disabled')).toBeDefined()
-    expect(wrapper.findAll('[data-test="tick-cell"]')[0].attributes('disabled')).toBeUndefined()
+    expect(cells[0].attributes('disabled')).toBeUndefined()
   })
 
   it('shows ticked topics as pressed on the ticket', async () => {
-    const store = setUpTicket()
-    store.ticks = ['Algorithm']
+    await setUpTicket({ ticks: ['Algorithm'] })
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    const algorithm = wrapper.findAll('[data-test="tick-cell"]')[0]
-    expect(algorithm.attributes('aria-pressed')).toBe('true')
+    expect(wrapper.findAll('[data-test="tick-cell"]')[0].attributes('aria-pressed')).toBe('true')
+  })
+
+  it('disables every tick once the game has ended', async () => {
+    await setUpTicket({ status: 'ended', end_reason: 'host', ticks: ['Algorithm'] })
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+    expect(wrapper.findAll('[data-test="tick-cell"]').every((c) => c.attributes('disabled') !== undefined)).toBe(true)
+    expect(useSessionStore().ended).toBe(true)
   })
 })

@@ -1,11 +1,10 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { joinGame } from '../realtime/socket'
-import { useLobbyStore } from './lobby'
-import { joinedResult } from '../testing/joinMock'
+import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import { playerSnapshot } from '../testing/snapshots'
+import { useSessionStore } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 const ticket = [
   ['Algorithm', null, 'JSON', null, null, 'Monad', null, null, 'Pi'],
@@ -13,15 +12,17 @@ const ticket = [
   ['Pointer', null, null, 'Tech debt', null, null, null, 'Babel', null],
 ]
 
+let fake: FakeTransport
 beforeEach(() => {
+  sessionStorage.clear()
+  fake = installFakeTransport()
   setActivePinia(createPinia())
-  vi.mocked(joinGame).mockReset()
 })
 
-describe('lobby store', () => {
+describe('session store', () => {
   it('keeps the ticket the server dealt when the player joins', async () => {
-    vi.mocked(joinGame).mockResolvedValue(joinedResult(ticket))
-    const store = useLobbyStore()
+    fake.answer('join_game', playerSnapshot({ ticket }))
+    const store = useSessionStore()
 
     const joined = await store.join('ABC123', 'Ada')
 
@@ -30,8 +31,8 @@ describe('lobby store', () => {
   })
 
   it('leaves no ticket behind when the join is refused', async () => {
-    vi.mocked(joinGame).mockResolvedValue({ ok: false, error: 'name_taken' })
-    const store = useLobbyStore()
+    fake.answer('join_game', { ok: false, error: 'name_taken' })
+    const store = useSessionStore()
 
     await store.join('ABC123', 'Ada')
 

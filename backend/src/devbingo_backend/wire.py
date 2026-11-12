@@ -14,6 +14,7 @@ from devbingo_backend.prizes import Prize
 
 if TYPE_CHECKING:
     from devbingo_backend.game import Draw
+    from devbingo_backend.pool import Pool
 
 
 class ErrorCode(StrEnum):
@@ -63,6 +64,10 @@ class ServerEvent(StrEnum):
     PRIZE_AWARDED = "prize_awarded"
     # Sent to the host only: refused claims stay private to the claimant among players.
     CLAIM_LOGGED = "claim_logged"
+    # Sent to the host only: a settlement window opened or the last one closed.
+    WINDOW_CHANGED = "window_changed"
+    # Sent to one socket only: another socket took over its player with their rejoin token.
+    REPLACED = "replaced"
 
 
 class _Message(BaseModel):
@@ -98,8 +103,24 @@ class DrawAnnouncement(_Message):
         )
 
 
-class DrawHistoryResponse(_Message):
-    draws: list[DrawAnnouncement]
+class TopicResponse(_Message):
+    name: str
+    explanation: str
+
+
+class PoolResponse(_Message):
+    """A pool as columns of topics."""
+
+    columns: list[list[TopicResponse]]
+
+    @classmethod
+    def from_pool(cls, pool: "Pool") -> "PoolResponse":
+        return cls(
+            columns=[
+                [TopicResponse(name=topic.name, explanation=topic.explanation) for topic in column]
+                for column in pool.columns()
+            ]
+        )
 
 
 # What a client sends. Tick, untick and claim name no player: the socket's session does.
@@ -108,6 +129,9 @@ class DrawHistoryResponse(_Message):
 class JoinPayload(_Message):
     code: str
     name: str
+    # Proves the sender is the player who joined before, so a reload can take the name over
+    # while the old socket is still connected. Without it, a connected name is refused.
+    rejoin_token: str | None = None
 
 
 class TickPayload(_Message):
@@ -147,18 +171,40 @@ class Accepted(_Message):
     ok: Literal[True] = True
 
 
-class JoinAck(_Message):
+class GameSnapshot(_Message):
+    """What a client needs to show a game from scratch: where it stands, who is in it, what has
+    been drawn and who has been awarded what."""
+
+    status: Literal["lobby", "started", "ended"]
+    # Why the game ended. None while it has not.
+    end_reason: Literal["full_house", "host"] | None
+    players: list[str]
+    draws: list[DrawAnnouncement]
+    prizes: list[PrizeBoardEntry]
+
+
+class JoinAck(GameSnapshot):
+    """A player's snapshot: the game, plus their own ticket, ticks and pending claims."""
+
     ok: Literal[True] = True
     ticket: list[list[str | None]]
     ticks: list[str]
-    prizes: list[PrizeBoardEntry]
+    # Prizes this player has claimed whose settlement window has not closed.
+    pending_claims: list[Prize]
+    # Kept private by the player. Every join issues a new one, replacing the last.
+    rejoin_token: str
 
 
-class WatchAck(_Message):
+class WatchAck(GameSnapshot):
+    """The host's snapshot: the game, plus the claim log, the pool and whether a window is open."""
+
     ok: Literal[True] = True
-    players: list[str]
-    prizes: list[PrizeBoardEntry]
     claims: list[ClaimLogEntry]
+    pool: PoolResponse
+    # The name the pool was chosen under, if it has one.
+    pool_name: str | None
+    # True while a settlement window is open, so the host sees why a draw is refused.
+    window_open: bool
 
 
 class DrawAck(_Message):
@@ -188,6 +234,16 @@ class PrizeAwarded(_Message):
     awarded_to: list[str]
 
 
+class WindowChanged(_Message):
+    """Whether any settlement window is open, which is why the server refuses draws."""
+
+    open: bool
+
+
+class Replaced(_Message):
+    """Another socket took over this socket's player, which has left the game."""
+
+
 # Models the OpenAPI schema carries that no REST route returns.
 SOCKET_MODELS: list[type[BaseModel]] = [
     JoinPayload,
@@ -195,6 +251,9 @@ SOCKET_MODELS: list[type[BaseModel]] = [
     ClaimPayload,
     PrizeBoardEntry,
     ClaimLogEntry,
+    GameSnapshot,
+    PoolResponse,
+    TopicResponse,
     Refusal,
     Accepted,
     JoinAck,
@@ -204,4 +263,6 @@ SOCKET_MODELS: list[type[BaseModel]] = [
     GameStarted,
     GameEnded,
     PrizeAwarded,
+    Replaced,
+    WindowChanged,
 ]

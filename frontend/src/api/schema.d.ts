@@ -61,43 +61,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/games/{code}/lobby": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read Lobby */
-        get: operations["read_lobby_games__code__lobby_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/games/{code}/draws": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read Draw History
-         * @description Every draw so far, in order. Public, so a player who arrives late can catch up.
-         */
-        get: operations["read_draw_history_games__code__draws_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/pools/default": {
         parameters: {
             query?: never;
@@ -203,11 +166,6 @@ export interface components {
             /** Explanation */
             explanation: string;
         };
-        /** DrawHistoryResponse */
-        DrawHistoryResponse: {
-            /** Draws */
-            draws: components["schemas"]["DrawAnnouncement"][];
-        };
         /**
          * ErrorCode
          * @description Why a request was refused. Each engine error declares the code it maps to.
@@ -243,7 +201,7 @@ export interface components {
             /** Columns */
             columns: components["schemas"]["TopicResponse"][][];
             /** Name */
-            name?: string | null;
+            name: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -275,11 +233,6 @@ export interface components {
             /** Host Token */
             host_token: string;
         };
-        /** LobbyResponse */
-        LobbyResponse: {
-            /** Players */
-            players: string[];
-        };
         /** NewPool */
         NewPool: {
             /** Name */
@@ -298,7 +251,10 @@ export interface components {
         PoolRefused: {
             detail: components["schemas"]["PoolRefusal"];
         };
-        /** PoolResponse */
+        /**
+         * PoolResponse
+         * @description A pool as columns of topics.
+         */
         PoolResponse: {
             /** Columns */
             columns: components["schemas"]["TopicResponse"][][];
@@ -384,10 +340,46 @@ export interface components {
              */
             reason: "full_house" | "host";
         };
+        /**
+         * GameSnapshot
+         * @description What a client needs to show a game from scratch: where it stands, who is in it, what has
+         *     been drawn and who has been awarded what.
+         */
+        GameSnapshot: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "lobby" | "started" | "ended";
+            /** End Reason */
+            end_reason: ("full_house" | "host") | null;
+            /** Players */
+            players: string[];
+            /** Draws */
+            draws: components["schemas"]["DrawAnnouncement"][];
+            /** Prizes */
+            prizes: components["schemas"]["PrizeBoardEntry"][];
+        };
         /** GameStarted */
         GameStarted: Record<string, never>;
-        /** JoinAck */
+        /**
+         * JoinAck
+         * @description A player's snapshot: the game, plus their own ticket, ticks and pending claims.
+         */
         JoinAck: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "lobby" | "started" | "ended";
+            /** End Reason */
+            end_reason: ("full_house" | "host") | null;
+            /** Players */
+            players: string[];
+            /** Draws */
+            draws: components["schemas"]["DrawAnnouncement"][];
+            /** Prizes */
+            prizes: components["schemas"]["PrizeBoardEntry"][];
             /**
              * Ok
              * @default true
@@ -398,8 +390,10 @@ export interface components {
             ticket: (string | null)[][];
             /** Ticks */
             ticks: string[];
-            /** Prizes */
-            prizes: components["schemas"]["PrizeBoardEntry"][];
+            /** Pending Claims */
+            pending_claims: components["schemas"]["Prize"][];
+            /** Rejoin Token */
+            rejoin_token: string;
         };
         /** JoinPayload */
         JoinPayload: {
@@ -407,6 +401,11 @@ export interface components {
             code: string;
             /** Name */
             name: string;
+            /**
+             * Rejoin Token
+             * @default null
+             */
+            rejoin_token: string | null;
         };
         /** LobbyUpdated */
         LobbyUpdated: {
@@ -429,25 +428,55 @@ export interface components {
             ok: false;
             error: components["schemas"]["ErrorCode"];
         };
+        /**
+         * Replaced
+         * @description Another socket took over this socket's player, which has left the game.
+         */
+        Replaced: Record<string, never>;
         /** TickPayload */
         TickPayload: {
             /** Topic */
             topic: string;
         };
-        /** WatchAck */
+        /**
+         * WatchAck
+         * @description The host's snapshot: the game, plus the claim log, the pool and whether a window is open.
+         */
         WatchAck: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "lobby" | "started" | "ended";
+            /** End Reason */
+            end_reason: ("full_house" | "host") | null;
+            /** Players */
+            players: string[];
+            /** Draws */
+            draws: components["schemas"]["DrawAnnouncement"][];
+            /** Prizes */
+            prizes: components["schemas"]["PrizeBoardEntry"][];
             /**
              * Ok
              * @default true
              * @constant
              */
             ok: true;
-            /** Players */
-            players: string[];
-            /** Prizes */
-            prizes: components["schemas"]["PrizeBoardEntry"][];
             /** Claims */
             claims: components["schemas"]["ClaimLogEntry"][];
+            pool: components["schemas"]["PoolResponse"];
+            /** Pool Name */
+            pool_name: string | null;
+            /** Window Open */
+            window_open: boolean;
+        };
+        /**
+         * WindowChanged
+         * @description Whether any settlement window is open, which is why the server refuses draws.
+         */
+        WindowChanged: {
+            /** Open */
+            open: boolean;
         };
     };
     responses: never;
@@ -529,70 +558,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HostLink"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_lobby_games__code__lobby_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-host-token"?: string;
-            };
-            path: {
-                code: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LobbyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    read_draw_history_games__code__draws_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                code: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DrawHistoryResponse"];
                 };
             };
             /** @description Validation Error */

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useLobbyStore } from '../stores/lobby'
+import { useSessionStore } from '../stores/session'
 
-const store = useLobbyStore()
+const store = useSessionStore()
 const router = useRouter()
 const code = ref('')
 const name = ref('')

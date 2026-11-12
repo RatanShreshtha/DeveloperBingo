@@ -32,6 +32,14 @@ _Avoid_: User, contestant
 A player whose socket is live in the game. A player who drops keeps their place and ticks, and can rejoin by name.
 _Avoid_: Online player, live player, dropped player (use "dropped" only for a player who is not connected)
 
+**Rejoin token**:
+A secret the server gives a player each time they join. Showing it later proves they are the same player, so a reload can take the name back from a connection the server has not yet seen drop. Without it, a connected name is refused.
+_Avoid_: Session key, player password
+
+**Game snapshot**:
+Everything a client needs to show a game from scratch: its status, why it ended, the players, the draws and the prize board. A player's snapshot adds their Ticket, ticks and pending claims; the host's adds the Pool Columns, the claim log and whether a settlement window is open.
+_Avoid_: Game state dump, sync
+
 **Claim**:
 A player's assertion that they have won a prize, checked against the draws.
 _Avoid_: Bingo, call, shout
