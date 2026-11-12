@@ -1,5 +1,7 @@
+from helpers import ManualScheduler
 from test_realtime import (
     RecordingBroadcaster,
+    claim_and_close,
     claim_message,
     host_message,
     run,
@@ -32,10 +34,10 @@ def test_the_host_is_told_of_a_refused_claim_and_the_players_are_not():
 
 
 def test_the_host_is_told_of_an_accepted_claim_as_well_as_the_room():
-    broadcaster = RecordingBroadcaster()
-    adapter, _, game = started_game_with_five_ticks_for_ada(broadcaster)
+    broadcaster, scheduler = RecordingBroadcaster(), ManualScheduler()
+    adapter, _, game = started_game_with_five_ticks_for_ada(broadcaster, scheduler)
 
-    run(adapter.claim_prize("sid-ada", claim_message(game)))
+    claim_and_close(adapter, scheduler, game)
 
     assert [e for e in broadcaster.emitted if e[1] == f"{game.code}:host"] == [
         ("claim_logged", f"{game.code}:host",
@@ -57,9 +59,10 @@ def test_a_malformed_claim_or_one_from_a_socket_that_never_joined_is_not_logged(
 
 
 def test_a_host_who_reconnects_gets_the_claims_so_far_in_the_watch_acknowledgement():
-    adapter, _, game = started_game_with_five_ticks_for_ada()
+    scheduler = ManualScheduler()
+    adapter, _, game = started_game_with_five_ticks_for_ada(scheduler=scheduler)
     run(adapter.claim_prize("sid-ada", claim_message(game, prize="full_house")))
-    run(adapter.claim_prize("sid-ada", claim_message(game)))
+    claim_and_close(adapter, scheduler, game)
 
     ack = watch_as_host(adapter, game, sid="sid-host-after-reconnect")
 

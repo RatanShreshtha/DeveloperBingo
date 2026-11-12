@@ -30,7 +30,7 @@ async function mountPlayer() {
 
 describe('PlayerLobbyView prizes', () => {
   it('lets the player claim early five', async () => {
-    fake.answer('claim_prize', { ok: true })
+    fake.answer('claim_prize', { ok: true, waiting: true })
     await setUpPlayer()
     const wrapper = await mountPlayer()
 
@@ -72,19 +72,19 @@ describe('PlayerLobbyView prizes', () => {
   })
 
   describe('while a claim waits for its settlement window', () => {
-    it('shows the claim as pending until the server answers, then clears it', async () => {
-      let settle: (ack: { ok: true }) => void = () => {}
-      fake.answer('claim_prize', () => new Promise((resolve) => (settle = resolve)))
+    it('shows the claim as pending until its window settles, then clears it', async () => {
+      fake.answer('claim_prize', { ok: true, waiting: true })
       await setUpPlayer()
       const wrapper = await mountPlayer()
 
       await wrapper.get('[data-test="claim-early_five"]').trigger('click')
+      await flushPromises()
 
       const button = wrapper.get('[data-test="claim-early_five"]')
       expect(button.text()).toBe('Claiming Early five…')
       expect(button.attributes('disabled')).toBeDefined()
 
-      settle({ ok: true })
+      fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
       await flushPromises()
 
       expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe('Claim Early five')
@@ -103,8 +103,6 @@ describe('PlayerLobbyView prizes', () => {
     })
 
     it('shows a claim the server still holds as pending after a reload', async () => {
-      let settle: (ack: { ok: true }) => void = () => {}
-      fake.answer('claim_prize', () => new Promise((resolve) => (settle = resolve)))
       await setUpPlayer({ pending_claims: ['early_five'] })
       const wrapper = await mountPlayer()
 
@@ -112,7 +110,7 @@ describe('PlayerLobbyView prizes', () => {
       expect(button.text()).toBe('Claiming Early five…')
       expect(button.attributes('disabled')).toBeDefined()
 
-      settle({ ok: true })
+      fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
       await flushPromises()
 
       expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe('Claim Early five')
@@ -165,7 +163,7 @@ describe('PlayerLobbyView prizes', () => {
     })
 
     it.each(prizes)('claims %s by its wire name when its button is clicked', async (prize) => {
-      fake.answer('claim_prize', { ok: true })
+      fake.answer('claim_prize', { ok: true, waiting: true })
       const wrapper = await mountWithFullBoard()
 
       await wrapper.get(`[data-test="claim-${prize}"]`).trigger('click')

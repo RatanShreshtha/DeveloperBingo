@@ -37,7 +37,7 @@ A secret the server gives a player each time they join. Showing it later proves 
 _Avoid_: Session key, player password
 
 **Game snapshot**:
-Everything a client needs to show a game from scratch: its status, why it ended, the players, the draws and the prize board. A player's snapshot adds their Ticket, ticks and pending claims; the host's adds the Pool Columns, the claim log and whether a settlement window is open.
+Everything a client needs to show a game from scratch: its status, why it ended, the players, the draws and the prize board. A player's snapshot adds their Ticket, ticks, pending claims and their own decided claims; the host's adds the Pool Columns, the claim log and whether a settlement window is open.
 _Avoid_: Game state dump, sync
 
 **Claim**:

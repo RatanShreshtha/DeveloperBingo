@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from helpers import start_and_draw_everything
+from helpers import ManualScheduler, start_and_draw_everything
 from test_claims import PRIZE_TOPICS, tick
 
 from devbingo_backend.default_pool import DEFAULT_POOL
@@ -14,7 +14,7 @@ from devbingo_backend.wire import ErrorCode
 
 @pytest.fixture
 def table():
-    registry = GameRegistry(rng=random.Random(31))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(31))
     game = registry.create_game(DEFAULT_POOL)
     ada = registry.join(PlayerRef(game.code, "Ada")).ticket
     registry.join(PlayerRef(game.code, "Grace"))

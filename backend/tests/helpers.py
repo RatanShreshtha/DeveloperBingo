@@ -1,5 +1,7 @@
 """Setup shared by the engine tests."""
 
+import asyncio
+
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import GameRegistry, PlayerRef
 from devbingo_backend.pool import Topic
@@ -52,3 +54,26 @@ def claim_and_settle(registry: GameRegistry, player: PlayerRef, prize: Prize):
     """Claim a prize and close its settlement window at once, as if no one else claimed in it."""
     registry.claim(player, prize)
     return registry.close_window(player.code, prize)
+
+
+class ManualScheduler:
+    """Keeps the settlement window closes the registry schedules until the test fires them, so no
+    test waits on a clock."""
+
+    def __init__(self) -> None:
+        self.pending: list = []
+        self.delays: list[float] = []
+
+    def call_later(self, delay, action) -> None:
+        self.delays.append(delay)
+        self.pending.append(action)
+
+    async def fire_all(self) -> None:
+        pending, self.pending = self.pending, []
+        for action in pending:
+            await action()
+
+    def close_all(self) -> None:
+        """Fire every pending close, outside an event loop."""
+        asyncio.run(self.fire_all())
+

@@ -25,8 +25,6 @@ class Settled:
     refused: tuple[str, ...] = ()
     # What was decided for each claimant at close, in the order they claimed.
     records: tuple["ClaimRecord", ...] = ()
-    # True when this prize is the one that ends the game.
-    ends_game: bool = False
 
 
 # What a claimant has, looked up when a window closes: their ticket, and the topics both ticked and drawn.

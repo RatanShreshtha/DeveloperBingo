@@ -3,7 +3,7 @@
 import random
 
 import pytest
-from helpers import claim_and_settle, names_on, start_and_draw_everything
+from helpers import ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.errors import ErrorCode
@@ -14,7 +14,7 @@ from devbingo_backend.prizes import Prize
 @pytest.fixture
 def setup():
     summaries = []
-    registry = GameRegistry(rng=random.Random(5), on_ended=summaries.append)
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(5), on_ended=summaries.append)
     game = registry.create_game(DEFAULT_POOL, pool_name="Default")
     ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     return registry, game, ticket, summaries
@@ -89,7 +89,7 @@ def test_a_failing_observer_does_not_stop_the_game_ending(caplog):
     def boom(_summary):
         raise RuntimeError("store down")
 
-    registry = GameRegistry(on_ended=boom)
+    registry = GameRegistry(scheduler=ManualScheduler(), on_ended=boom)
     game = registry.create_game(DEFAULT_POOL)
     with caplog.at_level("ERROR"):
         registry.end(game)
@@ -108,7 +108,7 @@ def test_a_code_the_caller_says_is_taken_is_never_handed_to_a_new_game():
             return True
         return False
 
-    registry = GameRegistry(code_taken=taken)
+    registry = GameRegistry(scheduler=ManualScheduler(), code_taken=taken)
     link = registry.create_game(DEFAULT_POOL)
 
     assert len(refused) == 3

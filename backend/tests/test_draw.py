@@ -12,11 +12,12 @@ from devbingo_backend.game import (
     NotHost,
 )
 from devbingo_backend.wire import HostLink
+from helpers import ManualScheduler
 
 
 @pytest.fixture
 def started():
-    registry = GameRegistry(rng=random.Random(7))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(7))
     game = registry.create_game(DEFAULT_POOL)
     registry.join(PlayerRef(game.code, "Ada"))
     registry.start(game)
@@ -31,7 +32,7 @@ def test_the_game_cannot_be_started_twice(started):
 
 
 def test_draws_are_refused_before_the_game_starts():
-    registry = GameRegistry()
+    registry = GameRegistry(scheduler=ManualScheduler())
     game = registry.create_game(DEFAULT_POOL)
 
     with pytest.raises(GameNotStarted):

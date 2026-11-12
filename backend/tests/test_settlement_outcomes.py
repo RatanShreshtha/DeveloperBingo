@@ -3,10 +3,10 @@
 import random
 
 import pytest
-from helpers import draw_everything, names_on
+from helpers import ManualScheduler, draw_everything, names_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import ClaimNotValid, GameRegistry, PlayerRef
+from devbingo_backend.game import ClaimNotValid, GameRegistry, Outcome, PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
 from devbingo_backend.wire import ErrorCode
@@ -14,7 +14,7 @@ from devbingo_backend.wire import ErrorCode
 
 @pytest.fixture
 def table():
-    registry = GameRegistry(rng=random.Random(7))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(7))
     game = registry.create_game(DEFAULT_POOL)
     tickets = {
         name: registry.join(PlayerRef(game.code, name)).ticket for name in ("Ada", "Grace")
@@ -36,7 +36,7 @@ def test_closing_a_window_returns_each_claimants_outcome(table):
     registry.claim(player(game, "Ada"), Prize.EARLY_FIVE)
     registry.claim(player(game, "Grace"), Prize.EARLY_FIVE)
 
-    settled = registry.close_window(game.code, Prize.EARLY_FIVE)
+    (settled,) = registry.close_window(game.code, Prize.EARLY_FIVE).settled
 
     assert settled.records == (
         ClaimRecord("Ada", Prize.EARLY_FIVE, accepted=True),
@@ -49,9 +49,12 @@ def test_ending_the_game_settles_every_open_window_as_refused_game_ended(table):
     registry.claim(player(game, "Ada"), Prize.EARLY_FIVE)
     registry.claim(player(game, "Grace"), Prize.EARLY_FIVE)
 
-    settled = registry.end(game)
+    outcome = registry.end(game)
+    settled = outcome.settled
 
     ended = ErrorCode.GAME_ENDED
+    assert outcome.ended == "host"
+    assert outcome.window_open is False
     assert [s.prize for s in settled] == [Prize.EARLY_FIVE]
     assert settled[0].awarded_to == ()
     assert settled[0].records == (
@@ -74,7 +77,8 @@ def test_a_window_closed_after_the_game_was_ended_is_a_no_op(table):
 def test_ending_a_game_with_no_open_window_settles_nothing(table):
     registry, game = table
 
-    assert registry.end(game) == ()
+    # No window was open, so the host is not told of a window change either.
+    assert registry.end(game) == Outcome(ended="host")
 
 
 def test_a_claim_refused_outright_carries_its_logged_record(table):

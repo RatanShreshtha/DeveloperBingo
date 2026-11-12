@@ -1,12 +1,16 @@
 """The public route for an ended game's history."""
 
-from typing import Literal
-
 from fastapi import APIRouter, HTTPException
 
 from devbingo_backend.game import GameSummary
 from devbingo_backend.history import HistoryStore, HistoryUnavailable
-from devbingo_backend.wire import ClaimLogEntry, DrawAnnouncement, PrizeBoardEntry, _Message
+from devbingo_backend.wire import (
+    ClaimLogEntry,
+    DrawAnnouncement,
+    EndReason,
+    PrizeBoardEntry,
+    _Message,
+)
 
 
 class GameHistoryResponse(_Message):
@@ -14,7 +18,7 @@ class GameHistoryResponse(_Message):
 
     code: str
     # Why it ended: the full house was awarded, or the host ended it.
-    reason: Literal["full_house", "host"]
+    reason: EndReason
     pool_name: str | None
     draws: list[DrawAnnouncement]
     claims: list[ClaimLogEntry]

@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from helpers import names_on, start_and_draw_everything
+from helpers import ManualScheduler, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -15,7 +15,7 @@ from devbingo_backend.game import (
 
 @pytest.fixture
 def lobby():
-    registry = GameRegistry(rng=random.Random(21))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(21))
     game = registry.create_game(DEFAULT_POOL)
     ada_ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     return registry, game, ada_ticket

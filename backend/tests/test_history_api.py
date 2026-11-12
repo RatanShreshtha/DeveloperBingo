@@ -1,5 +1,6 @@
 """An ended game's history over HTTP, and the wiring that stores a game when it ends."""
 
+import asyncio
 import logging
 
 import pytest
@@ -70,7 +71,11 @@ def test_a_full_house_game_shows_claims_with_outcomes_and_winners(client):
     start_and_draw_everything(registry, game)
     for topic in names_on(ticket):
         registry.tick(ada, topic)
-    claim_and_settle(registry, ada, Prize.FULL_HOUSE)
+    # The app's registry schedules its windows on the running event loop, so the claim needs one.
+    async def claim_full_house():
+        claim_and_settle(registry, ada, Prize.FULL_HOUSE)
+
+    asyncio.run(claim_full_house())
 
     body = client.get(f"/games/{game.code}/history").json()
 

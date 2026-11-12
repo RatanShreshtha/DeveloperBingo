@@ -1,7 +1,7 @@
 import random
 
 import pytest
-from helpers import draw_everything, names_on
+from helpers import ManualScheduler, draw_everything, names_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -15,7 +15,7 @@ from devbingo_backend.game import (
 
 @pytest.fixture
 def game_with_ada():
-    registry = GameRegistry(rng=random.Random(11))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(11))
     game = registry.create_game(DEFAULT_POOL)
     ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     registry.start(game)
@@ -90,7 +90,7 @@ def test_only_players_in_the_game_can_tick(game_with_ada):
 
 
 def test_each_players_ticks_belong_to_that_player():
-    registry = GameRegistry(rng=random.Random(11))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(11))
     game = registry.create_game(DEFAULT_POOL)
     ada_ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     registry.join(PlayerRef(game.code, "Grace"))

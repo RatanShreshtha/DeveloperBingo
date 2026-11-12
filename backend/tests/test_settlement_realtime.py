@@ -1,246 +1,203 @@
-import asyncio
-import random
-from dataclasses import dataclass
+"""How the adapter announces settlement outcomes: what is sent, to whom, and in what order, and that
+one failed send stops nothing else. When windows close, and who wins, is the engine's: see
+test_settlement_clock.py and test_settlement_window.py."""
 
-from helpers import start_and_draw_everything
-from test_realtime import RecordingBroadcaster, claim_message, host_message, tick_message, topics_on
+import asyncio
+import logging
+import random
+
+from helpers import ManualScheduler, start_and_draw_everything
+from test_realtime import host_message, run, tick_message, topics_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import GameRegistry, PlayerRef
-from devbingo_backend.realtime import DEFAULT_WINDOW_SECONDS, RealtimeAdapter
+from devbingo_backend.prizes import Prize
+from devbingo_backend.realtime import RealtimeAdapter
+from devbingo_backend.scheduler import AsyncioScheduler
 
 
-class ManualScheduler:
-    """Holds the closes the adapter schedules, so a test fires them with no waiting."""
+class OrderedBroadcaster:
+    """Records every emit in one list, in order, and raises for the events in `failing`."""
 
     def __init__(self) -> None:
-        self.scheduled: list = []
-        self.delays: list[float] = []
+        self.sent: list[tuple[str, str, object]] = []
+        self.failing: set[str] = set()
 
-    def call_later(self, delay, action) -> None:
-        self.delays.append(delay)
-        self.scheduled.append(action)
+    async def enter_room(self, sid: str, room: str) -> None:
+        pass
 
-    async def fire_all(self) -> None:
-        scheduled, self.scheduled = self.scheduled, []
-        for action in scheduled:
-            await action()
+    async def leave_room(self, sid: str, room: str) -> None:
+        pass
+
+    async def emit(self, event, data, room=None, to=None) -> None:
+        if event in self.failing:
+            raise RuntimeError(f"cannot emit {event}")
+        self.sent.append((event, room or to or "", data))
 
 
-@dataclass
 class Table:
-    adapter: RealtimeAdapter
-    registry: GameRegistry
-    game: object
-    broadcaster: RecordingBroadcaster
-    scheduler: ManualScheduler
-    tickets: dict[str, list]
+    """Ada and Grace have joined on their own sockets, the host watches, every topic is drawn and
+    each player has ticked five."""
 
-
-def table(window_seconds=DEFAULT_WINDOW_SECONDS, broadcaster=None) -> Table:
-    """Ada and Grace have joined, the game has started, every topic is drawn and each has ticked five."""
-    registry = GameRegistry(rng=random.Random(5))
-    game = registry.create_game(DEFAULT_POOL)
-    broadcaster = broadcaster or RecordingBroadcaster()
-    scheduler = ManualScheduler()
-    adapter = RealtimeAdapter(registry, broadcaster, scheduler=scheduler, window_seconds=window_seconds)
-    tickets: dict[str, list] = {}
-
-    async def setup():
+    def __init__(self, scheduler=None) -> None:
+        self.scheduler = scheduler or ManualScheduler()
+        self.registry = GameRegistry(rng=random.Random(5), scheduler=self.scheduler, window_seconds=0)
+        self.game = self.registry.create_game(DEFAULT_POOL)
+        self.broadcaster = OrderedBroadcaster()
+        self.adapter = RealtimeAdapter(self.registry, self.broadcaster)
+        self.tickets: dict[str, list] = {}
         for name in ("Ada", "Grace"):
-            ack = await adapter.join_game(f"sid-{name.lower()}", {"code": game.code, "name": name})
-            tickets[name] = ack["ticket"]
-        start_and_draw_everything(registry, game)
-        for name, cells in tickets.items():
-            for topic in topics_on(cells)[:5]:
-                await adapter.tick_topic(f"sid-{name.lower()}", tick_message(game, topic, name))
+            ack = run(self.adapter.join_game(self.sid(name), {"code": self.game.code, "name": name}))
+            self.tickets[name] = ack["ticket"]
+        run(self.adapter.watch_lobby("sid-host", host_message(self.game)))
+        start_and_draw_everything(self.registry, self.game)
+        for name in ("Ada", "Grace"):
+            self.tick(name, topics_on(self.tickets[name])[:5])
+        self.broadcaster.sent.clear()
 
-    asyncio.run(setup())
-    return Table(adapter, registry, game, broadcaster, scheduler, tickets)
+    @staticmethod
+    def sid(name: str) -> str:
+        return f"sid-{name.lower()}"
 
+    def tick(self, name: str, topics) -> None:
+        for topic in topics:
+            run(self.adapter.tick_topic(self.sid(name), tick_message(self.game, topic, name)))
 
-async def settle_soon():
-    """Let held claims reach the point where they wait for their window."""
-    for _ in range(3):
-        await asyncio.sleep(0)
+    def claim(self, name: str, prize: str = "early_five"):
+        return run(self.adapter.claim_prize(self.sid(name), {"prize": prize}))
 
-
-def claim_task(t, sid, name, prize="early_five"):
-    return asyncio.create_task(t.adapter.claim_prize(sid, claim_message(t.game, name, prize)))
-
-
-def claims_then_close(t, claimants, prize="early_five"):
-    """Each (sid, name) claims in turn; the claims are held until the window closes."""
-
-    async def scenario():
-        tasks = [claim_task(t, sid, name, prize) for sid, name in claimants]
-        await settle_soon()
-        held = [task.done() for task in tasks]
-        await t.scheduler.fire_all()
-        return held, [await task for task in tasks]
-
-    return asyncio.run(scenario())
+    @property
+    def host(self) -> str:
+        return f"{self.game.code}:host"
 
 
-def emitted(t, *events):
-    return [e for e in t.broadcaster.emitted if e[0] in events]
+def logged(t, who, accepted=True, error=None, prize="early_five"):
+    return ("claim_logged", t.host, {"player": who, "prize": prize, "accepted": accepted, "error": error})
 
 
-ADA_AND_GRACE = [("sid-ada", "Ada"), ("sid-grace", "Grace")]
+def settled(t, who, accepted=True, error=None, prize="early_five"):
+    return ("claim_settled", Table.sid(who), {"prize": prize, "accepted": accepted, "error": error})
 
 
-def test_the_window_is_scheduled_once_with_the_configured_length():
-    t = table(window_seconds=2.5)
-
-    claims_then_close(t, ADA_AND_GRACE)
-
-    assert t.scheduler.delays == [2.5]
+def window(t, is_open):
+    return ("window_changed", t.host, {"open": is_open})
 
 
-def test_the_window_length_defaults_to_one_second():
-    assert DEFAULT_WINDOW_SECONDS == 1.0
+def test_the_first_valid_claim_is_waiting_and_tells_the_host_the_window_opened():
+    t = Table()
+
+    acks = [t.claim("Ada"), t.claim("Grace")]
+
+    assert acks == [{"ok": True, "waiting": True}] * 2
+    assert t.broadcaster.sent == [window(t, True)]
 
 
-def test_each_claimants_acknowledgement_is_held_until_the_window_settles():
-    t = table()
+def test_a_close_logs_each_claim_then_awards_then_tells_each_claimant_then_the_window():
+    t = Table()
+    t.claim("Ada")
+    t.claim("Grace")
+    t.broadcaster.sent.clear()
 
-    held, acks = claims_then_close(t, ADA_AND_GRACE)
+    t.scheduler.close_all()
 
-    assert held == [False, False]
-    assert acks == [{"ok": True}, {"ok": True}]
-
-
-def test_every_winner_is_broadcast_once_at_close():
-    t = table()
-
-    claims_then_close(t, ADA_AND_GRACE)
-
-    assert emitted(t, "prize_awarded") == [
-        ("prize_awarded", t.game.code, {"prize": "early_five", "awarded_to": ["Ada", "Grace"]})
+    assert t.broadcaster.sent == [
+        logged(t, "Ada"),
+        logged(t, "Grace"),
+        ("prize_awarded", t.game.code, {"prize": "early_five", "awarded_to": ["Ada", "Grace"]}),
+        settled(t, "Ada"),
+        settled(t, "Grace"),
+        window(t, False),
     ]
 
 
-def test_nothing_is_announced_while_the_window_is_open():
-    t = table()
+def test_a_claim_refused_at_close_is_settled_for_that_claimant_only():
+    t = Table()
+    # Grace takes back two ticks, so her claim is not valid; it still queues in Ada's open window.
+    grace_ticks = sorted(t.registry.ticks(PlayerRef(t.game.code, "Grace")))
+    for topic in grace_ticks[:2]:
+        run(t.adapter.untick_topic("sid-grace", tick_message(t.game, topic, "Grace")))
+    t.claim("Ada")
+    t.claim("Grace")
+    t.broadcaster.sent.clear()
 
-    async def scenario():
-        task = claim_task(t, "sid-ada", "Ada")
-        await settle_soon()
-        announced = emitted(t, "prize_awarded")
-        await t.scheduler.fire_all()
-        await task
-        return announced
+    t.scheduler.close_all()
 
-    assert asyncio.run(scenario()) == []
-
-
-def test_a_draw_is_refused_while_a_window_is_open():
-    t = table()
-
-    async def scenario():
-        task = claim_task(t, "sid-ada", "Ada")
-        await settle_soon()
-        during = await t.adapter.draw_topic("sid-host", host_message(t.game))
-        await t.scheduler.fire_all()
-        await task
-        after = await t.adapter.draw_topic("sid-host", host_message(t.game))
-        return during, after
-
-    during, after = asyncio.run(scenario())
-
-    assert during == {"ok": False, "error": "settlement_open"}
-    # Once it closes the hold is gone: every topic is already drawn, so the pool refuses instead.
-    assert after == {"ok": False, "error": "no_topics_left"}
-
-
-def test_an_untick_is_refused_while_the_claim_is_pending():
-    t = table()
-    topic = sorted(t.registry.ticks(PlayerRef(t.game.code, "Ada")))[0]
-
-    async def scenario():
-        task = claim_task(t, "sid-ada", "Ada")
-        await settle_soon()
-        refused = await t.adapter.untick_topic("sid-ada", tick_message(t.game, topic))
-        await t.scheduler.fire_all()
-        await task
-        allowed = await t.adapter.untick_topic("sid-ada", tick_message(t.game, topic))
-        return refused, allowed
-
-    refused, allowed = asyncio.run(scenario())
-
-    assert refused == {"ok": False, "error": "claim_pending"}
-    assert allowed == {"ok": True}
-
-
-def test_a_queued_claim_that_fails_at_close_is_refused_to_that_claimant_only():
-    t = table()
-    grace_topics = sorted(t.registry.ticks(PlayerRef(t.game.code, "Grace")))
-
-    async def scenario():
-        # Grace has taken back two ticks, so only Ada's claim is valid; hers still queues in the window.
-        for topic in grace_topics[:2]:
-            await t.adapter.untick_topic("sid-grace", tick_message(t.game, topic, "Grace"))
-        ada = claim_task(t, "sid-ada", "Ada")
-        await settle_soon()
-        grace = claim_task(t, "sid-grace", "Grace")
-        await settle_soon()
-        await t.scheduler.fire_all()
-        return await ada, await grace
-
-    ada_ack, grace_ack = asyncio.run(scenario())
-
-    assert ada_ack == {"ok": True}
-    assert grace_ack == {"ok": False, "error": "claim_not_valid"}
-    assert emitted(t, "prize_awarded") == [
-        ("prize_awarded", t.game.code, {"prize": "early_five", "awarded_to": ["Ada"]})
+    assert [e for e in t.broadcaster.sent if e[0] == "claim_settled"] == [
+        settled(t, "Ada"),
+        settled(t, "Grace", False, "claim_not_valid"),
     ]
+    assert ("prize_awarded", t.game.code, {"prize": "early_five", "awarded_to": ["Ada"]}) in t.broadcaster.sent
 
 
-def test_the_host_is_told_of_each_claim_when_it_settles_not_before():
-    t = table()
+def test_a_full_house_close_announces_the_end_before_telling_the_claimants():
+    t = Table()
+    for name in ("Ada", "Grace"):
+        t.tick(name, topics_on(t.tickets[name]))
+    t.claim("Ada", "full_house")
+    t.claim("Grace", "full_house")
+    t.broadcaster.sent.clear()
+
+    t.scheduler.close_all()
+
+    assert [e[0] for e in t.broadcaster.sent] == [
+        "claim_logged",
+        "claim_logged",
+        "prize_awarded",
+        "game_ended",
+        "claim_settled",
+        "claim_settled",
+        "window_changed",
+    ]
+    assert ("game_ended", t.game.code, {"reason": "full_house"}) in t.broadcaster.sent
+
+
+def test_ending_the_game_mid_window_refuses_the_claimants_at_once_and_the_late_close_sends_nothing():
+    t = Table()
+    t.claim("Ada")
+    t.claim("Grace")
+    t.broadcaster.sent.clear()
+
+    ended = run(t.adapter.end_game("sid-host", host_message(t.game)))
+    sent_by_end = list(t.broadcaster.sent)
+    t.scheduler.close_all()
+
+    assert ended == {"ok": True}
+    assert sent_by_end == [
+        logged(t, "Ada", False, "game_ended"),
+        logged(t, "Grace", False, "game_ended"),
+        ("game_ended", t.game.code, {"reason": "host"}),
+        settled(t, "Ada", False, "game_ended"),
+        settled(t, "Grace", False, "game_ended"),
+        window(t, False),
+    ]
+    assert t.broadcaster.sent == sent_by_end
+
+
+def test_a_failed_send_is_logged_and_every_other_send_still_goes_out(caplog):
+    t = Table()
+    t.claim("Ada")
+    t.claim("Grace")
+    t.broadcaster.sent.clear()
+    t.broadcaster.failing = {"prize_awarded", "claim_logged"}
+
+    with caplog.at_level(logging.ERROR, logger="devbingo_backend.realtime"):
+        t.scheduler.close_all()
+
+    assert t.broadcaster.sent == [settled(t, "Ada"), settled(t, "Grace"), window(t, False)]
+    assert len(caplog.records) == 3
+    assert all(record.exc_info for record in caplog.records)
+    assert t.registry.prize_board(t.game.code)[Prize.EARLY_FIVE] == ["Ada", "Grace"]
+
+
+def test_on_the_real_clock_a_claim_is_waiting_then_settled_without_being_asked_again():
+    # Nothing is scheduled until the claim, so the table is set up before the loop that runs it.
+    t = Table(scheduler=AsyncioScheduler())
 
     async def scenario():
-        await t.adapter.watch_lobby("sid-host", host_message(t.game))
-        task = claim_task(t, "sid-ada", "Ada")
-        await settle_soon()
-        before = emitted(t, "claim_logged")
-        await t.scheduler.fire_all()
-        await task
-        return before
+        ack = await t.adapter.claim_prize("sid-ada", {"prize": "early_five"})
+        for _ in range(5):
+            await asyncio.sleep(0)
+        return ack
 
-    before = asyncio.run(scenario())
-
-    assert before == []
-    assert emitted(t, "claim_logged") == [
-        ("claim_logged", f"{t.game.code}:host",
-         {"player": "Ada", "prize": "early_five", "accepted": True, "error": None})
-    ]
-
-
-def test_a_repeat_claim_in_the_window_is_answered_at_close_without_a_second_window():
-    t = table()
-
-    held, acks = claims_then_close(t, [("sid-ada", "Ada"), ("sid-ada", "Ada")])
-
-    assert held == [False, False]
-    assert acks == [{"ok": True}, {"ok": True}]
-    assert t.scheduler.delays == [DEFAULT_WINDOW_SECONDS]
-
-
-def test_a_full_house_window_ends_the_game_once_for_every_winner():
-    t = table()
-
-    async def scenario():
-        for name, cells in t.tickets.items():
-            for topic in topics_on(cells):
-                await t.adapter.tick_topic(f"sid-{name.lower()}", tick_message(t.game, topic, name))
-
-    asyncio.run(scenario())
-
-    _, acks = claims_then_close(t, ADA_AND_GRACE, prize="full_house")
-
-    assert acks == [{"ok": True}, {"ok": True}]
-    assert emitted(t, "prize_awarded", "game_ended") == [
-        ("prize_awarded", t.game.code, {"prize": "full_house", "awarded_to": ["Ada", "Grace"]}),
-        ("game_ended", t.game.code, {"reason": "full_house"}),
-    ]
+    assert asyncio.run(scenario()) == {"ok": True, "waiting": True}
+    assert settled(t, "Ada") in t.broadcaster.sent
