@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
-import { useSessionStore } from './session'
+import { useHostSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
@@ -16,14 +16,14 @@ beforeEach(() => {
 
 describe('session store when the game ends', () => {
   it('is not ended to begin with', () => {
-    const store = useSessionStore()
+    const store = useHostSession()
 
     expect(store.ended).toBe(false)
     expect(store.endReason).toBeNull()
   })
 
   it('records that the game ended, and why, when the room announces it', () => {
-    const store = useSessionStore()
+    const store = useHostSession()
 
     fake.emit('game_ended', { reason: 'full_house' })
 
@@ -33,7 +33,7 @@ describe('session store when the game ends', () => {
 
   it('ends the game when the host ends it', async () => {
     fake.answer('end_game', { ok: true })
-    const store = useSessionStore()
+    const store = useHostSession()
 
     await store.end(link)
 
@@ -44,7 +44,7 @@ describe('session store when the game ends', () => {
 
   it('stays running and says why when ending the game is refused', async () => {
     fake.answer('end_game', { ok: false, error: 'not_host' })
-    const store = useSessionStore()
+    const store = useHostSession()
 
     await store.end(link)
 

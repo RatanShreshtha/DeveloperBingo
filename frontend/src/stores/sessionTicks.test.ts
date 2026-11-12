@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
-import { useSessionStore } from './session'
+import { usePlayerSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
@@ -17,7 +17,7 @@ beforeEach(() => {
 })
 
 async function joinAsAda() {
-  const store = useSessionStore()
+  const store = usePlayerSession()
   await store.join('ABC123', 'Ada')
   return store
 }

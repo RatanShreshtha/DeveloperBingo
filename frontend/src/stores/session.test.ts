@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
-import { useSessionStore } from './session'
+import { usePlayerSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
@@ -22,7 +22,7 @@ beforeEach(() => {
 describe('session store', () => {
   it('keeps the ticket the server dealt when the player joins', async () => {
     fake.answer('join_game', playerSnapshot({ ticket }))
-    const store = useSessionStore()
+    const store = usePlayerSession()
 
     const joined = await store.join('ABC123', 'Ada')
 
@@ -32,7 +32,7 @@ describe('session store', () => {
 
   it('leaves no ticket behind when the join is refused', async () => {
     fake.answer('join_game', { ok: false, error: 'name_taken' })
-    const store = useSessionStore()
+    const store = usePlayerSession()
 
     await store.join('ABC123', 'Ada')
 
