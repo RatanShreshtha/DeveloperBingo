@@ -2,6 +2,7 @@ import random
 
 import pytest
 
+from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
     PlayerRef,
     MAX_PLAYERS,
@@ -21,7 +22,7 @@ def registry() -> GameRegistry:
 
 
 def test_creating_a_game_returns_a_code_and_a_private_host_token(registry):
-    created = registry.create_game()
+    created = registry.create_game(DEFAULT_POOL)
 
     assert created.code
     assert created.host_token
@@ -29,7 +30,7 @@ def test_creating_a_game_returns_a_code_and_a_private_host_token(registry):
 
 
 def test_joining_returns_the_players_ticket(registry):
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
 
     ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
 
@@ -38,7 +39,7 @@ def test_joining_returns_the_players_ticket(registry):
 
 
 def test_a_first_join_is_reported_as_a_new_player(registry):
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
 
     outcome = registry.join(PlayerRef(game.code, "Ada"))
 
@@ -47,7 +48,7 @@ def test_a_first_join_is_reported_as_a_new_player(registry):
 
 def test_no_two_tickets_in_a_game_are_identical():
     registry = GameRegistry(rng=random.Random(99))
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
 
     tickets = [registry.join(PlayerRef(game.code, f"player-{i}")).ticket for i in range(MAX_PLAYERS)]
 
@@ -55,7 +56,7 @@ def test_no_two_tickets_in_a_game_are_identical():
 
 
 def test_players_join_with_a_code_and_a_display_name(registry):
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
 
     registry.join(PlayerRef(game.code, "Ada"))
     registry.join(PlayerRef(game.code, "Grace"))
@@ -64,7 +65,7 @@ def test_players_join_with_a_code_and_a_display_name(registry):
 
 
 def test_a_duplicate_name_is_rejected(registry):
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
     registry.join(PlayerRef(game.code, "Ada"))
 
     with pytest.raises(NameTaken):
@@ -72,7 +73,7 @@ def test_a_duplicate_name_is_rejected(registry):
 
 
 def test_the_201st_join_is_rejected(registry):
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
     for i in range(MAX_PLAYERS):
         registry.join(PlayerRef(game.code, f"player-{i}"))
 
@@ -81,7 +82,7 @@ def test_the_201st_join_is_rejected(registry):
 
 
 def test_joins_are_rejected_once_the_game_has_started(registry):
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
     registry.join(PlayerRef(game.code, "Ada"))
     registry.start(game)
 
@@ -95,14 +96,14 @@ def test_joining_an_unknown_game_is_rejected(registry):
 
 
 def test_only_the_host_token_can_read_the_lobby(registry):
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
 
     with pytest.raises(NotHost):
         registry.lobby(HostLink(code=game.code, host_token="not-the-host-token"))
 
 
 def test_only_the_host_token_can_start_the_game(registry):
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
 
     with pytest.raises(NotHost):
         registry.start(HostLink(code=game.code, host_token="not-the-host-token"))

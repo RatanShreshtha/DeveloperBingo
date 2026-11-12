@@ -10,7 +10,7 @@ from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
 from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
-from devbingo_backend.pool_store import ensure_default_pool, load_default_pool
+from devbingo_backend.pool_library import PoolLibrary, PoolLibraryUnavailable, PostgresPoolLibrary
 from devbingo_backend.realtime import build_socket_server
 from devbingo_backend.wire import SOCKET_MODELS, DrawAnnouncement, DrawHistoryResponse, HostLink
 
@@ -35,10 +35,11 @@ class PoolResponse(BaseModel):
     columns: list[list[TopicResponse]]
 
 
-def create_app(database_url: str | None = None) -> FastAPI:
+def create_app(database_url: str | None = None, pool_library: PoolLibrary | None = None) -> FastAPI:
     url = database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     engine = create_engine(url, connect_args={"connect_timeout": 2})
     registry = GameRegistry()
+    library = pool_library or PostgresPoolLibrary(engine)
 
     def database_is_up() -> bool:
         # A health probe must never raise: any failure means the database
@@ -67,7 +68,11 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     @app.post("/games", status_code=201, response_model=HostLink)
     def create_game() -> HostLink:
-        return registry.create_game()
+        try:
+            pool = library.load_default()
+        except PoolLibraryUnavailable:
+            raise HTTPException(status_code=503, detail="pool library unavailable") from None
+        return registry.create_game(pool)
 
     @app.get("/games/{code}/lobby", response_model=LobbyResponse)
     def read_lobby(
@@ -96,11 +101,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
     @app.get("/pools/default", response_model=PoolResponse)
     def read_default_pool() -> PoolResponse:
         try:
-            ensure_default_pool(engine)
-            pool = load_default_pool(engine)
-        except Exception:
-            # Any failure here means the default pool can't be read right now.
-            raise HTTPException(status_code=503, detail="database unavailable") from None
+            pool = library.load_default()
+        except PoolLibraryUnavailable:
+            raise HTTPException(status_code=503, detail="pool library unavailable") from None
         return PoolResponse(
             columns=[
                 [TopicResponse(name=topic.name, explanation=topic.explanation) for topic in column]

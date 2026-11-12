@@ -5,7 +5,6 @@ import secrets
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
-from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
     AlreadyJoined,
     ClaimNotValid,
@@ -27,7 +26,7 @@ from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers impor
     UnknownPrize,
 )
 from devbingo_backend.names import name_key
-from devbingo_backend.pool import Topic
+from devbingo_backend.pool import Pool, Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import Awarded, ClaimSettlement
 from devbingo_backend.ticket import Ticket, build_ticket
@@ -79,6 +78,8 @@ class _Player:
 @dataclass
 class _Game:
     host_token_hash: str
+    # Fixed from creation: tickets are dealt from it as players join, so it can't change.
+    pool: Pool
     status: Literal["lobby", "started", "ended"] = "lobby"
     # Keyed by name_key(name), so one player has one entry. In the order players joined.
     players: dict[str, _Player] = field(default_factory=dict)
@@ -101,10 +102,10 @@ class GameRegistry:
         self._games: dict[str, _Game] = {}
         self._rng = rng or random.Random()
 
-    def create_game(self) -> HostLink:
+    def create_game(self, pool: Pool) -> HostLink:
         code = self._new_code()
         host_token = secrets.token_urlsafe(24)
-        self._games[code] = _Game(host_token_hash=_hash_token(host_token))
+        self._games[code] = _Game(host_token_hash=_hash_token(host_token), pool=pool)
         return HostLink(code=code, host_token=host_token)
 
     def join(self, player: PlayerRef) -> Joined:
@@ -138,7 +139,7 @@ class GameRegistry:
 
     def _deal_unique_ticket(self, game: _Game) -> Ticket:
         while True:
-            ticket = build_ticket(DEFAULT_POOL, self._rng)
+            ticket = build_ticket(game.pool, self._rng)
             if game.is_new_ticket(ticket):
                 return ticket
 
@@ -158,17 +159,13 @@ class GameRegistry:
         if game.status != "lobby":
             raise GameAlreadyStarted(host.code)
         game.status = "started"
-        game.undrawn = list(DEFAULT_POOL.topics)
+        game.undrawn = list(game.pool.topics)
 
     def end(self, host: HostLink) -> None:
         """The host ends the game, at any time. No draws or claims are accepted after it ends."""
         game = self._host_game(host)
         self._refuse_if_ended(game, host.code)
         self._finish(game)
-
-    def is_pool_locked(self, code: str) -> bool:
-        """The pool locks when the game starts and stays locked, including after it ends."""
-        return self._find(code).status != "lobby"
 
     def draw(self, host: HostLink) -> Draw:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final."""

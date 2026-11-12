@@ -4,7 +4,8 @@ from fastapi.testclient import TestClient
 
 from devbingo_backend import app as app_module
 from devbingo_backend.app import DEFAULT_DATABASE_URL, create_app
-from database_urls import unused_database_url
+import pytest
+from database_urls import database_is_reachable, unused_database_url
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_DATABASE_URL)
 
@@ -20,6 +21,8 @@ class BrokenEngine:
 
 
 def test_health_reports_database_up():
+    if not database_is_reachable(DATABASE_URL):
+        pytest.skip("no Postgres database is available")
     with TestClient(create_app(DATABASE_URL)) as client:
         response = client.get("/health")
 

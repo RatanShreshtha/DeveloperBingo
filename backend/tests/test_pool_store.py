@@ -1,6 +1,7 @@
 import os
 
 import pytest
+from database_urls import database_is_reachable
 from sqlmodel import Session, create_engine, select
 
 from devbingo_backend.app import DEFAULT_DATABASE_URL
@@ -17,6 +18,8 @@ DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_DATABASE_URL)
 
 @pytest.fixture
 def engine():
+    if not database_is_reachable(DATABASE_URL):
+        pytest.skip("no Postgres database is available")
     engine = create_engine(DATABASE_URL)
     yield engine
     engine.dispose()
@@ -54,3 +57,13 @@ def test_loading_the_default_pool_returns_its_topics_in_seeded_order(engine):
     loaded = load_default_pool(engine)
 
     assert loaded.topics == DEFAULT_POOL.topics
+
+
+def test_the_postgres_library_reports_unavailable_when_the_database_is_down():
+    from database_urls import unused_database_url
+    from devbingo_backend.pool_library import PoolLibraryUnavailable, PostgresPoolLibrary
+
+    library = PostgresPoolLibrary(create_engine(unused_database_url(), connect_args={"connect_timeout": 2}))
+
+    with pytest.raises(PoolLibraryUnavailable):
+        library.load_default()

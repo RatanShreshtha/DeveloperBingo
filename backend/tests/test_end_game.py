@@ -3,6 +3,7 @@ import random
 import pytest
 from helpers import names_on, start_and_draw_everything
 
+from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
     ClaimNotValid,
     GameAlreadyEnded,
@@ -17,7 +18,7 @@ from devbingo_backend.wire import HostLink
 @pytest.fixture
 def lobby():
     registry = GameRegistry(rng=random.Random(41))
-    game = registry.create_game()
+    game = registry.create_game(DEFAULT_POOL)
     ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     return registry, game, ticket
 
@@ -122,11 +123,3 @@ def test_a_dropped_player_cannot_rejoin_after_the_game_ends(started_with_every_t
 
     with pytest.raises(GameAlreadyEnded):
         registry.join(ada)
-
-
-def test_the_pool_stays_locked_after_the_game_ends(started_with_every_topic_drawn):
-    registry, game, _ = started_with_every_topic_drawn
-
-    registry.end(game)
-
-    assert registry.is_pool_locked(game.code) is True
