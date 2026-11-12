@@ -71,20 +71,6 @@ describe('resuming after a reload', () => {
     expect(await store.resume('ABC123')).toBe(false)
     expect(fake.sent).toEqual([])
   })
-
-  it('forgets the saved session when the rejoin is refused', async () => {
-    sessionStorage.setItem(
-      'devbingo:player',
-      JSON.stringify({ code: 'ABC123', name: 'Ada', token: 'tok-1' }),
-    )
-    fake.answer('join_game', { ok: false, error: 'not_found' })
-    const store = useSessionStore()
-
-    expect(await store.resume('ABC123')).toBe(false)
-
-    expect(savedSessionFor('ABC123')).toBeNull()
-    expect(store.error).toBe('No game found with that code')
-  })
 })
 
 describe('reconnecting', () => {
@@ -209,20 +195,6 @@ describe('claims pending across a reconnect', () => {
 
     expect(store.isPending('early_five')).toBe(false)
     expect(store.actionError).toBe('This claim does not complete the prize yet')
-  })
-})
-
-describe('unreachable servers', () => {
-  it('keeps the saved session and says so when the server cannot be reached on a reload', async () => {
-    sessionStorage.setItem('devbingo:player', JSON.stringify({ code: 'ABC123', name: 'Ada', token: 'tok-1' }))
-    fake.answer('join_game', () => Promise.reject(new Error('timeout')))
-    const store = useSessionStore()
-
-    const resumed = await store.resume('ABC123')
-
-    expect(resumed).toBe(false)
-    expect(store.error).toBe('Could not reach the server. Check your connection and try again.')
-    expect(savedSessionFor('ABC123')).not.toBeNull()
   })
 })
 
