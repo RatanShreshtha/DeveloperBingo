@@ -49,13 +49,14 @@ function mountHistory() {
 }
 
 describe('GameHistoryView', () => {
-  it('shows the draws in order with their explanations', async () => {
+  it('shows the draws newest first with their original positions and explanations', async () => {
     vi.mocked(fetchGameHistory).mockResolvedValue(history)
     const wrapper = mountHistory()
     await flushPromises()
 
     const draws = wrapper.findAll('[data-test="draw"]').map((d) => d.text())
-    expect(draws).toEqual(['1. Cache: Keeps results close', '2. Index: Speeds lookups'])
+    expect(draws).toEqual(['2. Index: Speeds lookups', '1. Cache: Keeps results close'])
+    expect(history.draws.map((draw) => draw.position)).toEqual([1, 2])
   })
 
   it('shows each claim with its outcome and the reason a refusal was made', async () => {

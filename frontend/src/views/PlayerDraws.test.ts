@@ -12,7 +12,7 @@ beforeEach(() => {
 })
 
 describe('PlayerLobbyView draws', () => {
-  it('shows every drawn topic with its explanation, in order', async () => {
+  it('shows every drawn topic with its explanation, newest first', async () => {
     await joinedAda(fake, {
       status: 'started',
       draws: [
@@ -25,20 +25,26 @@ describe('PlayerLobbyView draws', () => {
 
     const history = wrapper.findAll('[data-test="draw-history"] li').map((li) => li.text())
     expect(history).toHaveLength(2)
-    expect(history[0]).toContain('Algorithm')
-    expect(history[0]).toContain('A finite sequence of steps.')
-    expect(history[1]).toContain('JSON')
-    expect(history[1]).toContain('A lightweight data format.')
+    expect(history[0]).toContain('JSON')
+    expect(history[0]).toContain('A lightweight data format.')
+    expect(history[1]).toContain('Algorithm')
+    expect(history[1]).toContain('A finite sequence of steps.')
   })
 
-  it('shows a draw the room announces', async () => {
-    await joinedAda(fake, { status: 'started' })
+  it('orders live draws by position without changing the stored draw order', async () => {
+    const store = await joinedAda(fake, {
+      status: 'started',
+      draws: [{ position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+    })
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    fake.emit('topic_drawn', { position: 1, name: 'Monad', explanation: 'A burrito.' })
+    fake.emit('topic_drawn', { position: 3, name: 'Monad', explanation: 'A burrito.' })
+    fake.emit('topic_drawn', { position: 2, name: 'JSON', explanation: 'A data format.' })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Monad')
+    const history = wrapper.findAll('[data-test="draw-history"] li').map((li) => li.text())
+    expect(history).toEqual(['Monad: A burrito.', 'JSON: A data format.', 'Algorithm: A finite sequence of steps.'])
+    expect(store.draws.map((draw) => draw.name)).toEqual(['Algorithm', 'Monad', 'JSON'])
   })
 
   it('says the game is still waiting to start before the host starts it', async () => {

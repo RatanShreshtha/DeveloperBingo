@@ -36,7 +36,7 @@ A web app for a tambola-style bingo game. A host creates a game and players join
 17. As a player, I want each column's topics shown in the same fixed order on every ticket, so that I can scan them quickly.
 18. As a player, I want no two tickets in the same game to be identical, so that the game stays fair.
 19. As a player, I want to tick a topic only after it has been drawn, so that I can't make a false claim by accident.
-20. As a player, I want to see every topic drawn so far in the order they were drawn, so that I never miss one.
+20. As a player, I want to see every topic drawn so far, newest first, so that I never miss one.
 21. As a player, I want to see each drawn topic's explanation, so that I learn something while I play.
 22. As a player, I want to see the prizes that are still available, so that I know what I can still win.
 23. As a player, I want to see who has won each prize as soon as it's awarded, so that I stay informed about the game.

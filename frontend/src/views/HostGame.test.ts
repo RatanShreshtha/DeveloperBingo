@@ -65,6 +65,25 @@ describe('HostView game flow', () => {
     expect(wrapper.text()).toContain('A finite sequence of steps.')
   })
 
+  it('shows the newest draw first after the host draws', async () => {
+    fake.answer('watch_lobby', hostSnapshot({
+      status: 'started',
+      draws: [{ position: 1, name: 'Algorithm', explanation: 'First draw.' }],
+    }))
+    fake.answer('draw_topic', {
+      ok: true,
+      draw: { position: 2, name: 'JSON', explanation: 'Second draw.' },
+    })
+    const wrapper = mountHost()
+    await flushPromises()
+
+    await wrapper.get('[data-test="draw-topic"]').trigger('click')
+    await flushPromises()
+
+    const draws = wrapper.findAll('[data-test="draw-history"] li').map((li) => li.text())
+    expect(draws).toEqual(['JSON: Second draw.', 'Algorithm: First draw.'])
+  })
+
   it('keeps the Draw control and explains a refused draw', async () => {
     fake.answer('draw_topic', { ok: false, error: 'no_topics_left' })
     const wrapper = mountHost()

@@ -14,6 +14,22 @@ beforeEach(() => {
 })
 
 describe('HostView claims', () => {
+  it('shows draws above prizes and claims in two columns', async () => {
+    fake.answer('watch_lobby', hostSnapshot())
+
+    const wrapper = mount(HostView, {
+      props: { code: 'ABC123', token: 'secret-token' },
+      global: { plugins: makePlugins() },
+    })
+    await flushPromises()
+
+    const headings = wrapper.findAll('h2.card-title')
+    expect(headings.slice(0, 3).map((heading) => heading.text())).toEqual(['Draws', 'Prizes', 'Claims'])
+    expect(headings[0].element.closest('.grid')).toBeNull()
+    expect(headings[1].element.closest('.grid')).toBe(headings[2].element.closest('.grid'))
+    expect(headings[1].element.closest('.grid')?.classList.contains('md:grid-cols-2')).toBe(true)
+  })
+
   it('lists every claim with who made it, the prize, and whether it was accepted or why not', async () => {
     fake.answer(
       'watch_lobby',
