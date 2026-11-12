@@ -386,6 +386,8 @@ export interface components {
              * @constant
              */
             ok: true;
+            /** Name */
+            name: string;
             /** Ticket */
             ticket: (string | null)[][];
             /** Ticks */

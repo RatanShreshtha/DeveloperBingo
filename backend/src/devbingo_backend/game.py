@@ -54,8 +54,12 @@ class PlayerRef:
 
 @dataclass(frozen=True)
 class Joined:
-    """What a join did: the player's ticket, and whether they are new to the game or came back."""
+    """What a join did: who the player is, their ticket, and whether they are new to the game or
+    came back."""
 
+    # The player as the game knows them: the name first stored, whatever case or spaces this join
+    # used. Callers address the player by this from here on, and compare players by it.
+    player: PlayerRef
     ticket: Ticket
     is_new_player: bool
     # Private to the player. Showing it later proves they are the one who joined.
@@ -171,6 +175,7 @@ class GameRegistry:
             took_over = member.connected
             member.connected = True
             return Joined(
+                PlayerRef(player.code, member.name),
                 member.ticket,
                 is_new_player=False,
                 rejoin_token=self._issue_token(member),
@@ -184,7 +189,12 @@ class GameRegistry:
         ticket = self._deal_unique_ticket(game)
         member = _Player(name=player.name.strip(), ticket=ticket)
         game.players[key] = member
-        return Joined(ticket, is_new_player=True, rejoin_token=self._issue_token(member))
+        return Joined(
+            PlayerRef(player.code, member.name),
+            ticket,
+            is_new_player=True,
+            rejoin_token=self._issue_token(member),
+        )
 
     @staticmethod
     def _issue_token(member: _Player) -> str:

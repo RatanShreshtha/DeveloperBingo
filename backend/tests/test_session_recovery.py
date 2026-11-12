@@ -311,3 +311,76 @@ def test_the_host_is_told_when_a_window_opens_and_when_the_last_one_closes():
     assert opened == [{"open": True}]
     assert window_events(broadcaster) == [{"open": True}, {"open": False}]
     assert {room for _, room, _ in broadcaster.window_changes} == {f"{game.code}:host"}
+
+
+# --- one handle per player: the name the engine stored, whatever the client typed ---
+
+
+def test_a_join_tells_the_player_the_name_the_game_stored():
+    adapter, _, game, _ = a_game()
+
+    assert join(adapter, game, name="  Ada ")["name"] == "Ada"
+
+
+def test_a_rejoin_by_another_case_is_told_the_name_first_stored():
+    adapter, _, game, _ = a_game()
+    join(adapter, game)
+    run(adapter.disconnect("sid-ada"))
+
+    assert join(adapter, game, "sid-ada-2", name="ada")["name"] == "Ada"
+
+
+def claim_and_close(adapter, scheduler, sid):
+    async def scenario():
+        claim = asyncio.ensure_future(adapter.claim_prize(sid, {"prize": "early_five"}))
+        await asyncio.sleep(0)
+        for action in scheduler.pending:
+            await action()
+        return await asyncio.wait_for(claim, timeout=1)
+
+    return asyncio.run(scenario())
+
+
+def test_a_claim_by_a_player_who_joined_with_spaces_is_answered():
+    scheduler = ManualScheduler()
+    adapter, registry, game, _ = a_game(scheduler)
+    ada = join(adapter, game, name="Ada ")
+    start_and_draw_everything(registry, game)
+    for topic in topics_on(ada["ticket"]):
+        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+
+    assert claim_and_close(adapter, scheduler, "sid-ada") == {"ok": True}
+    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada"]
+
+
+def test_a_claim_reattached_after_a_takeover_by_another_case_is_answered():
+    scheduler = ManualScheduler()
+    adapter, registry, game, _ = a_game(scheduler)
+    ada = join(adapter, game)
+    start_and_draw_everything(registry, game)
+    for topic in topics_on(ada["ticket"]):
+        run(adapter.tick_topic("sid-ada", {"topic": topic}))
+
+    async def scenario():
+        first_claim = asyncio.ensure_future(adapter.claim_prize("sid-ada", {"prize": "early_five"}))
+        await asyncio.sleep(0)
+        await adapter.join_game(
+            "sid-ada-2", {"code": game.code, "name": "ada", "rejoin_token": ada["rejoin_token"]}
+        )
+        reattached = asyncio.ensure_future(adapter.claim_prize("sid-ada-2", {"prize": "early_five"}))
+        await asyncio.sleep(0)
+        for action in scheduler.pending:
+            await action()
+        return await asyncio.wait_for(asyncio.gather(first_claim, reattached), timeout=1)
+
+    assert asyncio.run(scenario()) == [{"ok": True}, {"ok": True}]
+
+
+def test_a_takeover_by_another_case_replaces_the_old_socket():
+    adapter, _, game, broadcaster = a_game()
+    ada = join(adapter, game)
+
+    join(adapter, game, "sid-ada-2", name="ADA", rejoin_token=ada["rejoin_token"])
+
+    assert [target for event, target, _ in broadcaster.emitted if event == "replaced"] == ["sid-ada"]
+    assert broadcaster.left == [("sid-ada", game.code)]

@@ -886,6 +886,10 @@
             "title": "Ok",
             "type": "boolean"
           },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
           "ticket": {
             "items": {
               "items": {
@@ -929,6 +933,7 @@
           "draws",
           "prizes",
           "ok",
+          "name",
           "ticket",
           "ticks",
           "pending_claims",

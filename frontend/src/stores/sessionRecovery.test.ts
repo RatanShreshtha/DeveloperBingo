@@ -24,6 +24,16 @@ describe('saving the session', () => {
 
     expect(savedSessionFor('ABC123')).toEqual({ code: 'ABC123', name: 'Ada', token: 'tok-1' })
   })
+
+  it('keeps the name the game stored, not the one typed', async () => {
+    fake.answer('join_game', playerSnapshot({ name: 'Ada' }))
+    const store = useSessionStore()
+
+    await store.join('ABC123', ' ada ')
+
+    expect(store.player).toEqual({ code: 'ABC123', name: 'Ada' })
+    expect(savedSessionFor('ABC123')?.name).toBe('Ada')
+  })
 })
 
 describe('resuming after a reload', () => {

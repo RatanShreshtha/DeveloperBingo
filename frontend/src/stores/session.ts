@@ -170,7 +170,7 @@ export const useSessionStore = defineStore('session', () => {
       error.value = messageFor(result.error)
       return false
     }
-    enter({ code, name }, result)
+    enter(code, result)
     return true
   }
 
@@ -199,12 +199,14 @@ export const useSessionStore = defineStore('session', () => {
       error.value = messageFor(result.error)
       return false
     }
-    enter(who, result)
+    enter(code, result)
     return true
   }
 
   // The player is in: remember who they are, and take the game and their own state from the server.
-  function enter(who: PlayerRef, snapshot: PlayerSnapshot) {
+  // The name is the one the game stored, which may differ in case or spaces from what was typed.
+  function enter(code: string, snapshot: PlayerSnapshot) {
+    const who = { code, name: snapshot.name }
     player.value = who
     replaced.value = false
     rejoinToken = snapshot.rejoin_token
@@ -240,7 +242,7 @@ export const useSessionStore = defineStore('session', () => {
       actionError.value = messageFor(result.error)
       return
     }
-    enter(who, result)
+    enter(who.code, result)
   }
 
   // Claims a prize. The server answers once the prize's settlement window closes, so the claim

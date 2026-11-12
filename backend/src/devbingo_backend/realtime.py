@@ -15,7 +15,6 @@ from devbingo_backend.game import (
     PlayerRef,
     UnknownPrize,
 )
-from devbingo_backend.names import name_key
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord, Settled
 from devbingo_backend.wire import (
@@ -155,10 +154,14 @@ class RealtimeAdapter:
             # first player connected for ever, so it is refused.
             if sid in self._sessions:
                 raise AlreadyJoined
-            player = PlayerRef(code=message.code, name=message.name)
-            joined = self._registry.join(player, message.rejoin_token)
+            joined = self._registry.join(
+                PlayerRef(code=message.code, name=message.name), message.rejoin_token
+            )
         except GameError as err:
             return _refusal(err)
+
+        # From here on the player is the one the game knows, not the name as this client typed it.
+        player = joined.player
 
         if joined.took_over:
             await self._replace_sockets_of(player, keep=sid)
@@ -174,6 +177,7 @@ class RealtimeAdapter:
         # A rejoin restores the ticks the player already had, so they come back here.
         return JoinAck(
             **self._snapshot(player.code),
+            name=player.name,
             ticket=joined.ticket.to_cells(),
             ticks=sorted(self._registry.ticks(player)),
             pending_claims=self._registry.pending_claims(player),
@@ -193,7 +197,7 @@ class RealtimeAdapter:
     async def _replace_sockets_of(self, player: PlayerRef, keep: str) -> None:
         """Tells every other socket holding this player that it was replaced, and takes it out of the game."""
         for old, held in list(self._sessions.items()):
-            if old != keep and held.code == player.code and name_key(held.name) == name_key(player.name):
+            if old != keep and held == player:
                 del self._sessions[old]
                 await self._broadcaster.leave_room(old, player.code)
                 await self._broadcaster.emit(

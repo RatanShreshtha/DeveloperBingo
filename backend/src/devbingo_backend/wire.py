@@ -187,6 +187,9 @@ class JoinAck(GameSnapshot):
     """A player's snapshot: the game, plus their own ticket, ticks and pending claims."""
 
     ok: Literal[True] = True
+    # The player's name as the game stored it on their first join. The client shows and keeps this
+    # one, not what was typed, which may differ in case or spaces.
+    name: str
     ticket: list[list[str | None]]
     ticks: list[str]
     # Prizes this player has claimed whose settlement window has not closed.
