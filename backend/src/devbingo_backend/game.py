@@ -3,9 +3,8 @@ import hmac
 import logging
 import random
 import secrets
-from collections.abc import Callable
-from dataclasses import dataclass, field, replace
-from typing import Literal
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 
 from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
     AlreadyJoined,
@@ -32,11 +31,15 @@ from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers impor
 from devbingo_backend.names import name_key
 from devbingo_backend.pool import Pool, Topic
 from devbingo_backend.prizes import Prize
-from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Evidence, Pending, Settled
+from devbingo_backend.scheduler import AsyncioScheduler, Scheduler
+from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Evidence, Settled
 from devbingo_backend.ticket import Ticket, build_ticket
-from devbingo_backend.wire import HostLink
+from devbingo_backend.wire import EndReason, GameStatus, HostLink
 
 MAX_PLAYERS = 200
+
+# How long a settlement window stays open, unless the game registry is configured otherwise.
+DEFAULT_WINDOW_SECONDS = 1.0
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +72,23 @@ class Joined:
 
 
 @dataclass(frozen=True)
+class Outcome:
+    """What a claim, the end of a game or a window's close changed, for the caller to announce.
+    All three report in this one shape."""
+
+    # Each window that closed: its prize, who it was awarded to, and every claim decided in it.
+    settled: tuple[Settled, ...] = ()
+    # Why the game ended, when this is what ended it.
+    ended: EndReason | None = None
+    # Whether any settlement window is open now. None when that did not change.
+    window_open: bool | None = None
+
+
+# Hears the outcome of each window that closes on time, as no command is there to return it.
+OutcomeListener = Callable[[str, Outcome], Awaitable[None]]
+
+
+@dataclass(frozen=True)
 class Draw:
     position: int
     topic: Topic
@@ -79,7 +99,7 @@ class GameSummary:
     """An ended game as the History Store keeps it. The game's code is its ID."""
 
     code: str
-    reason: Literal["full_house", "host"]
+    reason: EndReason
     # The pool's name, when it has one.
     pool_name: str | None
     draws: tuple[Draw, ...]
@@ -112,9 +132,9 @@ class _Game:
     # Fixed from creation: tickets are dealt from it as players join, so it can't change.
     pool: Pool
     pool_name: str | None = None
-    status: Literal["lobby", "started", "ended"] = "lobby"
+    status: GameStatus = "lobby"
     # Why the game ended: set when status becomes "ended".
-    end_reason: Literal["full_house", "host"] | None = None
+    end_reason: EndReason | None = None
     # Keyed by name_key(name), so one player has one entry. In the order players joined.
     players: dict[str, _Player] = field(default_factory=dict)
     settlement: ClaimSettlement = field(default_factory=ClaimSettlement)
@@ -137,15 +157,26 @@ class GameRegistry:
         rng: random.Random | None = None,
         on_ended: Callable[[GameSummary], None] | None = None,
         code_taken: Callable[[str], bool] | None = None,
+        scheduler: Scheduler | None = None,
+        window_seconds: float = DEFAULT_WINDOW_SECONDS,
     ) -> None:
         """`on_ended` is handed a summary of each game as it ends. It holds no networking or
         storage itself: the caller decides what to do with it.
         `code_taken` says whether a code is already in use somewhere the registry cannot see, such
-        as stored history, so a new game never reuses it."""
+        as stored history, so a new game never reuses it.
+        Each settlement window closes `window_seconds` after it opens, through `scheduler`."""
         self._games: dict[str, _Game] = {}
         self._rng = rng or random.Random()
         self._on_ended = on_ended
         self._code_taken = code_taken
+        self._scheduler = scheduler or AsyncioScheduler()
+        self._window_seconds = window_seconds
+        self._on_outcome: OutcomeListener | None = None
+
+    def listen(self, on_outcome: OutcomeListener) -> None:
+        """Hand the outcome of every window that closes on time to `on_outcome`. Commands return
+        their outcomes; a timed close has no caller, so it is reported here. One listener."""
+        self._on_outcome = on_outcome
 
     def create_game(self, pool: Pool, pool_name: str | None = None) -> HostLink:
         code = self._new_code()
@@ -234,12 +265,13 @@ class GameRegistry:
         game.status = "started"
         game.undrawn = list(game.pool.topics)
 
-    def end(self, host: HostLink) -> tuple[Settled, ...]:
+    def end(self, host: HostLink) -> Outcome:
         """The host ends the game, at any time. No draws or claims are accepted after it ends.
-        Every open settlement window settles at once, its claims refused as `game_ended`; the
-        outcomes are returned so the caller can answer the claimants."""
+        Every open settlement window settles at once, its claims refused as `game_ended`. A close
+        still scheduled for one of them later finds it gone and does nothing."""
         game = self._host_game(host)
         self._refuse_if_ended(game, host.code)
+        was_open = game.settlement.window_open()
         refusal = GameAlreadyEnded(host.code)
         settled = tuple(
             outcome
@@ -247,7 +279,7 @@ class GameRegistry:
             if (outcome := game.settlement.close(prize, self._evidence(game), refusal)) is not None
         )
         self._end(game, "host")
-        return settled
+        return Outcome(settled, ended="host", window_open=False if was_open else None)
 
     def draw(self, host: HostLink) -> Draw:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final.
@@ -304,27 +336,44 @@ class GameRegistry:
         _, member = self._player_game(player)
         return frozenset(member.ticks)
 
-    def claim(self, player: PlayerRef, prize: Prize) -> Pending:
-        """Claim a prize. A claim the ticket does not earn is refused at once. A valid one waits in
-        the prize's settlement window, which it opens if none is; nothing is awarded until
-        `close_window`. The outcome says whether this claim opened the window."""
+    def claim(self, player: PlayerRef, prize: Prize) -> Outcome:
+        """Claim a prize. A claim the ticket does not earn is refused at once: the error raised
+        carries its record for the host. A valid one waits in the prize's settlement window,
+        opening it if none is; the window closes on its own after the window length, and its
+        outcome goes to the listener. A repeat while the window is open changes nothing."""
         game, member = self._player_game(player)
+        was_open = game.settlement.window_open()
         ticked_and_drawn = member.ticks & game.drawn_names()
-        return game.settlement.claim(
+        pending = game.settlement.claim(
             prize, member.name, member.ticket, ticked_and_drawn, self._game_refusal(game, player.code)
         )
+        if pending.opened_window:
+            self._scheduler.call_later(
+                self._window_seconds, lambda: self._close_on_time(player.code, prize)
+            )
+        return Outcome(window_open=True if not was_open else None)
 
-    def close_window(self, code: str, prize: Prize) -> Settled | None:
-        """Close the prize's settlement window: every claim in it is judged against the draws now,
+    async def _close_on_time(self, code: str, prize: Prize) -> None:
+        outcome = self.close_window(code, prize)
+        if outcome is not None and self._on_outcome is not None:
+            await self._on_outcome(code, outcome)
+
+    def close_window(self, code: str, prize: Prize) -> Outcome | None:
+        """Close the prize's settlement window now: every claim in it is judged against the draws,
         and all that earn the prize win it together. Awarding the full house ends the game.
-        Returns None when no window is open for the prize."""
+        Returns None when no window is open for the prize. Windows close on their own; this is
+        the close they run, public so a test can close one without waiting."""
         game = self._find(code)
         refusal = GameAlreadyEnded(code) if game.status == "ended" else None
         settled = game.settlement.close(prize, self._evidence(game), refusal)
-        if settled is not None and settled.awarded_to and prize is Prize.FULL_HOUSE:
+        if settled is None:
+            return None
+        ended: EndReason | None = None
+        if settled.awarded_to and prize is Prize.FULL_HOUSE:
             self._end(game, "full_house")
-            return replace(settled, ends_game=True)
-        return settled
+            ended = "full_house"
+        window_open = None if game.settlement.window_open() else False
+        return Outcome((settled,), ended=ended, window_open=window_open)
 
     @staticmethod
     def _evidence(game: _Game) -> Evidence:
@@ -342,11 +391,11 @@ class GameRegistry:
             return GameNotStarted(code)
         return None
 
-    def status(self, code: str) -> Literal["lobby", "started", "ended"]:
+    def status(self, code: str) -> GameStatus:
         """Where the game stands. Public."""
         return self._find(code).status
 
-    def end_reason(self, code: str) -> Literal["full_house", "host"] | None:
+    def end_reason(self, code: str) -> EndReason | None:
         """Why the game ended, or None while it has not. Public."""
         return self._find(code).end_reason
 
@@ -354,6 +403,11 @@ class GameRegistry:
         """The prizes this player has claimed whose settlement window is still open."""
         game, member = self._player_game(player)
         return game.settlement.pending_prizes(member.name)
+
+    def decided_claims(self, player: PlayerRef) -> list[ClaimRecord]:
+        """This player's own decided claims, in the order they were decided."""
+        game, member = self._player_game(player)
+        return [record for record in game.settlement.log() if record.player == member.name]
 
     def window_open(self, code: str) -> bool:
         """True while any settlement window is open in the game."""
@@ -373,7 +427,7 @@ class GameRegistry:
         if game.status == "ended":
             raise GameAlreadyEnded(code)
 
-    def _end(self, game: _Game, reason: Literal["full_house", "host"]) -> None:
+    def _end(self, game: _Game, reason: EndReason) -> None:
         """The one place a game ends, whether the host ended it or the full house was awarded.
         A failing observer is logged: it never stops the game from ending."""
         game.status = "ended"

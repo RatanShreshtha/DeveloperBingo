@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from helpers import claim_and_settle, names_on, start_and_draw_everything
+from helpers import ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -19,7 +19,7 @@ from devbingo_backend.prizes import Prize
 
 @pytest.fixture
 def started_with_every_topic_drawn():
-    registry = GameRegistry(rng=random.Random(31))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(31))
     game = registry.create_game(DEFAULT_POOL)
     ada_ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
     grace_ticket = registry.join(PlayerRef(game.code, "Grace")).ticket
@@ -48,10 +48,10 @@ def test_a_complete_pattern_wins_its_prize(started_with_every_topic_drawn, prize
     registry, game, ada_ticket, _ = started_with_every_topic_drawn
     tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket))
 
-    outcome = claim_and_settle(registry, PlayerRef(game.code, "Ada"), prize)
+    (settled,) = claim_and_settle(registry, PlayerRef(game.code, "Ada"), prize).settled
 
-    assert outcome.prize is prize
-    assert outcome.awarded_to == ("Ada",)
+    assert settled.prize is prize
+    assert settled.awarded_to == ("Ada",)
     assert registry.prize_board(game.code)[prize] == ["Ada"]
 
 
@@ -103,7 +103,7 @@ def test_a_prize_remains_open_until_someone_claims_it(started_with_every_topic_d
 
 
 def test_claims_are_refused_before_the_game_starts():
-    registry = GameRegistry(rng=random.Random(31))
+    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(31))
     game = registry.create_game(DEFAULT_POOL)
     registry.join(PlayerRef(game.code, "Ada"))
 

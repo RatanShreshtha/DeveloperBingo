@@ -4,6 +4,7 @@ import { createGame } from '../api/games'
 import type { Prize } from '../prizes'
 import type {
   ClaimLogEntry,
+  ClaimSettled,
   DrawnTopic,
   ErrorCode,
   GameEnd,
@@ -83,9 +84,6 @@ export const useSessionStore = defineStore('session', () => {
   // Prizes this player has claimed whose settlement window has not closed yet.
   const pendingClaims = ref<Prize[]>([])
   const isPending = (prize: Prize) => pendingClaims.value.includes(prize)
-  // Tells a claim's own answer from an older one that a reconnect abandoned.
-  const claimAttempts = new Map<Prize, number>()
-  let attempts = 0
 
   // --- The host: their link to the game, and what only they see ---
   const hostLink = ref<HostLink | null>(null)
@@ -117,12 +115,22 @@ export const useSessionStore = defineStore('session', () => {
   net.listen('window_changed', (change) => {
     windowOpen.value = change.open
   })
+  net.listen('claim_settled', settleClaim)
   net.listen('replaced', () => {
     replaced.value = true
     player.value = null
     forgetSession()
   })
   net.onReconnect(recover)
+
+  // A claim's window has closed. A win shows on the prize board, which the room is told of;
+  // a refusal is shown to the player here.
+  function settleClaim(claim: ClaimSettled) {
+    pendingClaims.value = pendingClaims.value.filter((known) => known !== claim.prize)
+    if (!claim.accepted && claim.error) {
+      actionError.value = messageFor(claim.error)
+    }
+  }
 
   function recordEnd(reason: GameEnd['reason']) {
     status.value = 'ended'
@@ -218,11 +226,15 @@ export const useSessionStore = defineStore('session', () => {
     applySnapshot(snapshot)
     ticket.value = snapshot.ticket
     ticks.value = snapshot.ticks
-    // The old answers are lost with the old connection: claim again to get the held result.
-    pendingClaims.value = []
-    claimAttempts.clear()
-    for (const prize of snapshot.pending_claims) {
-      void sendClaim(prize)
+    // A claim that was waiting before and is decided now settled while this client was away:
+    // its result is the last decided claim for that prize.
+    const settledAway = pendingClaims.value.filter((prize) => !snapshot.pending_claims.includes(prize))
+    pendingClaims.value = snapshot.pending_claims
+    for (const prize of settledAway) {
+      const decided = snapshot.decided_claims.filter((claim) => claim.prize === prize).at(-1)
+      if (decided) {
+        settleClaim(decided)
+      }
     }
   }
 
@@ -245,35 +257,28 @@ export const useSessionStore = defineStore('session', () => {
     enter(who.code, result)
   }
 
-  // Claims a prize. The server answers once the prize's settlement window closes, so the claim
-  // is pending until then. Winners are announced to the room, which updates the board.
+  // Claims a prize. A valid claim waits in the prize's settlement window, so it is pending until
+  // `claim_settled` arrives. It is pending from the moment it is sent, since the window can close
+  // before the acknowledgement arrives. Winners are announced to the room, which updates the board.
   async function claimPrize(prize: Prize) {
     if (!player.value || isPending(prize)) {
       return
     }
-    await sendClaim(prize)
-  }
-
-  async function sendClaim(prize: Prize) {
-    const mine = ++attempts
-    claimAttempts.set(prize, mine)
-    pendingClaims.value = [...pendingClaims.value.filter((known) => known !== prize), prize]
+    pendingClaims.value = [...pendingClaims.value, prize]
     actionError.value = null
+    const dropPending = () => {
+      pendingClaims.value = pendingClaims.value.filter((known) => known !== prize)
+    }
     try {
       const result = await net.send('claim_prize', { prize })
-      // An answer to a claim a reconnect abandoned is no longer news.
-      if (!result.ok && claimAttempts.get(prize) === mine) {
+      if (!result.ok) {
+        dropPending()
         actionError.value = messageFor(result.error)
       }
     } catch {
-      if (claimAttempts.get(prize) === mine) {
-        actionError.value = UNREACHABLE
-      }
-    } finally {
-      if (claimAttempts.get(prize) === mine) {
-        claimAttempts.delete(prize)
-        pendingClaims.value = pendingClaims.value.filter((known) => known !== prize)
-      }
+      // The claim may still have reached the server: a rejoin's snapshot says if it is waiting.
+      dropPending()
+      actionError.value = UNREACHABLE
     }
   }
 

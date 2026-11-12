@@ -13,6 +13,7 @@ export type DrawnTopic = Schemas['DrawAnnouncement']
 export type PrizeBoardEntry = Schemas['PrizeBoardEntry']
 export type PrizeAward = Schemas['PrizeAwarded']
 export type ClaimLogEntry = Schemas['ClaimLogEntry']
+export type ClaimSettled = Schemas['ClaimSettled']
 export type GameEnd = Schemas['GameEnded']
 export type ErrorCode = Schemas['ErrorCode']
 export type Refusal = Schemas['Refusal']
@@ -21,8 +22,10 @@ export type JoinResult = PlayerSnapshot | Refusal
 export type WatchResult = HostSnapshot | Refusal
 export type DrawResult = Schemas['DrawAck'] | Refusal
 // A tick changes only the player's own list, so the server says only whether it happened.
-// A command that only says whether it happened: start, end, tick, untick and claim.
+// A command that only says whether it happened: start, end, tick and untick.
 export type Done = Schemas['Accepted'] | Refusal
+// A valid claim waits in its settlement window; its result follows as one `claim_settled`.
+export type ClaimResult = Schemas['ClaimWaiting'] | Refusal
 
 // Event name → what the client sends and what the server acknowledges with.
 export type Commands = {
@@ -33,7 +36,7 @@ export type Commands = {
   end_game: [HostLink, Done]
   tick_topic: [Schemas['TickPayload'], Done]
   untick_topic: [Schemas['TickPayload'], Done]
-  claim_prize: [Schemas['ClaimPayload'], Done]
+  claim_prize: [Schemas['ClaimPayload'], ClaimResult]
 }
 
 // Event name → what the server announces to a room.
@@ -49,6 +52,8 @@ export type Announcements = {
   window_changed: Schemas['WindowChanged']
   // Sent to one socket only: another socket took over its player.
   replaced: Schemas['Replaced']
+  // Sent to the claimant only: the settlement window their claim waited in has closed.
+  claim_settled: ClaimSettled
 }
 
 export type CommandName = keyof Commands

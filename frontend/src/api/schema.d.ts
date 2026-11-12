@@ -319,6 +319,35 @@ export interface components {
             /** Prize */
             prize: string;
         };
+        /**
+         * ClaimSettled
+         * @description One player's own claim, decided at the close of its settlement window. A refusal says why.
+         */
+        ClaimSettled: {
+            prize: components["schemas"]["Prize"];
+            /** Accepted */
+            accepted: boolean;
+            error: components["schemas"]["ErrorCode"] | null;
+        };
+        /**
+         * ClaimWaiting
+         * @description A valid claim is in its prize's settlement window. Its result follows as one `claim_settled`
+         *     event when the window closes.
+         */
+        ClaimWaiting: {
+            /**
+             * Ok
+             * @default true
+             * @constant
+             */
+            ok: true;
+            /**
+             * Waiting
+             * @default true
+             * @constant
+             */
+            waiting: true;
+        };
         /** DrawAck */
         DrawAck: {
             /**
@@ -394,6 +423,8 @@ export interface components {
             ticks: string[];
             /** Pending Claims */
             pending_claims: components["schemas"]["Prize"][];
+            /** Decided Claims */
+            decided_claims: components["schemas"]["ClaimSettled"][];
             /** Rejoin Token */
             rejoin_token: string;
         };

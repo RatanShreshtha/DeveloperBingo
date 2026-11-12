@@ -731,6 +731,58 @@
         "title": "ClaimPayload",
         "type": "object"
       },
+      "ClaimSettled": {
+        "description": "One player's own claim, decided at the close of its settlement window. A refusal says why.",
+        "properties": {
+          "prize": {
+            "$ref": "#/components/schemas/Prize"
+          },
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "prize",
+          "accepted",
+          "error"
+        ],
+        "title": "ClaimSettled",
+        "type": "object"
+      },
+      "ClaimWaiting": {
+        "description": "A valid claim is in its prize's settlement window. Its result follows as one `claim_settled`\nevent when the window closes.",
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "waiting": {
+            "const": true,
+            "default": true,
+            "title": "Waiting",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "waiting"
+        ],
+        "title": "ClaimWaiting",
+        "type": "object"
+      },
       "DrawAck": {
         "properties": {
           "ok": {
@@ -921,6 +973,13 @@
             "title": "Pending Claims",
             "type": "array"
           },
+          "decided_claims": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimSettled"
+            },
+            "title": "Decided Claims",
+            "type": "array"
+          },
           "rejoin_token": {
             "title": "Rejoin Token",
             "type": "string"
@@ -937,6 +996,7 @@
           "ticket",
           "ticks",
           "pending_claims",
+          "decided_claims",
           "rejoin_token"
         ],
         "title": "JoinAck",
