@@ -22,17 +22,21 @@ onMounted(() => {
 </script>
 
 <template>
-  <section>
-    <p>Game code: <strong>{{ code }}</strong></p>
-    <p v-if="store.error" role="alert">{{ store.error }}</p>
+  <section class="space-y-5">
+    <div class="flex flex-wrap items-center gap-3">
+      <h2 class="text-2xl font-bold">Host dashboard</h2>
+      <p class="badge badge-outline h-auto px-3 py-2">Game code: <strong class="ml-1">{{ code }}</strong></p>
+    </div>
+    <p v-if="store.error" class="alert alert-error" role="alert">{{ store.error }}</p>
     <template v-else>
-      <p v-if="store.endReason">
+      <p v-if="store.endReason" class="alert alert-info">
         {{ END_MESSAGES.host[store.endReason] }}
-        <RouterLink :to="`/games/${code}/history`" data-test="history-link">View the game history</RouterLink>
+        <RouterLink class="link" :to="`/games/${code}/history`" data-test="history-link">View the game history</RouterLink>
       </p>
-      <div v-else>
+      <div v-else class="flex flex-wrap gap-3">
         <button
           v-if="!store.started"
+          class="btn btn-primary dark:btn-neutral"
           type="button"
           data-test="start-game"
           @click="store.start(hostLink())"
@@ -41,26 +45,29 @@ onMounted(() => {
         </button>
         <button
           v-else
+          class="btn btn-primary dark:btn-neutral"
           type="button"
           data-test="draw-topic"
           @click="store.drawNext(hostLink())"
         >
           Draw topic
         </button>
-        <button type="button" data-test="end-game" @click="store.end(hostLink())">
+        <button class="btn btn-outline" type="button" data-test="end-game" @click="store.end(hostLink())">
           End game
         </button>
       </div>
-      <p v-if="store.windowOpen" data-test="window-open">
+      <p v-if="store.windowOpen" class="alert alert-info" data-test="window-open">
         A claim is being settled. Draws resume in a moment.
       </p>
-      <p v-if="store.actionError" role="alert">{{ store.actionError }}</p>
-      <PrizeBoard :prizes="store.prizes" />
-      <ClaimLog :claims="store.claims" :message-for="store.messageFor" />
+      <p v-if="store.actionError" class="alert alert-error" role="alert">{{ store.actionError }}</p>
       <DrawHistory :draws="store.draws" />
+      <div class="grid gap-5 md:grid-cols-2">
+        <PrizeBoard :prizes="store.prizes" />
+        <ClaimLog :claims="store.claims" :message-for="store.messageFor" />
+      </div>
       <LobbyList :players="store.players" />
     </template>
-    <p v-if="store.poolName" data-test="pool-name">Pool: {{ store.poolName }}</p>
+    <p v-if="store.poolName" class="text-base-content/70" data-test="pool-name">Pool: {{ store.poolName }}</p>
     <PoolColumns v-if="store.pool" :columns="store.pool" />
   </section>
 </template>

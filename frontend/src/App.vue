@@ -4,11 +4,17 @@ import HealthView from './components/HealthView.vue'
 </script>
 
 <template>
-  <main>
-    <h1>DeveloperBingo</h1>
-    <RouterView />
-    <footer>
+  <div class="min-h-screen bg-base-200 text-base-content">
+    <header class="border-b border-base-300 bg-base-100">
+      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <h1 class="text-xl font-bold tracking-tight sm:text-2xl">DeveloperBingo</h1>
+      </div>
+    </header>
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <RouterView />
+    </main>
+    <footer class="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
       <HealthView />
     </footer>
-  </main>
+  </div>
 </template>

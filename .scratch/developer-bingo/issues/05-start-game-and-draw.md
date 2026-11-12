@@ -11,5 +11,5 @@
 - [x] A topic is never drawn twice in a game
 - [x] Draws cannot happen before the game starts or after it ends (after end: delivered by ticket 13)
 - [x] Draws are final, with no undo
-- [x] Every player sees the draw history in order, live
+- [x] Every player sees the draw history live, newest first
 - [x] Every player sees each drawn topic's explanation

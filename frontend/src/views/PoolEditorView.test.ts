@@ -40,6 +40,8 @@ describe('PoolEditorView', () => {
     expect(explanations).toHaveLength(90)
     expect((names[0].element as HTMLInputElement).value).toBe('Topic 1')
     expect((explanations[89].element as HTMLInputElement).value).toBe('Topic 90 explained')
+    expect(names[0].attributes('aria-label')).toBe('Topic 1 name')
+    expect(explanations[89].attributes('aria-label')).toBe('Topic 90 explanation')
   })
 
   it('saves the edited pool under its name, topics in list order', async () => {

@@ -36,25 +36,44 @@ async function createGame() {
 </script>
 
 <template>
-  <section>
-    <label v-if="pools.length > 1">
-      Pool
-      <select v-model="pickedId" data-test="pool-picker">
-        <option v-for="pool in pools" :key="pool.id" :value="pool.id">
-          {{ pool.name }}
-        </option>
-      </select>
-    </label>
-    <button type="button" data-test="create-game" @click="createGame">Create game</button>
-    <p v-if="failed" role="alert">Could not create a game. Please try again.</p>
-    <template v-if="created">
-      <p>Game code: <strong>{{ created.code }}</strong></p>
-      <p>
-        Host link (keep it private, it controls the game):
-        <code>{{ created.hostLink }}</code>
-      </p>
-    </template>
-    <p><RouterLink to="/pools/new">Create a custom pool</RouterLink></p>
-    <p><RouterLink to="/join">Join a game</RouterLink></p>
+  <section class="mx-auto max-w-2xl space-y-6">
+    <div class="space-y-2">
+      <h2 class="text-3xl font-bold">Play DeveloperBingo</h2>
+      <p class="text-base-content/70">Create a game to host, or join an existing game.</p>
+    </div>
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body">
+        <h3 class="card-title">Host a game</h3>
+        <label v-if="pools.length > 1" class="form-control block space-y-2">
+          <span class="font-medium">Pool</span>
+          <select v-model="pickedId" class="select select-bordered w-full" data-test="pool-picker">
+            <option v-for="pool in pools" :key="pool.id" :value="pool.id">
+              {{ pool.name }}
+            </option>
+          </select>
+        </label>
+        <div class="card-actions">
+          <button type="button" class="btn btn-primary dark:btn-neutral" data-test="create-game" @click="createGame">Create game</button>
+        </div>
+        <p v-if="failed" class="alert alert-error" role="alert">Could not create a game. Please try again.</p>
+        <div v-if="created" class="rounded-box bg-base-200 p-4">
+          <p>Game code: <strong>{{ created.code }}</strong></p>
+          <p class="mt-2">
+            Host link (keep it private, it controls the game):
+            <code class="break-all">{{ created.hostLink }}</code>
+          </p>
+        </div>
+        <p><RouterLink class="link" to="/pools/new">Create a custom pool</RouterLink></p>
+      </div>
+    </div>
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body">
+        <h3 class="card-title">Join a game</h3>
+        <p>Have a game code? Join the lobby to get your ticket.</p>
+        <div class="card-actions">
+          <RouterLink class="btn btn-neutral" to="/join">Join a game</RouterLink>
+        </div>
+      </div>
+    </div>
   </section>
 </template>

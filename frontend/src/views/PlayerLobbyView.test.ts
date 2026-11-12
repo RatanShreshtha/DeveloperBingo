@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { saveSession } from '../realtime/savedSession'
 import { playerSnapshot } from '../testing/snapshots'
 import PlayerLobbyView from './PlayerLobbyView.vue'
-import { makePlugins } from './testRouter'
+import { makePlugins, makeRouter } from './testRouter'
 import { joinedAda, startFresh } from './testSetup'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
@@ -30,6 +30,26 @@ describe('PlayerLobbyView', () => {
     expect(wrapper.text()).toContain('Algorithm')
     expect(wrapper.text()).toContain('Cache')
     expect(cells.filter((c) => c.text() === '')).toHaveLength(3)
+  })
+
+  it('keeps the ticket scrollable by keyboard and preserves tick state for disabled cells', async () => {
+    await joinedAda(fake, {
+      status: 'ended',
+      end_reason: 'host',
+      ticket: [['Algorithm', null, 'JSON']],
+      ticks: ['Algorithm'],
+      draws: [{ position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+    })
+
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: [makeRouter()] } })
+    const region = wrapper.get('[role="region"][aria-label="Your ticket, scroll horizontally"]')
+    const ticked = region.get('[data-test="tick-cell"]')
+
+    expect(region.attributes('tabindex')).toBe('0')
+    expect(region.get('table').attributes('aria-label')).toBe('Your ticket')
+    expect(ticked.attributes('aria-pressed')).toBe('true')
+    expect(ticked.attributes('disabled')).toBeDefined()
+    expect(ticked.text()).toContain('✓')
   })
 
   describe('after a reload', () => {
