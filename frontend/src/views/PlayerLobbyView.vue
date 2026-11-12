@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { PRIZE_LABELS } from '../prizes'
 import { END_MESSAGES } from '../endMessages'
 import { useSessionStore } from '../stores/session'
@@ -9,11 +9,15 @@ import PrizeBoard from './PrizeBoard.vue'
 
 const props = defineProps<{ code: string }>()
 const store = useSessionStore()
-// False once a reload finds nothing to rejoin with, so the player is asked to join.
-const canPlay = ref(true)
+// The game shows only while the store holds this player in it: a reload with nothing to rejoin
+// with, a refused rejoin and being replaced all leave the player asking to join again.
+const inGame = computed(() => store.player?.code === props.code)
+// True until the first rejoin on opening the page has answered, so the join link doesn't flash.
+const resuming = ref(true)
 
 onMounted(async () => {
-  canPlay.value = await store.resume(props.code)
+  await store.resume(props.code)
+  resuming.value = false
 })
 </script>
 
@@ -23,7 +27,8 @@ onMounted(async () => {
     <p v-if="store.replaced" role="alert" data-test="replaced">
       This game was opened in another window, so this one has left it.
     </p>
-    <template v-else-if="!canPlay">
+    <p v-else-if="resuming && !inGame">Rejoining the game…</p>
+    <template v-else-if="!inGame">
       <p v-if="store.error" role="alert">{{ store.error }}</p>
       <RouterLink to="/join" data-test="join-link">Join this game</RouterLink>
     </template>

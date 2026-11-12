@@ -44,16 +44,4 @@ describe('session store after the connection drops and returns', () => {
     expect(fake.sent).toEqual([])
     expect(store.ticket).toBeNull()
   })
-
-  it('keeps the ticket on screen if the rejoin is refused', async () => {
-    fake.answer('join_game', playerSnapshot({ ticket }))
-    const store = useSessionStore()
-    await store.join('ABC123', 'Ada')
-    fake.answer('join_game', { ok: false, error: 'name_taken' })
-
-    await fake.reconnect()
-
-    expect(store.ticket).toEqual(ticket)
-    expect(store.actionError).toBe('That name is already taken in this game')
-  })
 })

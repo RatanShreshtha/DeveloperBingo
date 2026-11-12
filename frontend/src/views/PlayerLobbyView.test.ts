@@ -98,6 +98,31 @@ describe('PlayerLobbyView', () => {
     })
   })
 
+  it('says it is rejoining, not asking to join, while the rejoin is on its way', async () => {
+    saveSession({ code: 'ABC123', name: 'Ada', token: 'old-token' })
+    fake.answer('join_game', () => new Promise(() => {}))
+
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Rejoining the game…')
+    expect(wrapper.find('[data-test="join-link"]').exists()).toBe(false)
+  })
+
+  it('leaves the game and asks the player to join when a reconnect is refused', async () => {
+    await joinedAda(fake, { status: 'started' })
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+    await flushPromises()
+    fake.answer('join_game', { ok: false, error: 'not_found' })
+
+    await fake.reconnect()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No game found with that code')
+    expect(wrapper.get('[data-test="join-link"]').text()).toContain('Join this game')
+    expect(wrapper.find('[data-test="tick-cell"]').exists()).toBe(false)
+  })
+
   it('tells the player when another window took their place', async () => {
     await joinedAda(fake, { status: 'started' })
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })

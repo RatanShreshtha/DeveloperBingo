@@ -49,6 +49,20 @@ export function messageFor(code: ErrorCode): string {
 }
 
 type Refusable = { ok: true } | Refusal
+
+// How a join started: from the join form, by reloading the page, or when the connection came back.
+type JoinStart = 'fresh' | 'reload' | 'reconnect'
+// What a failed join does: leave the game, show why in place of it, or show it beside the controls.
+type JoinFailure = 'leave' | 'error' | 'actionError'
+
+// A refused reload or reconnect means this player is no longer in the game (it may be gone after
+// a server restart). An unreachable server says nothing about the game, so a reconnect keeps the
+// player for the next try, and a reload keeps the saved session.
+const JOIN_FAILURES: Record<JoinStart, { refused: JoinFailure; unreachable: JoinFailure }> = {
+  fresh: { refused: 'error', unreachable: 'error' },
+  reload: { refused: 'leave', unreachable: 'error' },
+  reconnect: { refused: 'leave', unreachable: 'actionError' },
+}
 type HostSnapshotPool = HostSnapshot['pool']['columns']
 
 export const useSessionStore = defineStore('session', () => {
@@ -116,11 +130,7 @@ export const useSessionStore = defineStore('session', () => {
     windowOpen.value = change.open
   })
   net.listen('claim_settled', settleClaim)
-  net.listen('replaced', () => {
-    replaced.value = true
-    player.value = null
-    forgetSession()
-  })
+  net.listen('replaced', () => leave({ replaced: true }))
   net.onReconnect(recover)
 
   // A claim's window has closed. A win shows on the prize board, which the room is told of;
@@ -170,16 +180,9 @@ export const useSessionStore = defineStore('session', () => {
     return createGame(poolId)
   }
 
+  // Joins from the join form.
   async function join(code: string, name: string): Promise<boolean> {
-    error.value = null
-    ticket.value = null
-    const result = await net.send('join_game', { code, name, rejoin_token: null })
-    if (!result.ok) {
-      error.value = messageFor(result.error)
-      return false
-    }
-    enter(code, result)
-    return true
+    return enterGame(code, name, 'fresh')
   }
 
   // Joins again with what the browser kept from this game, so a reload brings the player back
@@ -192,23 +195,60 @@ export const useSessionStore = defineStore('session', () => {
     if (!saved) {
       return false
     }
+    return enterGame(code, saved.name, 'reload', saved.token)
+  }
+
+  // The one way into a game. What a refusal or an unreachable server does depends on how the join
+  // started, and is decided in JOIN_FAILURES; nothing is thrown.
+  async function enterGame(
+    code: string,
+    name: string,
+    how: JoinStart,
+    token: string | null = null,
+  ): Promise<boolean> {
     error.value = null
-    const who = { code, name: saved.name }
+    if (how === 'fresh') {
+      ticket.value = null
+    }
     let result
     try {
-      result = await net.send('join_game', { ...who, rejoin_token: saved.token })
+      result = await net.send('join_game', { code, name, rejoin_token: token })
     } catch {
-      // The saved session may still be good: keep it, and let the player try again.
-      error.value = UNREACHABLE
+      failJoin(JOIN_FAILURES[how].unreachable, UNREACHABLE)
       return false
     }
     if (!result.ok) {
-      forgetSession()
-      error.value = messageFor(result.error)
+      failJoin(JOIN_FAILURES[how].refused, messageFor(result.error))
       return false
     }
     enter(code, result)
     return true
+  }
+
+  function failJoin(failure: JoinFailure, message: string) {
+    if (failure === 'leave') {
+      leave({ error: message })
+    } else if (failure === 'error') {
+      error.value = message
+    } else {
+      actionError.value = message
+    }
+  }
+
+  // The player is no longer in the game: another window took them over, or the server refused
+  // to let them back. They are asked to join again, so nothing of theirs is kept.
+  function leave(reason: { replaced: true } | { error: string }) {
+    player.value = null
+    ticket.value = null
+    ticks.value = []
+    pendingClaims.value = []
+    rejoinToken = ''
+    forgetSession()
+    if ('replaced' in reason) {
+      replaced.value = true
+    } else {
+      error.value = reason.error
+    }
   }
 
   // The player is in: remember who they are, and take the game and their own state from the server.
@@ -242,20 +282,12 @@ export const useSessionStore = defineStore('session', () => {
   // The player rejoins with their token, and the host watches again.
   async function recover() {
     if (player.value) {
-      await rejoin(player.value)
+      await enterGame(player.value.code, player.value.name, 'reconnect', rejoinToken)
     } else if (hostLink.value) {
       await watchAsHost(hostLink.value)
     }
   }
 
-  async function rejoin(who: PlayerRef) {
-    const result = await net.send('join_game', { ...who, rejoin_token: rejoinToken })
-    if (!result.ok) {
-      actionError.value = messageFor(result.error)
-      return
-    }
-    enter(who.code, result)
-  }
 
   // Claims a prize. A valid claim waits in the prize's settlement window, so it is pending until
   // `claim_settled` arrives. It is pending from the moment it is sent, since the window can close
