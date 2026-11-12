@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { messageFor } from '../features/game/shared/errors'
+import { messageFor } from '../utils/errors'
 import type { ClaimLogEntry, HostLink, HostSnapshot } from '../realtime/protocol'
 import type { GameSession } from './gameSession'
 

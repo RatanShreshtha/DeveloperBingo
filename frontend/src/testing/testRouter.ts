@@ -1,5 +1,5 @@
 import { createMemoryHistory } from 'vue-router'
-import { createApplicationPlugins } from '../application'
+import { createApplicationPlugins } from '../main'
 import { createRouter } from '../router'
 
 export function makeRouter() {

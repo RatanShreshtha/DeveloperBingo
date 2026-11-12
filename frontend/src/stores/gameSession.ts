@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { messageFor } from '../features/game/shared/errors'
+import { messageFor } from '../utils/errors'
 import type {
   DrawnTopic,
   GameEnd,
