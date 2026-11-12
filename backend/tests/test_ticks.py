@@ -17,7 +17,7 @@ from devbingo_backend.game import (
 def game_with_ada():
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(11))
     game = registry.create_game(DEFAULT_POOL)
-    ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
+    ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     registry.start(game)
     return registry, game, ticket
 
@@ -30,19 +30,19 @@ def test_a_drawn_topic_on_the_players_ticket_can_be_ticked(game_with_ada):
 
     registry.tick(ada, topic)
 
-    assert topic in registry.ticks(ada)
+    assert topic in registry.player_snapshot(ada).ticks
 
 
 def test_an_undrawn_topic_cannot_be_ticked_and_the_ticks_are_unchanged(game_with_ada):
     registry, game, ticket = game_with_ada
     ada = PlayerRef(game.code, "Ada")
     undrawn_on_ticket = names_on(ticket)[0]
-    before = registry.ticks(ada)
+    before = registry.player_snapshot(ada).ticks
 
     with pytest.raises(TopicNotDrawn):
         registry.tick(ada, undrawn_on_ticket)
 
-    assert registry.ticks(ada) == before
+    assert registry.player_snapshot(ada).ticks == before
 
 
 def test_a_topic_not_on_the_players_ticket_cannot_be_ticked(game_with_ada):
@@ -64,7 +64,7 @@ def test_a_ticked_topic_can_be_unticked(game_with_ada):
 
     registry.untick(ada, topic)
 
-    assert topic not in registry.ticks(ada)
+    assert topic not in registry.player_snapshot(ada).ticks
 
 
 def test_an_untick_of_a_topic_not_on_the_ticket_is_refused(game_with_ada):
@@ -72,13 +72,13 @@ def test_an_untick_of_a_topic_not_on_the_ticket_is_refused(game_with_ada):
     ada = PlayerRef(game.code, "Ada")
     draw_everything(registry, game)
     registry.tick(ada, names_on(ticket)[0])
-    before = registry.ticks(ada)
+    before = registry.player_snapshot(ada).ticks
     off_ticket = next(topic.name for topic in DEFAULT_POOL.topics if topic.name not in set(names_on(ticket)))
 
     with pytest.raises(TopicNotOnTicket):
         registry.untick(ada, off_ticket)
 
-    assert registry.ticks(ada) == before
+    assert registry.player_snapshot(ada).ticks == before
 
 
 def test_only_players_in_the_game_can_tick(game_with_ada):
@@ -92,7 +92,7 @@ def test_only_players_in_the_game_can_tick(game_with_ada):
 def test_each_players_ticks_belong_to_that_player():
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(11))
     game = registry.create_game(DEFAULT_POOL)
-    ada_ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
+    ada_ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     registry.join(PlayerRef(game.code, "Grace"))
     registry.start(game)
     draw_everything(registry, game)
@@ -100,5 +100,5 @@ def test_each_players_ticks_belong_to_that_player():
 
     registry.tick(PlayerRef(game.code, "Ada"), topic)
 
-    assert topic in registry.ticks(PlayerRef(game.code, "Ada"))
-    assert registry.ticks(PlayerRef(game.code, "Grace")) == frozenset()
+    assert topic in registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks
+    assert registry.player_snapshot(PlayerRef(game.code, "Grace")).ticks == frozenset()

@@ -53,7 +53,7 @@ def test_each_draw_is_recorded_in_order_with_its_position(started):
     second = registry.draw(game)
 
     assert [first.position, second.position] == [1, 2]
-    assert registry.draw_history(game.code) == (first, second)
+    assert registry.host_snapshot(game).draws == (first, second)
 
 
 def test_a_drawn_topic_carries_its_explanation(started):
@@ -80,7 +80,7 @@ def test_the_draw_history_cannot_be_edited_from_outside(started):
     registry, game = started
     registry.draw(game)
 
-    history = registry.draw_history(game.code)
+    history = registry.host_snapshot(game).draws
 
     assert isinstance(history, tuple)
     with pytest.raises(AttributeError):

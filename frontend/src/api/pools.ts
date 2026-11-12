@@ -2,7 +2,6 @@ import type { components } from './schema'
 
 export type PoolResponse = components['schemas']['PoolResponse']
 export type TopicResponse = components['schemas']['TopicResponse']
-export type GamePoolResponse = components['schemas']['GamePoolResponse']
 export type PoolSummary = components['schemas']['PoolSummaryResponse']
 
 /** A pool the library refused to save: `rule` names the pool rule that broke. */
@@ -20,14 +19,6 @@ export async function fetchDefaultPool(): Promise<PoolResponse> {
     throw new Error(`Default pool request failed with status ${response.status}`)
   }
   return (await response.json()) as PoolResponse
-}
-
-export async function fetchGamePool(code: string): Promise<GamePoolResponse> {
-  const response = await fetch(`/games/${encodeURIComponent(code)}/pool`)
-  if (!response.ok) {
-    throw new Error(`Game pool request failed with status ${response.status}`)
-  }
-  return (await response.json()) as GamePoolResponse
 }
 
 export async function fetchPools(): Promise<PoolSummary[]> {

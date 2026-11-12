@@ -51,7 +51,7 @@ def test_a_join_becomes_an_engine_command_and_a_room_broadcast():
     assert ack["ok"] is True
     assert len(ack["ticket"]) == 3
     assert all(len(line) == 9 for line in ack["ticket"])
-    assert registry.lobby(game) == ["Ada"]
+    assert registry.host_snapshot(game).players == ("Ada",)
     assert broadcaster.entered == [("sid-1", game.code)]
     assert broadcaster.emitted == [
         ("lobby_updated", game.code, {"players": ["Ada"]}),
@@ -132,7 +132,7 @@ def test_a_draw_is_announced_to_the_room_with_its_explanation():
         "sid-host", {"code": game.code, "host_token": game.host_token}
     ))
 
-    draw = registry.draw_history(game.code)[0]
+    draw = registry.host_snapshot(game).draws[0]
     expected = {
         "position": 1,
         "name": draw.topic.name,
@@ -184,7 +184,7 @@ def test_a_tick_is_acknowledged_without_sending_any_ticks_back():
     ack = run(adapter.tick_topic("sid-ada", tick_message(game, topic)))
 
     assert ack == {"ok": True}
-    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset({topic})
+    assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == frozenset({topic})
     assert broadcaster.emitted == emitted_before
 
 
@@ -196,7 +196,7 @@ def test_an_untick_is_acknowledged_without_sending_any_ticks_back():
     ack = run(adapter.untick_topic("sid-ada", tick_message(game, topic)))
 
     assert ack == {"ok": True}
-    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
+    assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == frozenset()
 
 
 def test_an_untick_of_a_topic_not_on_the_ticket_is_refused():
@@ -221,7 +221,7 @@ def test_a_refused_tick_names_the_reason_and_changes_nothing():
     ack = run(adapter.tick_topic("sid-ada", tick_message(game, topics_on(joined["ticket"])[0])))
 
     assert ack == {"ok": False, "error": "not_drawn"}
-    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
+    assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == frozenset()
     assert broadcaster.emitted == emitted_before
 
 
@@ -255,7 +255,7 @@ def test_a_second_join_on_the_same_socket_is_refused_and_frees_nothing():
     ack = run(adapter.join_game("sid-1", {"code": game.code, "name": "Grace"}))
 
     assert ack == {"ok": False, "error": "already_joined"}
-    assert registry.players(game.code) == ["Ada"]
+    assert registry.host_snapshot(game).players == ("Ada",)
 
 
 def test_a_socket_that_joined_twice_does_not_lock_its_first_player_out():
@@ -399,7 +399,7 @@ def test_a_socket_that_never_joined_is_refused_a_claim_and_nothing_changes():
     ack = run(adapter.claim_prize("sid-stranger", claim_message(game)))
 
     assert ack == {"ok": False, "error": "not_joined"}
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
     assert broadcaster.emitted == emitted_before
 
 
@@ -412,7 +412,7 @@ def test_a_socket_that_never_joined_cannot_tick_or_untick():
 
     assert ticked == {"ok": False, "error": "not_joined"}
     assert unticked == {"ok": False, "error": "not_joined"}
-    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
+    assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == frozenset()
 
 
 def lobby_of_ada_and_grace():
@@ -434,7 +434,7 @@ def test_a_player_cannot_tick_as_another_player_by_naming_them_in_the_message():
     # Grace's socket says it is Ada. Whatever happens, Ada's ticks must not change.
     run(adapter.tick_topic("sid-grace", tick_message(game, topic, name="Ada")))
 
-    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
+    assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == frozenset()
 
 
 def test_a_player_cannot_untick_another_player_by_naming_them_in_the_message():
@@ -444,7 +444,7 @@ def test_a_player_cannot_untick_another_player_by_naming_them_in_the_message():
 
     run(adapter.untick_topic("sid-grace", tick_message(game, topic, name="Ada")))
 
-    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset({topic})
+    assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == frozenset({topic})
 
 
 def test_a_claim_is_judged_on_the_socket_s_player_not_the_name_in_the_message():
@@ -456,7 +456,7 @@ def test_a_claim_is_judged_on_the_socket_s_player_not_the_name_in_the_message():
     ack = run(adapter.claim_prize("sid-grace", claim_message(game, name="Ada")))
 
     assert ack == {"ok": False, "error": "claim_not_valid"}
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 
 
 def test_a_join_with_a_missing_field_is_refused_as_an_invalid_message():
@@ -468,7 +468,7 @@ def test_a_join_with_a_missing_field_is_refused_as_an_invalid_message():
     ack = run(adapter.join_game("sid-1", {"code": game.code}))
 
     assert ack == {"ok": False, "error": "invalid_message"}
-    assert registry.players(game.code) == []
+    assert registry.host_snapshot(game).players == ()
     assert broadcaster.emitted == []
 
 
@@ -487,7 +487,7 @@ def test_a_tick_or_claim_with_a_missing_or_wrong_typed_field_is_refused_as_an_in
     assert run(adapter.tick_topic("sid-ada", {})) == {"ok": False, "error": "invalid_message"}
     assert run(adapter.untick_topic("sid-ada", {"topic": 7})) == {"ok": False, "error": "invalid_message"}
     assert run(adapter.claim_prize("sid-ada", {})) == {"ok": False, "error": "invalid_message"}
-    assert registry.ticks(PlayerRef(game.code, "Ada")) == frozenset()
+    assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == frozenset()
 
 
 def test_a_payload_that_is_not_an_object_is_refused_as_an_invalid_message():
@@ -567,7 +567,7 @@ def test_draws_and_claims_are_refused_after_the_game_ends():
 
     assert draw == {"ok": False, "error": "game_ended"}
     assert claim == {"ok": False, "error": "game_ended"}
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 
 
 def test_a_dropped_player_can_rejoin_a_game_that_has_ended_and_read_the_result():

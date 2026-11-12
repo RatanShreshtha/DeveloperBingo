@@ -21,8 +21,8 @@ from devbingo_backend.prizes import Prize
 def started_with_every_topic_drawn():
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(31))
     game = registry.create_game(DEFAULT_POOL)
-    ada_ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
-    grace_ticket = registry.join(PlayerRef(game.code, "Grace")).ticket
+    ada_ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
+    grace_ticket = registry.join(PlayerRef(game.code, "Grace")).snapshot.ticket
     start_and_draw_everything(registry, game)
     return registry, game, ada_ticket, grace_ticket
 
@@ -52,21 +52,21 @@ def test_a_complete_pattern_wins_its_prize(started_with_every_topic_drawn, prize
 
     assert settled.prize is prize
     assert settled.awarded_to == ("Ada",)
-    assert registry.prize_board(game.code)[prize] == ["Ada"]
+    assert registry.host_snapshot(game).prizes[prize] == ("Ada",)
 
 
 @pytest.mark.parametrize("prize", ALL_PRIZES)
 def test_an_incomplete_pattern_is_refused_and_changes_nothing(started_with_every_topic_drawn, prize):
     registry, game, ada_ticket, _ = started_with_every_topic_drawn
     tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket)[:-1])
-    board_before = registry.prize_board(game.code)
-    ticks_before = registry.ticks(PlayerRef(game.code, "Ada"))
+    board_before = registry.host_snapshot(game).prizes
+    ticks_before = registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks
 
     with pytest.raises(ClaimNotValid):
         registry.claim(PlayerRef(game.code, "Ada"), prize)
 
-    assert registry.prize_board(game.code) == board_before
-    assert registry.ticks(PlayerRef(game.code, "Ada")) == ticks_before
+    assert registry.host_snapshot(game).prizes == board_before
+    assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == ticks_before
 
 
 @pytest.mark.parametrize("prize", ALL_PRIZES)
@@ -81,7 +81,7 @@ def test_each_prize_is_awarded_once_per_game(started_with_every_topic_drawn, pri
     with pytest.raises(refusal):
         registry.claim(PlayerRef(game.code, "Grace"), prize)
 
-    assert registry.prize_board(game.code)[prize] == ["Ada"]
+    assert registry.host_snapshot(game).prizes[prize] == ("Ada",)
 
 
 def test_one_player_can_win_several_line_prizes(started_with_every_topic_drawn):
@@ -92,14 +92,14 @@ def test_one_player_can_win_several_line_prizes(started_with_every_topic_drawn):
     for prize, _ in LINE_PRIZES:
         claim_and_settle(registry, PlayerRef(game.code, "Ada"), prize)
 
-    board = registry.prize_board(game.code)
-    assert [board[prize] for prize, _ in LINE_PRIZES] == [["Ada"], ["Ada"], ["Ada"]]
+    board = registry.host_snapshot(game).prizes
+    assert [board[prize] for prize, _ in LINE_PRIZES] == [("Ada",), ("Ada",), ("Ada",)]
 
 
 def test_a_prize_remains_open_until_someone_claims_it(started_with_every_topic_drawn):
     registry, game, _, _ = started_with_every_topic_drawn
 
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 
 
 def test_claims_are_refused_before_the_game_starts():

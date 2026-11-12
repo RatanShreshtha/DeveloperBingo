@@ -17,7 +17,7 @@ from devbingo_backend.game import (
 def lobby():
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(21))
     game = registry.create_game(DEFAULT_POOL)
-    ada_ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
+    ada_ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     return registry, game, ada_ticket
 
 
@@ -49,7 +49,7 @@ def test_rejoining_restores_the_players_ticks(lobby):
 
     registry.join(PlayerRef(game.code, "Ada"))
 
-    assert topic in registry.ticks(ada)
+    assert topic in registry.player_snapshot(ada).ticks
 
 
 def test_a_rejoin_after_the_game_starts_is_still_a_restore(lobby):
@@ -57,7 +57,7 @@ def test_a_rejoin_after_the_game_starts_is_still_a_restore(lobby):
     registry.start(game)
     registry.disconnect(PlayerRef(game.code, "Ada"))
 
-    rejoined = registry.join(PlayerRef(game.code, "Ada")).ticket
+    rejoined = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
 
     assert rejoined.lines == ada_ticket.lines
 
@@ -73,10 +73,10 @@ def test_a_new_name_after_the_game_starts_is_refused(lobby):
 def test_a_name_that_belongs_to_no_one_is_a_new_join_not_a_restore(lobby):
     registry, game, _ = lobby
 
-    grace_ticket = registry.join(PlayerRef(game.code, "Grace")).ticket
+    grace_ticket = registry.join(PlayerRef(game.code, "Grace")).snapshot.ticket
 
-    assert registry.players(game.code) == ["Ada", "Grace"]
-    assert registry.ticks(PlayerRef(game.code, "Grace")) == frozenset()
+    assert registry.host_snapshot(game).players == ("Ada", "Grace")
+    assert registry.player_snapshot(PlayerRef(game.code, "Grace")).ticks == frozenset()
     assert grace_ticket.lines != lobby[2].lines
 
 
@@ -94,7 +94,7 @@ def test_names_match_without_regard_to_case(lobby):
         registry.join(PlayerRef(game.code, "ada"))
 
     registry.disconnect(PlayerRef(game.code, "Ada"))
-    rejoined = registry.join(PlayerRef(game.code, "ADA")).ticket
+    rejoined = registry.join(PlayerRef(game.code, "ADA")).snapshot.ticket
 
     assert rejoined.lines == ada_ticket.lines
-    assert registry.players(game.code) == ["Ada"]
+    assert registry.host_snapshot(game).players == ("Ada",)

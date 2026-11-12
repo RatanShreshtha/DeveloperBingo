@@ -67,7 +67,7 @@ def test_a_full_house_game_shows_claims_with_outcomes_and_winners(client):
     registry = registry_of(client)
     game = registry.create_game(InMemoryPoolLibrary().load_default())
     ada = PlayerRef(game.code, "Ada")
-    ticket = registry.join(ada).ticket
+    ticket = registry.join(ada).snapshot.ticket
     start_and_draw_everything(registry, game)
     for topic in names_on(ticket):
         registry.tick(ada, topic)

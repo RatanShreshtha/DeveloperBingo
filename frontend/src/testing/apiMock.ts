@@ -19,7 +19,6 @@ export function apiPoolsMock() {
       }
     },
     fetchDefaultPool: vi.fn(async () => ({ columns: [] })),
-    fetchGamePool: vi.fn(async () => ({ columns: [] })),
     fetchPools: vi.fn(async () => [{ id: 1, name: 'Default', is_default: true }]),
     savePool: vi.fn(),
   }

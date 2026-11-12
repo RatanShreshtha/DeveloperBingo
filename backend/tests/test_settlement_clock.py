@@ -30,7 +30,7 @@ class Table:
         self.registry.listen(listen)
         self.game = self.registry.create_game(DEFAULT_POOL)
         self.tickets = {
-            name: self.registry.join(self.player(name)).ticket for name in ("Ada", "Grace")
+            name: self.registry.join(self.player(name)).snapshot.ticket for name in ("Ada", "Grace")
         }
         self.registry.start(self.game)
         draw_everything(self.registry, self.game)
@@ -81,14 +81,14 @@ def test_a_window_closing_on_time_tells_the_listener_who_won_and_that_no_window_
     )
     assert outcome.ended is None
     assert outcome.window_open is False
-    assert table.registry.prize_board(table.game.code)[Prize.EARLY_FIVE] == ["Ada", "Grace"]
+    assert table.registry.host_snapshot(table.game).prizes[Prize.EARLY_FIVE] == ("Ada", "Grace")
 
 
 def test_nothing_is_heard_or_awarded_before_the_window_closes(table):
     table.registry.claim(table.player("Ada"), Prize.EARLY_FIVE)
 
     assert table.heard == []
-    assert table.registry.prize_board(table.game.code)[Prize.EARLY_FIVE] == []
+    assert table.registry.host_snapshot(table.game).prizes[Prize.EARLY_FIVE] == ()
 
 
 def test_a_full_house_window_closing_on_time_ends_the_game_once_for_every_winner(table):
@@ -102,19 +102,19 @@ def test_a_full_house_window_closing_on_time_ends_the_game_once_for_every_winner
     [(_, outcome)] = table.heard
     assert outcome.settled[0].awarded_to == ("Ada", "Grace")
     assert outcome.ended == "full_house"
-    assert table.registry.status(table.game.code) == "ended"
+    assert table.registry.host_snapshot(table.game).status == "ended"
 
 
 def test_the_close_scheduled_before_the_host_ended_the_game_changes_nothing(table):
     table.registry.claim(table.player("Ada"), Prize.EARLY_FIVE)
     table.registry.end(table.game)
-    log_before = table.registry.claim_log(table.game.code)
+    log_before = table.registry.host_snapshot(table.game).claims
 
     table.scheduler.close_all()
 
     assert table.heard == []
-    assert table.registry.claim_log(table.game.code) == log_before
-    assert all(names == [] for names in table.registry.prize_board(table.game.code).values())
+    assert table.registry.host_snapshot(table.game).claims == log_before
+    assert all(names == () for names in table.registry.host_snapshot(table.game).prizes.values())
 
 
 def test_windows_for_two_prizes_open_together_and_close_independently(table):
@@ -138,7 +138,7 @@ def test_a_window_still_closes_with_no_listener():
     registry = GameRegistry(rng=random.Random(7), scheduler=(scheduler := ManualScheduler()))
     game = registry.create_game(DEFAULT_POOL)
     ada = PlayerRef(game.code, "Ada")
-    ticket = registry.join(ada).ticket
+    ticket = registry.join(ada).snapshot.ticket
     registry.start(game)
     draw_everything(registry, game)
     for topic in names_on(ticket)[:5]:
@@ -147,4 +147,4 @@ def test_a_window_still_closes_with_no_listener():
 
     scheduler.close_all()
 
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada"]
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ("Ada",)

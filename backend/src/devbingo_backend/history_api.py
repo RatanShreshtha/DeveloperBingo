@@ -31,16 +31,8 @@ class GameHistoryResponse(_Message):
             reason=summary.reason,
             pool_name=summary.pool_name,
             draws=[DrawAnnouncement.from_draw(draw) for draw in summary.draws],
-            claims=[
-                ClaimLogEntry(
-                    player=c.player, prize=c.prize, accepted=c.accepted, error=c.error
-                )
-                for c in summary.claims
-            ],
-            winners=[
-                PrizeBoardEntry(prize=prize, awarded_to=list(names))
-                for prize, names in summary.winners.items()
-            ],
+            claims=[ClaimLogEntry.from_record(record) for record in summary.claims],
+            winners=PrizeBoardEntry.board_of(summary.winners),
         )
 
 

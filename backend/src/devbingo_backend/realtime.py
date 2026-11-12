@@ -33,8 +33,6 @@ from devbingo_backend.wire import (
     JoinPayload,
     LobbyUpdated,
     PrizeAwarded,
-    PoolResponse,
-    PrizeBoardEntry,
     Refusal,
     Replaced,
     ServerEvent,
@@ -79,22 +77,6 @@ def _parse(model: type[M], payload: object) -> M:
         raise InvalidMessage from None
 
 
-def _prize_board(board: dict[Prize, list[str]]) -> list[PrizeBoardEntry]:
-    """The prize board in the order the engine keeps it."""
-    return [PrizeBoardEntry(prize=prize, awarded_to=names) for prize, names in board.items()]
-
-
-def _claim_entry(record: ClaimRecord) -> ClaimLogEntry:
-    return ClaimLogEntry(
-        player=record.player, prize=record.prize, accepted=record.accepted, error=record.error
-    )
-
-
-def _claim_settled(record: ClaimRecord) -> ClaimSettled:
-    """A decided claim as its own player is told it."""
-    return ClaimSettled(prize=record.prize, accepted=record.accepted, error=record.error)
-
-
 def _host_room(code: str) -> str:
     """The room only the game's host sockets are in. The game's own room has every player too."""
     return f"{code}:host"
@@ -135,7 +117,8 @@ class RealtimeAdapter:
             return _refusal(err)
 
         # From here on the player is the one the game knows, not the name as this client typed it.
-        player = joined.player
+        snapshot = joined.snapshot
+        player = snapshot.player
 
         if joined.took_over:
             await self._replace_sockets_of(player, keep=sid)
@@ -145,29 +128,11 @@ class RealtimeAdapter:
         if joined.is_new_player:
             await self._broadcaster.emit(
                 ServerEvent.LOBBY_UPDATED,
-                LobbyUpdated(players=self._registry.players(player.code)).model_dump(mode="json"),
+                LobbyUpdated(players=list(snapshot.players)).model_dump(mode="json"),
                 room=player.code,
             )
         # A rejoin restores the ticks the player already had, so they come back here.
-        return JoinAck(
-            **self._snapshot(player.code),
-            name=player.name,
-            ticket=joined.ticket.to_cells(),
-            ticks=sorted(self._registry.ticks(player)),
-            pending_claims=self._registry.pending_claims(player),
-            decided_claims=[_claim_settled(record) for record in self._registry.decided_claims(player)],
-            rejoin_token=joined.rejoin_token,
-        ).model_dump(mode="json")
-
-    def _snapshot(self, code: str) -> dict[str, Any]:
-        """The parts of a snapshot that every client gets."""
-        return {
-            "status": self._registry.status(code),
-            "end_reason": self._registry.end_reason(code),
-            "players": self._registry.players(code),
-            "draws": [DrawAnnouncement.from_draw(draw) for draw in self._registry.draw_history(code)],
-            "prizes": _prize_board(self._registry.prize_board(code)),
-        }
+        return JoinAck.from_snapshot(snapshot, joined.rejoin_token).model_dump(mode="json")
 
     async def _replace_sockets_of(self, player: PlayerRef, keep: str) -> None:
         """Tells every other socket holding this player that it was replaced, and takes it out of the game."""
@@ -188,19 +153,13 @@ class RealtimeAdapter:
     async def watch_lobby(self, sid: str, payload: object) -> Ack:
         try:
             host = _parse(HostLink, payload)
-            self._registry.lobby(host)
+            snapshot = self._registry.host_snapshot(host)
         except GameError as err:
             return _refusal(err)
 
         await self._broadcaster.enter_room(sid, host.code)
         await self._broadcaster.enter_room(sid, _host_room(host.code))
-        return WatchAck(
-            **self._snapshot(host.code),
-            claims=[_claim_entry(record) for record in self._registry.claim_log(host.code)],
-            pool=PoolResponse.from_pool(self._registry.pool_of(host.code)),
-            pool_name=self._registry.pool_name_of(host.code),
-            window_open=self._registry.window_open(host.code),
-        ).model_dump(mode="json")
+        return WatchAck.from_snapshot(snapshot).model_dump(mode="json")
 
     async def start_game(self, sid: str, payload: object) -> Ack:
         try:
@@ -278,7 +237,8 @@ class RealtimeAdapter:
         for settled in outcome.settled:
             for record in settled.records:
                 for sid in self._sockets_of(PlayerRef(code, record.player)):
-                    await self._emit(code, ServerEvent.CLAIM_SETTLED, _claim_settled(record), to=sid)
+                    result = ClaimSettled.from_record(record)
+                    await self._emit(code, ServerEvent.CLAIM_SETTLED, result, to=sid)
         if outcome.window_open is not None:
             await self._emit(
                 code,
@@ -306,7 +266,8 @@ class RealtimeAdapter:
 
     async def _tell_host(self, code: str, record: ClaimRecord) -> None:
         """Sends the host one decided claim, and nobody else."""
-        await self._emit(code, ServerEvent.CLAIM_LOGGED, _claim_entry(record), room=_host_room(code))
+        entry = ClaimLogEntry.from_record(record)
+        await self._emit(code, ServerEvent.CLAIM_LOGGED, entry, room=_host_room(code))
 
     # Ticks are private, and nothing is broadcast. The acknowledgement says only
     # whether the change happened: the client keeps its own list, so no ticks are

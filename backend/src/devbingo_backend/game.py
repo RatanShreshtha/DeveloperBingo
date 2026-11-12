@@ -3,8 +3,10 @@ import hmac
 import logging
 import random
 import secrets
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Any
 
 from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
     AlreadyJoined,
@@ -56,22 +58,6 @@ class PlayerRef:
 
 
 @dataclass(frozen=True)
-class Joined:
-    """What a join did: who the player is, their ticket, and whether they are new to the game or
-    came back."""
-
-    # The player as the game knows them: the name first stored, whatever case or spaces this join
-    # used. Callers address the player by this from here on, and compare players by it.
-    player: PlayerRef
-    ticket: Ticket
-    is_new_player: bool
-    # Private to the player. Showing it later proves they are the one who joined.
-    rejoin_token: str
-    # True when the player's name was still held by a live socket and this join took it over.
-    took_over: bool = False
-
-
-@dataclass(frozen=True)
 class Outcome:
     """What a claim, the end of a game or a window's close changed, for the caller to announce.
     All three report in this one shape."""
@@ -92,6 +78,61 @@ OutcomeListener = Callable[[str, Outcome], Awaitable[None]]
 class Draw:
     position: int
     topic: Topic
+
+
+@dataclass(frozen=True)
+class GameSnapshot:
+    """Everything anyone in the game may see, enough to show it from scratch. Read-only: nothing
+    here changes the game, and the game changing does not change it."""
+
+    status: GameStatus
+    # Why the game ended, or None while it has not.
+    end_reason: EndReason | None
+    # In the order players joined.
+    players: tuple[str, ...]
+    draws: tuple[Draw, ...]
+    # Every prize, in the order of Prize, with the players it was awarded to (empty while open).
+    prizes: Mapping[Prize, tuple[str, ...]]
+
+
+@dataclass(frozen=True)
+class PlayerSnapshot(GameSnapshot):
+    """A player's Game snapshot: the game, plus their own ticket, ticks and claims."""
+
+    # The player as the game knows them, with the name first stored.
+    player: PlayerRef
+    ticket: Ticket
+    ticks: frozenset[str]
+    # Prizes this player has claimed whose settlement window has not closed.
+    pending_claims: tuple[Prize, ...]
+    # This player's own decided claims, in the order they were decided.
+    decided_claims: tuple[ClaimRecord, ...]
+
+
+@dataclass(frozen=True)
+class HostSnapshot(GameSnapshot):
+    """The host's Game snapshot: the game, plus the claim log, the pool and the window state."""
+
+    # Every decided claim, accepted or refused, in order. Only the host sees refusals.
+    claims: tuple[ClaimRecord, ...]
+    pool: Pool
+    # The name the pool was chosen under, if it has one.
+    pool_name: str | None
+    # True while any settlement window is open, which is why draws are refused.
+    window_open: bool
+
+
+@dataclass(frozen=True)
+class Joined:
+    """What a join did: the player's snapshot, and whether they are new to the game or came back."""
+
+    # Includes the player as the game knows them: callers address and compare them by this.
+    snapshot: PlayerSnapshot
+    is_new_player: bool
+    # Private to the player. Showing it later proves they are the one who joined.
+    rejoin_token: str
+    # True when the player's name was still held by a live socket and this join took it over.
+    took_over: bool = False
 
 
 @dataclass(frozen=True)
@@ -206,8 +247,7 @@ class GameRegistry:
             took_over = member.connected
             member.connected = True
             return Joined(
-                PlayerRef(player.code, member.name),
-                member.ticket,
+                self._player_snapshot(game, member),
                 is_new_player=False,
                 rejoin_token=self._issue_token(member),
                 took_over=took_over,
@@ -221,8 +261,7 @@ class GameRegistry:
         member = _Player(name=player.name.strip(), ticket=ticket)
         game.players[key] = member
         return Joined(
-            PlayerRef(player.code, member.name),
-            ticket,
+            self._player_snapshot(game, member),
             is_new_player=True,
             rejoin_token=self._issue_token(member),
         )
@@ -246,15 +285,6 @@ class GameRegistry:
             ticket = build_ticket(game.pool, self._rng)
             if game.is_new_ticket(ticket):
                 return ticket
-
-    def players(self, code: str) -> list[str]:
-        """Names in the lobby. Public: every player in the room may see them."""
-        return [member.name for member in self._find(code).players.values()]
-
-    def lobby(self, host: HostLink) -> list[str]:
-        """Names in the lobby, for the host. The same list as players(), after checking the host link."""
-        self._host_game(host)
-        return self.players(host.code)
 
     def start(self, host: HostLink) -> None:
         """Start the game: joining closes and the pool locks."""
@@ -297,18 +327,6 @@ class GameRegistry:
         game.draws.append(draw)
         return draw
 
-    def pool_of(self, code: str) -> Pool:
-        """The pool this game was created with. Public: it is fixed for the life of the game."""
-        return self._find(code).pool
-
-    def pool_name_of(self, code: str) -> str | None:
-        """The name of the pool this game was created with, if it has one. Public, like the pool."""
-        return self._find(code).pool_name
-
-    def draw_history(self, code: str) -> tuple[Draw, ...]:
-        """Every draw so far, in order. Public: every player in the room may see them."""
-        return tuple(self._find(code).draws)
-
     def tick(self, player: PlayerRef, topic_name: str) -> None:
         """Tick a topic on the player's ticket. It must be on the ticket and already drawn.
         Refused once the game has ended: the ticks then match the claims that were judged."""
@@ -330,11 +348,6 @@ class GameRegistry:
         if topic_name not in member.ticket.topic_names():
             raise TopicNotOnTicket(topic_name)
         member.ticks.discard(topic_name)
-
-    def ticks(self, player: PlayerRef) -> frozenset[str]:
-        """The topics this player has ticked."""
-        _, member = self._player_game(player)
-        return frozenset(member.ticks)
 
     def claim(self, player: PlayerRef, prize: Prize) -> Outcome:
         """Claim a prize. A claim the ticket does not earn is refused at once: the error raised
@@ -391,36 +404,46 @@ class GameRegistry:
             return GameNotStarted(code)
         return None
 
-    def status(self, code: str) -> GameStatus:
-        """Where the game stands. Public."""
-        return self._find(code).status
-
-    def end_reason(self, code: str) -> EndReason | None:
-        """Why the game ended, or None while it has not. Public."""
-        return self._find(code).end_reason
-
-    def pending_claims(self, player: PlayerRef) -> list[Prize]:
-        """The prizes this player has claimed whose settlement window is still open."""
+    def player_snapshot(self, player: PlayerRef) -> PlayerSnapshot:
+        """The player's Game snapshot. Refuses anyone not in the game."""
         game, member = self._player_game(player)
-        return game.settlement.pending_prizes(member.name)
+        return self._player_snapshot(game, member)
 
-    def decided_claims(self, player: PlayerRef) -> list[ClaimRecord]:
-        """This player's own decided claims, in the order they were decided."""
-        game, member = self._player_game(player)
-        return [record for record in game.settlement.log() if record.player == member.name]
+    def host_snapshot(self, host: HostLink) -> HostSnapshot:
+        """The host's Game snapshot, once the link proves it belongs to the game's host."""
+        game = self._host_game(host)
+        return HostSnapshot(
+            **self._shared(game),
+            claims=tuple(game.settlement.log()),
+            pool=game.pool,
+            pool_name=game.pool_name,
+            window_open=game.settlement.window_open(),
+        )
 
-    def window_open(self, code: str) -> bool:
-        """True while any settlement window is open in the game."""
-        return self._find(code).settlement.window_open()
+    def _player_snapshot(self, game: _Game, member: _Player) -> PlayerSnapshot:
+        return PlayerSnapshot(
+            **self._shared(game),
+            player=PlayerRef(game.code, member.name),
+            ticket=member.ticket,
+            ticks=frozenset(member.ticks),
+            pending_claims=tuple(game.settlement.pending_prizes(member.name)),
+            decided_claims=tuple(
+                record for record in game.settlement.log() if record.player == member.name
+            ),
+        )
 
-    def prize_board(self, code: str) -> dict[Prize, list[str]]:
-        """Each prize and the names of the players it was awarded to. Empty while it is still open."""
-        return self._find(code).settlement.board()
-
-    def claim_log(self, code: str) -> list[ClaimRecord]:
-        """Every claim decided so far, accepted or refused, in order. For the host only: a refused
-        claim is private to the claimant among players."""
-        return self._find(code).settlement.log()
+    @staticmethod
+    def _shared(game: _Game) -> dict[str, Any]:
+        """The parts of a snapshot everyone gets."""
+        return {
+            "status": game.status,
+            "end_reason": game.end_reason,
+            "players": tuple(member.name for member in game.players.values()),
+            "draws": tuple(game.draws),
+            "prizes": MappingProxyType(
+                {prize: tuple(names) for prize, names in game.settlement.board().items()}
+            ),
+        }
 
     @staticmethod
     def _refuse_if_ended(game: _Game, code: str) -> None:

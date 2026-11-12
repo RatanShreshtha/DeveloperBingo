@@ -24,80 +24,6 @@ def join(adapter, game, sid="sid-ada", name="Ada", **extra):
     return run(adapter.join_game(sid, {"code": game.code, "name": name, **extra}))
 
 
-# --- the snapshot ---
-
-
-def test_a_player_joining_a_game_in_the_lobby_gets_its_status_and_players():
-    adapter, _, game, _ = a_game()
-    join(adapter, game, "sid-grace", "Grace")
-
-    ack = join(adapter, game)
-
-    assert ack["status"] == "lobby"
-    assert ack["end_reason"] is None
-    assert ack["players"] == ["Grace", "Ada"]
-    assert ack["draws"] == []
-    assert ack["prizes"] == wire_board_of()
-    assert ack["pending_claims"] == []
-
-
-def test_a_rejoin_between_the_start_and_the_first_draw_knows_the_game_started():
-    adapter, registry, game, _ = a_game()
-    join(adapter, game)
-    registry.start(game)
-    run(adapter.disconnect("sid-ada"))
-
-    ack = join(adapter, game, "sid-ada-2")
-
-    assert ack["status"] == "started"
-    assert ack["draws"] == []
-
-
-def test_a_snapshot_carries_every_draw_in_order():
-    adapter, registry, game, _ = a_game()
-    join(adapter, game)
-    registry.start(game)
-    first, second = registry.draw(game), registry.draw(game)
-    run(adapter.disconnect("sid-ada"))
-
-    ack = join(adapter, game, "sid-ada-2")
-
-    assert [draw["position"] for draw in ack["draws"]] == [1, 2]
-    assert [draw["name"] for draw in ack["draws"]] == [first.topic.name, second.topic.name]
-    assert all(draw["explanation"] for draw in ack["draws"])
-
-
-def test_the_hosts_snapshot_carries_status_draws_pool_and_claim_log():
-    adapter, registry, game, _ = a_game()
-    join(adapter, game)
-    registry.start(game)
-    registry.draw(game)
-
-    ack = run(adapter.watch_lobby("sid-host", host_message(game)))
-
-    assert ack["ok"] is True
-    assert ack["status"] == "started"
-    assert ack["players"] == ["Ada"]
-    assert len(ack["draws"]) == 1
-    assert ack["claims"] == []
-    assert ack["window_open"] is False
-    assert ack["pool_name"] == "Default"
-    assert sum(len(column) for column in ack["pool"]["columns"]) == len(DEFAULT_POOL.topics)
-
-
-def test_a_snapshot_after_the_game_ends_says_why_and_shows_the_final_prize_board():
-    adapter, registry, game, _ = a_game()
-    join(adapter, game)
-    registry.start(game)
-    run(adapter.end_game("sid-host", host_message(game)))
-
-    host = run(adapter.watch_lobby("sid-host-2", host_message(game)))
-
-    assert host["status"] == "ended"
-    assert host["end_reason"] == "host"
-    assert host["prizes"] == wire_board_of()
-
-
 def ready_to_claim(adapter, registry, game, sid="sid-ada", name="Ada"):
     """Ada has joined, every topic is drawn and she has ticked her whole ticket."""
     ada = join(adapter, game, sid, name)
@@ -111,41 +37,52 @@ def claim(adapter, sid="sid-ada", prize="early_five"):
     return run(adapter.claim_prize(sid, {"prize": prize}))
 
 
-def test_the_hosts_snapshot_says_while_a_settlement_window_is_open():
+# --- the snapshot, as the wire carries it (its content is tested in test_game_snapshot.py) ---
+
+
+def test_a_join_acknowledgement_carries_the_players_whole_snapshot():
+    scheduler = ManualScheduler()
+    adapter, registry, game, _ = a_game(scheduler)
+    ada = ready_to_claim(adapter, registry, game)
+    claim(adapter, prize="top_line")
+    claim(adapter)
+    close_top_line, close_early_five = scheduler.pending
+    run(close_early_five())  # top line's window stays open
+    run(adapter.disconnect("sid-ada"))
+
+    ack = join(adapter, game, "sid-ada-2")
+
+    assert ack["ok"] is True
+    assert ack["status"] == "started"
+    assert ack["end_reason"] is None
+    assert ack["players"] == ["Ada"]
+    assert len(ack["draws"]) == len(DEFAULT_POOL.topics)
+    assert set(ack["draws"][0]) == {"position", "name", "explanation"}
+    assert ack["prizes"] == wire_board_of(early_five=["Ada"])
+    assert ack["name"] == "Ada"
+    assert ack["ticket"] == ada["ticket"]
+    assert ack["ticks"] == sorted(topics_on(ada["ticket"]))
+    assert ack["pending_claims"] == ["top_line"]
+    assert ack["decided_claims"] == [{"prize": "early_five", "accepted": True, "error": None}]
+    assert ack["rejoin_token"] not in ("", ada["rejoin_token"])
+
+
+def test_a_watch_acknowledgement_carries_the_hosts_whole_snapshot():
     scheduler = ManualScheduler()
     adapter, registry, game, _ = a_game(scheduler)
     ready_to_claim(adapter, registry, game)
     claim(adapter)
 
-    watched = run(adapter.watch_lobby("sid-host", host_message(game)))
+    ack = run(adapter.watch_lobby("sid-host", host_message(game)))
 
-    assert watched["window_open"] is True
-
-
-def test_a_reconnect_inside_a_settlement_window_says_which_claims_are_pending():
-    adapter, registry, game, _ = a_game()
-    ready_to_claim(adapter, registry, game)
-    claim(adapter)
-    run(adapter.disconnect("sid-ada"))
-
-    snapshot = join(adapter, game, "sid-ada-2")
-
-    assert snapshot["pending_claims"] == ["early_five"]
-    assert snapshot["decided_claims"] == []
-
-
-def test_a_rejoin_after_the_window_closed_carries_the_players_decided_claims():
-    scheduler = ManualScheduler()
-    adapter, registry, game, _ = a_game(scheduler)
-    ready_to_claim(adapter, registry, game)
-    claim(adapter)
-    run(adapter.disconnect("sid-ada"))
-    scheduler.close_all()
-
-    snapshot = join(adapter, game, "sid-ada-2")
-
-    assert snapshot["pending_claims"] == []
-    assert snapshot["decided_claims"] == [{"prize": "early_five", "accepted": True, "error": None}]
+    assert ack["ok"] is True
+    assert ack["status"] == "started"
+    assert ack["players"] == ["Ada"]
+    assert ack["prizes"] == wire_board_of()
+    assert ack["claims"] == []
+    assert ack["window_open"] is True
+    assert ack["pool_name"] == "Default"
+    assert sum(len(column) for column in ack["pool"]["columns"]) == len(DEFAULT_POOL.topics)
 
 
 # --- the rejoin token ---
@@ -265,7 +202,8 @@ def test_a_takeover_during_a_pending_claim_sends_the_result_to_the_new_socket_on
     assert settled_to(broadcaster) == [
         ("sid-ada-2", {"prize": "early_five", "accepted": True, "error": None})
     ]
-    assert [(entry.player, entry.accepted) for entry in registry.claim_log(game.code)] == [("Ada", True)]
+    claims = registry.host_snapshot(game).claims
+    assert [(entry.player, entry.accepted) for entry in claims] == [("Ada", True)]
 
 
 def window_events(broadcaster):
@@ -312,7 +250,7 @@ def test_a_claim_by_a_player_who_joined_with_spaces_is_answered():
     scheduler.close_all()
 
     assert settled_to(broadcaster) == [("sid-ada", {"prize": "early_five", "accepted": True, "error": None})]
-    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == ["Ada"]
+    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ("Ada",)
 
 
 def test_a_claim_waiting_through_a_takeover_by_another_case_is_answered():

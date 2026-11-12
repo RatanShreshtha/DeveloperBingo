@@ -16,7 +16,7 @@ def setup():
     summaries = []
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(5), on_ended=summaries.append)
     game = registry.create_game(DEFAULT_POOL, pool_name="Default")
-    ticket = registry.join(PlayerRef(game.code, "Ada")).ticket
+    ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     return registry, game, ticket, summaries
 
 

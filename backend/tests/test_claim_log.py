@@ -16,7 +16,7 @@ from devbingo_backend.wire import ErrorCode
 def table():
     registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(31))
     game = registry.create_game(DEFAULT_POOL)
-    ada = registry.join(PlayerRef(game.code, "Ada")).ticket
+    ada = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     registry.join(PlayerRef(game.code, "Grace"))
     return registry, game, ada
 
@@ -35,17 +35,17 @@ def test_the_log_holds_accepted_and_refused_claims_in_order(table):
 
     attempt(registry, game, "Grace", Prize.EARLY_FIVE)
     attempt(registry, game, "Ada", Prize.EARLY_FIVE)
-    assert registry.claim_log(game.code) == [
+    assert registry.host_snapshot(game).claims == (
         ClaimRecord("Grace", Prize.EARLY_FIVE, False, ErrorCode.CLAIM_NOT_VALID),
-    ]  # Ada's claim is logged when its window settles, not before
+    )  # Ada's claim is logged when its window settles, not before
     registry.close_window(game.code, Prize.EARLY_FIVE)
     attempt(registry, game, "Grace", Prize.EARLY_FIVE)
 
-    assert registry.claim_log(game.code) == [
+    assert registry.host_snapshot(game).claims == (
         ClaimRecord("Grace", Prize.EARLY_FIVE, False, ErrorCode.CLAIM_NOT_VALID),
         ClaimRecord("Ada", Prize.EARLY_FIVE, True),
         ClaimRecord("Grace", Prize.EARLY_FIVE, False, ErrorCode.PRIZE_TAKEN),
-    ]
+    )
 
 
 def test_a_claim_before_the_game_starts_is_logged_as_refused(table):
@@ -53,9 +53,9 @@ def test_a_claim_before_the_game_starts_is_logged_as_refused(table):
 
     attempt(registry, game, "Ada", Prize.EARLY_FIVE)
 
-    assert registry.claim_log(game.code) == [
-        ClaimRecord("Ada", Prize.EARLY_FIVE, False, ErrorCode.NOT_STARTED)
-    ]
+    assert registry.host_snapshot(game).claims == (
+        ClaimRecord("Ada", Prize.EARLY_FIVE, False, ErrorCode.NOT_STARTED),
+    )
 
 
 def test_a_claim_after_the_game_ends_is_logged_as_refused(table):
@@ -65,9 +65,9 @@ def test_a_claim_after_the_game_ends_is_logged_as_refused(table):
 
     attempt(registry, game, "Ada", Prize.EARLY_FIVE)
 
-    assert registry.claim_log(game.code) == [
-        ClaimRecord("Ada", Prize.EARLY_FIVE, False, ErrorCode.GAME_ENDED)
-    ]
+    assert registry.host_snapshot(game).claims == (
+        ClaimRecord("Ada", Prize.EARLY_FIVE, False, ErrorCode.GAME_ENDED),
+    )
 
 
 def test_a_claim_by_someone_who_is_not_a_player_is_not_logged(table):
@@ -76,4 +76,4 @@ def test_a_claim_by_someone_who_is_not_a_player_is_not_logged(table):
 
     attempt(registry, game, "Stranger", Prize.EARLY_FIVE)
 
-    assert registry.claim_log(game.code) == []
+    assert registry.host_snapshot(game).claims == ()
