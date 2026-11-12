@@ -8,29 +8,29 @@
 
 ### Snapshot
 
-- [ ] `join_game` and `watch_lobby` return one game snapshot: game status, players, draws and the prize board. A player's snapshot adds their Ticket and ticks. The host's snapshot adds the game's Pool Columns
-- [ ] `HostView` shows the Pool Columns from the snapshot and stops calling `/pools/default`
-- [ ] `GET /games/{code}/draws` and `GET /games/{code}/lobby` are removed
+- [x] `join_game` and `watch_lobby` return one game snapshot: game status, players, draws and the prize board. A player's snapshot adds their Ticket and ticks. The host's snapshot adds the game's Pool Columns
+- [x] `HostView` shows the Pool Columns from the snapshot and stops calling `/pools/default`
+- [x] `GET /games/{code}/draws` and `GET /games/{code}/lobby` are removed
 
 ### Transport seam
 
-- [ ] A tiny transport interface: send a command and await its reply, listen for an event, and get notified on reconnect
-- [ ] Two adapters: socket.io for the app, and a fake transport for tests
-- [ ] `socket.ts`'s per-event functions and `testing/socketMock.ts` are deleted
-- [ ] Tests script the fake server (emit an event, drop, reconnect) and assert on store state, instead of digging handlers out of `mock.calls`
+- [x] A tiny transport interface: send a command and await its reply, listen for an event, and get notified on reconnect
+- [x] Two adapters: socket.io for the app, and a fake transport for tests
+- [x] `socket.ts`'s per-event functions and `testing/socketMock.ts` are deleted
+- [x] Tests script the fake server (emit an event, drop, reconnect) and assert on store state, instead of digging handlers out of `mock.calls`
 
 ### One store
 
-- [ ] One game-session store for both the host and players. Shared state: status, players, draws, prize board. Player-only parts (Ticket, ticks, claim) and host-only commands (start, draw) are separate sections of the same store
-- [ ] On reconnect, the store rejoins (player) or re-watches (host) and applies the fresh snapshot. This replaces 16's minimal rejoin-on-reconnect
+- [x] One game-session store for both the host and players. Shared state: status, players, draws, prize board. Player-only parts (Ticket, ticks, claim) and host-only commands (start, draw) are separate sections of the same store
+- [x] On reconnect, the store rejoins (player) or re-watches (host) and applies the fresh snapshot. This replaces 16's minimal rejoin-on-reconnect
 
 ### Reload and the rejoin token
 
-- [ ] The first `join_game` returns a rejoin token for that player. The frontend keeps the game code, name and token in `sessionStorage`
-- [ ] On load, the player view rejoins with what is in `sessionStorage` and shows the snapshot, instead of sending the player back to `/join`
-- [ ] A rejoin with the right token takes over the name even while the old socket is still connected. The old socket is told it was replaced and leaves the game
-- [ ] Without the token, the rules are unchanged: a dropped player rejoins by name alone, and a connected name gets `name_taken`
-- [ ] Backend tests cover takeover with the token, refusal without it, and refusal with a wrong token
+- [x] The first `join_game` returns a rejoin token for that player. The frontend keeps the game code, name and token in `sessionStorage`
+- [x] On load, the player view rejoins with what is in `sessionStorage` and shows the snapshot, instead of sending the player back to `/join`
+- [x] A rejoin with the right token takes over the name even while the old socket is still connected. The old socket is told it was replaced and leaves the game
+- [x] Without the token, the rules are unchanged: a dropped player rejoins by name alone, and a connected name gets `name_taken`
+- [x] Backend tests cover takeover with the token, refusal without it, and refusal with a wrong token
 
 ## Notes
 

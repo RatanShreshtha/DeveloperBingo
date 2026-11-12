@@ -14,10 +14,14 @@ class RecordingBroadcaster:
 
     def __init__(self) -> None:
         self.entered: list[tuple[str, str]] = []
+        self.left: list[tuple[str, str]] = []
         self.emitted: list[tuple[str, str, object]] = []
 
     async def enter_room(self, sid: str, room: str) -> None:
         self.entered.append((sid, room))
+
+    async def leave_room(self, sid: str, room: str) -> None:
+        self.left.append((sid, room))
 
     async def emit(self, event: str, data: object, room: str | None = None,
                    to: str | None = None) -> None:
@@ -542,11 +546,14 @@ def test_draws_and_claims_are_refused_after_the_game_ends():
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
 
 
-def test_a_dropped_player_cannot_rejoin_a_game_that_has_ended():
+def test_a_dropped_player_can_rejoin_a_game_that_has_ended_and_read_the_result():
     adapter, registry, game, _ = started_game_with_every_topic_drawn()
     run(adapter.disconnect("sid-ada"))
     run(adapter.end_game("sid-host", host_message(game)))
 
     ack = run(adapter.join_game("sid-ada-2", {"code": game.code, "name": "Ada"}))
 
-    assert ack == {"ok": False, "error": "game_ended"}
+    assert ack["ok"] is True
+    assert ack["status"] == "ended"
+    assert ack["end_reason"] == "host"
+    assert len(ack["draws"]) == 90

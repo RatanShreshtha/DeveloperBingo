@@ -1,56 +1,50 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { endGame, onGameEnded } from '../realtime/socket'
-import { useLobbyStore } from './lobby'
+import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import { useSessionStore } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 const link = { code: 'ABC123', host_token: 'secret-token' }
 
-// The handler the store registered for "the game ended".
-function announceEnd(reason: 'full_house' | 'host') {
-  const calls = vi.mocked(onGameEnded).mock.calls
-  calls[calls.length - 1][0]({ reason })
-}
-
+let fake: FakeTransport
 beforeEach(() => {
+  sessionStorage.clear()
+  fake = installFakeTransport()
   setActivePinia(createPinia())
-  vi.mocked(onGameEnded).mockReset()
-  vi.mocked(endGame).mockReset()
 })
 
-describe('lobby store when the game ends', () => {
+describe('session store when the game ends', () => {
   it('is not ended to begin with', () => {
-    const store = useLobbyStore()
+    const store = useSessionStore()
 
     expect(store.ended).toBe(false)
     expect(store.endReason).toBeNull()
   })
 
   it('records that the game ended, and why, when the room announces it', () => {
-    const store = useLobbyStore()
+    const store = useSessionStore()
 
-    announceEnd('full_house')
+    fake.emit('game_ended', { reason: 'full_house' })
 
     expect(store.ended).toBe(true)
     expect(store.endReason).toBe('full_house')
   })
 
   it('ends the game when the host ends it', async () => {
-    vi.mocked(endGame).mockResolvedValue({ ok: true })
-    const store = useLobbyStore()
+    fake.answer('end_game', { ok: true })
+    const store = useSessionStore()
 
     await store.end(link)
 
-    expect(endGame).toHaveBeenCalledWith(link)
+    expect(fake.payloads('end_game')).toEqual([link])
     expect(store.ended).toBe(true)
     expect(store.endReason).toBe('host')
   })
 
   it('stays running and says why when ending the game is refused', async () => {
-    vi.mocked(endGame).mockResolvedValue({ ok: false, error: 'not_host' })
-    const store = useLobbyStore()
+    fake.answer('end_game', { ok: false, error: 'not_host' })
+    const store = useSessionStore()
 
     await store.end(link)
 

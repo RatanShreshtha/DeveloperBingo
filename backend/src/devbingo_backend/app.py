@@ -1,16 +1,16 @@
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Annotated, Literal
+from typing import Literal
 
 import socketio
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
-from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
+from devbingo_backend.game import GameRegistry
 from devbingo_backend.history import HistoryStore, HistoryUnavailable, PostgresHistoryStore
 from devbingo_backend.history_api import history_router
 from devbingo_backend.pool_library import (
@@ -22,7 +22,7 @@ from devbingo_backend.pool_library import (
 from devbingo_backend.pool_store import DEFAULT_POOL_NAME
 from devbingo_backend.pools_api import PoolResponse, build_pools_router, pool_response
 from devbingo_backend.realtime import DEFAULT_WINDOW_SECONDS, build_socket_server
-from devbingo_backend.wire import SOCKET_MODELS, DrawAnnouncement, DrawHistoryResponse, HostLink
+from devbingo_backend.wire import SOCKET_MODELS, HostLink
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
 
@@ -30,10 +30,6 @@ DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo
 class HealthResponse(BaseModel):
     status: Literal["ok", "degraded"]
     database: Literal["up", "down"]
-
-
-class LobbyResponse(BaseModel):
-    players: list[str]
 
 
 class CreateGameRequest(BaseModel):
@@ -106,30 +102,6 @@ def create_app(
         except PoolNotFound:
             raise HTTPException(status_code=404, detail="pool not found") from None
         return registry.create_game(saved.pool, pool_name=saved.name)
-
-    @app.get("/games/{code}/lobby", response_model=LobbyResponse)
-    def read_lobby(
-        code: str,
-        x_host_token: Annotated[str, Header()] = "",
-    ) -> LobbyResponse:
-        try:
-            players = registry.lobby(HostLink(code=code, host_token=x_host_token))
-        except GameNotFound:
-            raise HTTPException(status_code=404, detail="game not found") from None
-        except NotHost:
-            raise HTTPException(status_code=403, detail="host token required") from None
-        return LobbyResponse(players=players)
-
-    @app.get("/games/{code}/draws", response_model=DrawHistoryResponse)
-    def read_draw_history(code: str) -> DrawHistoryResponse:
-        """Every draw so far, in order. Public, so a player who arrives late can catch up."""
-        try:
-            draws = registry.draw_history(code)
-        except GameNotFound:
-            raise HTTPException(status_code=404, detail="game not found") from None
-        return DrawHistoryResponse(
-            draws=[DrawAnnouncement.from_draw(draw) for draw in draws],
-        )
 
     @app.get("/pools/default", response_model=PoolResponse)
     def read_default_pool() -> PoolResponse:

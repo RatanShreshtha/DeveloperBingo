@@ -1,59 +1,72 @@
-import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { claimPrize, untickTopic } from '../realtime/socket'
-import { useLobbyStore } from '../stores/lobby'
+import type { PlayerSnapshot } from '../realtime/protocol'
 import PlayerLobbyView from './PlayerLobbyView.vue'
+import { joinedAda, startFresh } from './testSetup'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
+
+let fake: ReturnType<typeof startFresh>
 
 beforeEach(() => {
-  setActivePinia(createPinia())
-  vi.mocked(claimPrize).mockReset()
+  fake = startFresh()
 })
 
-function setUpPlayer() {
-  const store = useLobbyStore()
-  store.player = { code: 'ABC123', name: 'Ada' }
-  store.ticket = [['Algorithm', null, 'JSON']]
-  store.started = true
-  // The server lists the prizes when the player joins.
-  store.prizes = [{ prize: 'early_five', awarded_to: [] }]
-  return store
+// A player in a started game; the server lists the prizes when they join.
+function setUpPlayer(overrides: Partial<PlayerSnapshot> = {}) {
+  return joinedAda(fake, {
+    status: 'started',
+    ticket: [['Algorithm', null, 'JSON']],
+    prizes: [{ prize: 'early_five', awarded_to: [] }],
+    ...overrides,
+  })
+}
+
+async function mountPlayer() {
+  const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+  await flushPromises()
+  return wrapper
 }
 
 describe('PlayerLobbyView prizes', () => {
   it('lets the player claim early five', async () => {
-    vi.mocked(claimPrize).mockResolvedValue({ ok: true })
-    setUpPlayer()
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+    fake.answer('claim_prize', { ok: true })
+    await setUpPlayer()
+    const wrapper = await mountPlayer()
 
     await wrapper.get('[data-test="claim-early_five"]').trigger('click')
     await flushPromises()
 
-    expect(claimPrize).toHaveBeenCalledWith('early_five')
+    expect(fake.payloads('claim_prize')).toEqual([{ prize: 'early_five' }])
   })
 
-  it('shows early five as still open until someone is awarded it', () => {
-    setUpPlayer()
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+  it('shows early five as still open until someone is awarded it', async () => {
+    await setUpPlayer()
+    const wrapper = await mountPlayer()
 
     expect(wrapper.text()).toContain('Early five: still open')
   })
 
-  it('hides the claim button until the game starts', () => {
-    const store = setUpPlayer()
-    store.started = false
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+  it('hides the claim button until the game starts', async () => {
+    await setUpPlayer({ status: 'lobby' })
+    const wrapper = await mountPlayer()
 
     expect(wrapper.find('[data-test="claim-early_five"]').exists()).toBe(false)
   })
 
-  it('shows who early five was awarded to', () => {
-    const store = setUpPlayer()
-    store.prizes = [{ prize: 'early_five', awarded_to: ['Grace'] }]
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+  it('shows who early five was awarded to', async () => {
+    await setUpPlayer({ prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }] })
+    const wrapper = await mountPlayer()
+
+    expect(wrapper.text()).toContain('Early five: awarded to Grace')
+  })
+
+  it('updates the board when the room announces an award', async () => {
+    await setUpPlayer()
+    const wrapper = await mountPlayer()
+
+    fake.emit('prize_awarded', { prize: 'early_five', awarded_to: ['Grace'] })
+    await flushPromises()
 
     expect(wrapper.text()).toContain('Early five: awarded to Grace')
   })
@@ -61,9 +74,9 @@ describe('PlayerLobbyView prizes', () => {
   describe('while a claim waits for its settlement window', () => {
     it('shows the claim as pending until the server answers, then clears it', async () => {
       let settle: (ack: { ok: true }) => void = () => {}
-      vi.mocked(claimPrize).mockReturnValue(new Promise((resolve) => (settle = resolve)))
-      setUpPlayer()
-      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+      fake.answer('claim_prize', () => new Promise((resolve) => (settle = resolve)))
+      await setUpPlayer()
+      const wrapper = await mountPlayer()
 
       await wrapper.get('[data-test="claim-early_five"]').trigger('click')
 
@@ -78,9 +91,9 @@ describe('PlayerLobbyView prizes', () => {
     })
 
     it('clears the pending state and shows why when the claim is refused', async () => {
-      vi.mocked(claimPrize).mockResolvedValue({ ok: false, error: 'claim_not_valid' })
-      setUpPlayer()
-      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+      fake.answer('claim_prize', { ok: false, error: 'claim_not_valid' })
+      await setUpPlayer()
+      const wrapper = await mountPlayer()
 
       await wrapper.get('[data-test="claim-early_five"]').trigger('click')
       await flushPromises()
@@ -89,13 +102,29 @@ describe('PlayerLobbyView prizes', () => {
       expect(wrapper.text()).toContain('This claim does not complete the prize yet')
     })
 
-    it('explains a draw held for a window and a tick that cannot be taken back', async () => {
-      const store = setUpPlayer()
-      store.ticks = ['Algorithm']
-      store.ticket = [['Algorithm', null, 'JSON']]
-      store.draws = [{ position: 1, name: 'Algorithm', explanation: 'x' }]
-      vi.mocked(untickTopic).mockResolvedValue({ ok: false, error: 'claim_pending' })
-      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+    it('shows a claim the server still holds as pending after a reload', async () => {
+      let settle: (ack: { ok: true }) => void = () => {}
+      fake.answer('claim_prize', () => new Promise((resolve) => (settle = resolve)))
+      await setUpPlayer({ pending_claims: ['early_five'] })
+      const wrapper = await mountPlayer()
+
+      const button = wrapper.get('[data-test="claim-early_five"]')
+      expect(button.text()).toBe('Claiming Early five…')
+      expect(button.attributes('disabled')).toBeDefined()
+
+      settle({ ok: true })
+      await flushPromises()
+
+      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe('Claim Early five')
+    })
+
+    it('explains a tick that cannot be taken back', async () => {
+      await setUpPlayer({
+        ticks: ['Algorithm'],
+        draws: [{ position: 1, name: 'Algorithm', explanation: 'x' }],
+      })
+      fake.answer('untick_topic', { ok: false, error: 'claim_pending' })
+      const wrapper = await mountPlayer()
 
       await wrapper.get('[data-test="tick-cell"]').trigger('click')
       await flushPromises()
@@ -104,10 +133,9 @@ describe('PlayerLobbyView prizes', () => {
     })
   })
 
-  it('shows every player a prize was awarded to together', () => {
-    const store = setUpPlayer()
-    store.prizes = [{ prize: 'early_five', awarded_to: ['Ada', 'Grace'] }]
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+  it('shows every player a prize was awarded to together', async () => {
+    await setUpPlayer({ prizes: [{ prize: 'early_five', awarded_to: ['Ada', 'Grace'] }] })
+    const wrapper = await mountPlayer()
 
     expect(wrapper.text()).toContain('Early five: awarded to Ada, Grace')
   })
@@ -123,14 +151,13 @@ describe('PlayerLobbyView prizes', () => {
     } as const
     const prizes = Object.keys(labels) as (keyof typeof labels)[]
 
-    function mountWithFullBoard(awarded: Partial<Record<keyof typeof labels, string[]>> = {}) {
-      const store = setUpPlayer()
-      store.prizes = prizes.map((prize) => ({ prize, awarded_to: awarded[prize] ?? [] }))
-      return mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+    async function mountWithFullBoard(awarded: Partial<Record<keyof typeof labels, string[]>> = {}) {
+      await setUpPlayer({ prizes: prizes.map((prize) => ({ prize, awarded_to: awarded[prize] ?? [] })) })
+      return mountPlayer()
     }
 
-    it('shows a labelled claim button for each prize', () => {
-      const wrapper = mountWithFullBoard()
+    it('shows a labelled claim button for each prize', async () => {
+      const wrapper = await mountWithFullBoard()
 
       for (const prize of prizes) {
         expect(wrapper.get(`[data-test="claim-${prize}"]`).text()).toBe(labels[prize])
@@ -138,17 +165,17 @@ describe('PlayerLobbyView prizes', () => {
     })
 
     it.each(prizes)('claims %s by its wire name when its button is clicked', async (prize) => {
-      vi.mocked(claimPrize).mockResolvedValue({ ok: true })
-      const wrapper = mountWithFullBoard()
+      fake.answer('claim_prize', { ok: true })
+      const wrapper = await mountWithFullBoard()
 
       await wrapper.get(`[data-test="claim-${prize}"]`).trigger('click')
       await flushPromises()
 
-      expect(claimPrize).toHaveBeenCalledWith(prize)
+      expect(fake.payloads('claim_prize')).toEqual([{ prize }])
     })
 
-    it('disables the button of a prize already awarded', () => {
-      const wrapper = mountWithFullBoard({ top_line: ['Grace'] })
+    it('disables the button of a prize already awarded', async () => {
+      const wrapper = await mountWithFullBoard({ top_line: ['Grace'] })
 
       expect(wrapper.get('[data-test="claim-top_line"]').attributes('disabled')).toBeDefined()
       expect(wrapper.get('[data-test="claim-middle_line"]').attributes('disabled')).toBeUndefined()

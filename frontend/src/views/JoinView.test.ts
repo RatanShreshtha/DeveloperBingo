@@ -1,16 +1,17 @@
 import { createPinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { joinGame } from '../realtime/socket'
+import { playerSnapshot } from '../testing/snapshots'
 import { makePlugins, makeRouter } from './testRouter'
-import { joinedResult } from '../testing/joinMock'
+import { startFresh } from './testSetup'
 import JoinView from './JoinView.vue'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
+
+let fake: ReturnType<typeof startFresh>
 
 beforeEach(() => {
-  vi.mocked(joinGame).mockReset()
+  fake = startFresh()
 })
 
 async function fillAndSubmit(wrapper: ReturnType<typeof mount>, code: string, name: string) {
@@ -22,18 +23,31 @@ async function fillAndSubmit(wrapper: ReturnType<typeof mount>, code: string, na
 
 describe('JoinView', () => {
   it('moves the player to the lobby after joining', async () => {
-    vi.mocked(joinGame).mockResolvedValue(joinedResult([[null]]))
+    fake.answer('join_game', playerSnapshot({ ticket: [[null]] }))
     const router = makeRouter()
     const wrapper = mount(JoinView, { global: { plugins: [createPinia(), router] } })
 
     await fillAndSubmit(wrapper, 'ABC123', 'Ada')
 
-    expect(joinGame).toHaveBeenCalledWith('ABC123', 'Ada')
+    expect(fake.payloads('join_game')).toEqual([{ code: 'ABC123', name: 'Ada', rejoin_token: null }])
     expect(router.currentRoute.value.path).toBe('/games/ABC123')
   })
 
+  it('keeps the code, name and rejoin token for a reload', async () => {
+    fake.answer('join_game', playerSnapshot({ rejoin_token: 'secret' }))
+    const wrapper = mount(JoinView, { global: { plugins: makePlugins() } })
+
+    await fillAndSubmit(wrapper, 'ABC123', 'Ada')
+
+    expect(JSON.parse(sessionStorage.getItem('devbingo:player') ?? 'null')).toEqual({
+      code: 'ABC123',
+      name: 'Ada',
+      token: 'secret',
+    })
+  })
+
   it('explains that the name is already taken in the game', async () => {
-    vi.mocked(joinGame).mockResolvedValue({ ok: false, error: 'name_taken' })
+    fake.answer('join_game', { ok: false, error: 'name_taken' })
     const wrapper = mount(JoinView, { global: { plugins: makePlugins() } })
 
     await fillAndSubmit(wrapper, 'ABC123', 'Ada')

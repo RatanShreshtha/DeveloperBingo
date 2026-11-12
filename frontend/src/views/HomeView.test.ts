@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createGame } from '../api/games'
 import { fetchPools } from '../api/pools'
 import { makePlugins } from './testRouter'
+import { startFresh } from './testSetup'
 import HomeView from './HomeView.vue'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 vi.mock('../api/pools', async () => (await import('../testing/apiMock')).apiPoolsMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 beforeEach(() => {
+  startFresh()
   vi.mocked(createGame).mockReset()
   vi.mocked(fetchPools).mockClear()
 })

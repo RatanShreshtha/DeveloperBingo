@@ -1,13 +1,12 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchGameHistory } from '../api/games'
-import { createPinia, setActivePinia } from 'pinia'
-import { watchLobby } from '../realtime/socket'
-import { useLobbyStore } from '../stores/lobby'
+import { hostSnapshot } from '../testing/snapshots'
 import GameHistoryView from './GameHistoryView.vue'
 import HostView from './HostView.vue'
 import PlayerLobbyView from './PlayerLobbyView.vue'
 import { makePlugins } from './testRouter'
+import { joinedAda, startFresh } from './testSetup'
 
 vi.mock('../api/games', async () => {
   const mock = (await import('../testing/apiMock')).apiGamesMock()
@@ -21,7 +20,6 @@ vi.mock('../api/games', async () => {
   return { ...mock, GameHistoryError }
 })
 vi.mock('../api/pools', () => ({ fetchDefaultPool: vi.fn(async () => ({ columns: [] })) }))
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 
 const history = {
   code: 'ABC123',
@@ -42,7 +40,7 @@ const history = {
 }
 
 beforeEach(() => {
-  setActivePinia(createPinia())
+  startFresh()
   vi.mocked(fetchGameHistory).mockReset()
 })
 
@@ -95,8 +93,11 @@ describe('GameHistoryView', () => {
 })
 
 describe('linking to the history from the ended game', () => {
+  let fake: ReturnType<typeof startFresh>
+
   beforeEach(() => {
-    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: [], prizes: [], claims: [] })
+    fake = startFresh()
+    fake.answer('watch_lobby', hostSnapshot({ status: 'started' }))
   })
 
   it('links the host to the history once the game has ended', async () => {
@@ -107,13 +108,14 @@ describe('linking to the history from the ended game', () => {
     await flushPromises()
     expect(wrapper.find('[data-test="history-link"]').exists()).toBe(false)
 
-    useLobbyStore().endReason = 'host'
+    fake.emit('game_ended', { reason: 'host' })
     await flushPromises()
 
     expect(wrapper.get('[data-test="history-link"]').attributes('href')).toBe('/games/ABC123/history')
   })
 
   it('links a player to the history once the game has ended', async () => {
+    await joinedAda(fake, { status: 'started' })
     const wrapper = mount(PlayerLobbyView, {
       props: { code: 'ABC123' },
       global: { plugins: makePlugins() },
@@ -121,7 +123,7 @@ describe('linking to the history from the ended game', () => {
     await flushPromises()
     expect(wrapper.find('[data-test="history-link"]').exists()).toBe(false)
 
-    useLobbyStore().endReason = 'full_house'
+    fake.emit('game_ended', { reason: 'full_house' })
     await flushPromises()
 
     expect(wrapper.get('[data-test="history-link"]').attributes('href')).toBe('/games/ABC123/history')

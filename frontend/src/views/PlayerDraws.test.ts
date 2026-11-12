@@ -1,23 +1,25 @@
-import { createPinia, setActivePinia } from 'pinia'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useLobbyStore } from '../stores/lobby'
 import PlayerLobbyView from './PlayerLobbyView.vue'
+import { joinedAda, startFresh } from './testSetup'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
+
+let fake: ReturnType<typeof startFresh>
 
 beforeEach(() => {
-  setActivePinia(createPinia())
+  fake = startFresh()
 })
 
 describe('PlayerLobbyView draws', () => {
-  it('shows every drawn topic with its explanation, in order', () => {
-    const store = useLobbyStore()
-    store.draws = [
-      { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' },
-      { position: 2, name: 'JSON', explanation: 'A lightweight data format.' },
-    ]
+  it('shows every drawn topic with its explanation, in order', async () => {
+    await joinedAda(fake, {
+      status: 'started',
+      draws: [
+        { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' },
+        { position: 2, name: 'JSON', explanation: 'A lightweight data format.' },
+      ],
+    })
 
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
@@ -29,16 +31,25 @@ describe('PlayerLobbyView draws', () => {
     expect(history[1]).toContain('A lightweight data format.')
   })
 
-  it('says the game is still waiting to start before the host starts it', () => {
+  it('shows a draw the room announces', async () => {
+    await joinedAda(fake, { status: 'started' })
+    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
+
+    fake.emit('topic_drawn', { position: 1, name: 'Monad', explanation: 'A burrito.' })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Monad')
+  })
+
+  it('says the game is still waiting to start before the host starts it', async () => {
+    await joinedAda(fake)
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     expect(wrapper.text()).toContain('Waiting for the host to start the game.')
   })
 
-  it('says the game has started once it has', () => {
-    const store = useLobbyStore()
-    store.started = true
-
+  it('says the game has started once it has', async () => {
+    await joinedAda(fake, { status: 'started' })
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
     expect(wrapper.text()).toContain('The game has started.')

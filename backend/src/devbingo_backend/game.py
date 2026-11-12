@@ -58,6 +58,10 @@ class Joined:
 
     ticket: Ticket
     is_new_player: bool
+    # Private to the player. Showing it later proves they are the one who joined.
+    rejoin_token: str
+    # True when the player's name was still held by a live socket and this join took it over.
+    took_over: bool = False
 
 
 @dataclass(frozen=True)
@@ -93,6 +97,8 @@ class _Player:
     ticket: Ticket
     connected: bool = True
     ticks: set[str] = field(default_factory=set)
+    # Hash of the token the player last joined with. Replaced by every join.
+    token_hash: str = ""
 
 
 @dataclass
@@ -103,6 +109,8 @@ class _Game:
     pool: Pool
     pool_name: str | None = None
     status: Literal["lobby", "started", "ended"] = "lobby"
+    # Why the game ended: set when status becomes "ended".
+    end_reason: Literal["full_house", "host"] | None = None
     # Keyed by name_key(name), so one player has one entry. In the order players joined.
     players: dict[str, _Player] = field(default_factory=dict)
     settlement: ClaimSettlement = field(default_factory=ClaimSettlement)
@@ -143,26 +151,41 @@ class GameRegistry:
         )
         return HostLink(code=code, host_token=host_token)
 
-    def join(self, player: PlayerRef) -> Joined:
-        """Join a game. A name held by a dropped player restores that player; a name held by
-        a connected player is refused; any other name is a new join while the lobby is open.
-        Names match without regard to case, so "Ada" and "ada" are the same player."""
+    def join(self, player: PlayerRef, rejoin_token: str | None = None) -> Joined:
+        """Join a game. A name held by a dropped player restores that player, also after the game
+        has ended so they can read its result; a name held by a connected player is refused unless
+        the join shows that player's rejoin token, which takes the name over; any other name is a
+        new join while the lobby is open. Names match without regard to case, so "Ada" and "ada"
+        are the same player. Every join issues a fresh rejoin token."""
         game = self._find(player.code)
-        self._refuse_if_ended(game, player.code)
         key = name_key(player.name)
         member = game.players.get(key)
         if member is not None:
-            if member.connected:
+            holds_token = (
+                rejoin_token is not None
+                and bool(member.token_hash)
+                and hmac.compare_digest(member.token_hash, _hash_token(rejoin_token))
+            )
+            if member.connected and not holds_token:
                 raise NameTaken(player.name)
+            took_over = member.connected
             member.connected = True
-            return Joined(member.ticket, is_new_player=False)
+            return Joined(member.ticket, False, self._issue_token(member), took_over)
+        self._refuse_if_ended(game, player.code)
         if game.status != "lobby":
             raise GameAlreadyStarted(player.code)
         if len(game.players) >= MAX_PLAYERS:
             raise GameFull(player.code)
         ticket = self._deal_unique_ticket(game)
-        game.players[key] = _Player(name=player.name.strip(), ticket=ticket)
-        return Joined(ticket, is_new_player=True)
+        member = _Player(name=player.name.strip(), ticket=ticket)
+        game.players[key] = member
+        return Joined(ticket, True, self._issue_token(member))
+
+    @staticmethod
+    def _issue_token(member: _Player) -> str:
+        token = secrets.token_urlsafe(24)
+        member.token_hash = _hash_token(token)
+        return token
 
     def disconnect(self, player: PlayerRef) -> None:
         """The player has dropped. They keep their place and their ticks, and can rejoin by name."""
@@ -240,8 +263,10 @@ class GameRegistry:
         return tuple(self._find(code).draws)
 
     def tick(self, player: PlayerRef, topic_name: str) -> None:
-        """Tick a topic on the player's ticket. It must be on the ticket and already drawn."""
+        """Tick a topic on the player's ticket. It must be on the ticket and already drawn.
+        Refused once the game has ended: the ticks then match the claims that were judged."""
         game, member = self._player_game(player)
+        self._refuse_if_ended(game, player.code)
         if topic_name not in member.ticket.topic_names():
             raise TopicNotOnTicket(topic_name)
         if topic_name not in game.drawn_names():
@@ -252,6 +277,7 @@ class GameRegistry:
         """Untick a topic on the player's ticket. Refused while the player has a claim waiting in a
         settlement window: a player may untick only before a claim is made."""
         game, member = self._player_game(player)
+        self._refuse_if_ended(game, player.code)
         if game.settlement.has_pending(member.name):
             raise ClaimPending(topic_name)
         if topic_name not in member.ticket.topic_names():
@@ -301,6 +327,23 @@ class GameRegistry:
             return GameNotStarted(code)
         return None
 
+    def status(self, code: str) -> Literal["lobby", "started", "ended"]:
+        """Where the game stands. Public."""
+        return self._find(code).status
+
+    def end_reason(self, code: str) -> Literal["full_house", "host"] | None:
+        """Why the game ended, or None while it has not. Public."""
+        return self._find(code).end_reason
+
+    def pending_claims(self, player: PlayerRef) -> list[Prize]:
+        """The prizes this player has claimed whose settlement window is still open."""
+        game, member = self._player_game(player)
+        return game.settlement.pending_prizes(member.name)
+
+    def window_open(self, code: str) -> bool:
+        """True while any settlement window is open in the game."""
+        return self._find(code).settlement.window_open()
+
     def prize_board(self, code: str) -> dict[Prize, list[str]]:
         """Each prize and the names of the players it was awarded to. Empty while it is still open."""
         return self._find(code).settlement.board()
@@ -319,6 +362,7 @@ class GameRegistry:
         """The one place a game ends, whether the host ended it or the full house was awarded.
         A failing observer is logged: it never stops the game from ending."""
         game.status = "ended"
+        game.end_reason = reason
         if self._on_ended is None:
             return
         summary = GameSummary(

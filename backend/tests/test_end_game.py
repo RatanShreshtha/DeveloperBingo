@@ -115,11 +115,34 @@ def test_claims_are_refused_after_the_game_ends(started_with_every_topic_drawn):
     assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
 
 
-def test_a_dropped_player_cannot_rejoin_after_the_game_ends(started_with_every_topic_drawn):
+def test_a_dropped_player_can_rejoin_after_the_game_ends_to_read_the_result(started_with_every_topic_drawn):
     registry, game, _ = started_with_every_topic_drawn
     ada = PlayerRef(game.code, "Ada")
     registry.disconnect(ada)
     registry.end(game)
 
+    outcome = registry.join(ada)
+
+    assert outcome.is_new_player is False
+
+
+def test_a_new_player_cannot_join_after_the_game_ends(started_with_every_topic_drawn):
+    registry, game, _ = started_with_every_topic_drawn
+    registry.end(game)
+
     with pytest.raises(GameAlreadyEnded):
-        registry.join(ada)
+        registry.join(PlayerRef(game.code, "Late"))
+
+
+def test_ticks_and_unticks_are_refused_after_the_game_ends(started_with_every_topic_drawn):
+    registry, game, ticket = started_with_every_topic_drawn
+    ada = PlayerRef(game.code, "Ada")
+    topic = names_on(ticket)[0]
+    registry.tick(ada, topic)
+    registry.end(game)
+
+    with pytest.raises(GameAlreadyEnded):
+        registry.untick(ada, topic)
+    with pytest.raises(GameAlreadyEnded):
+        registry.tick(ada, names_on(ticket)[1])
+    assert registry.ticks(ada) == {topic}

@@ -1,34 +1,38 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { onLobbyUpdated, watchLobby } from '../realtime/socket'
+import { hostSnapshot } from '../testing/snapshots'
 import { makePlugins } from './testRouter'
+import { startFresh } from './testSetup'
 import HostView from './HostView.vue'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
-vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
-vi.mock('../api/pools', () => ({
-  fetchGamePool: vi.fn(async () => ({
-    name: 'Platform Team',
-    columns: [
-      [{ name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
-      [{ name: 'JSON', explanation: 'A lightweight data format.' }],
-    ],
-  })),
-}))
+
+let fake: ReturnType<typeof startFresh>
 
 beforeEach(() => {
-  vi.mocked(watchLobby).mockReset()
-  vi.mocked(onLobbyUpdated).mockReset()
+  fake = startFresh()
 })
+
+function mountHost(token = 'secret-token') {
+  return mount(HostView, { props: { code: 'ABC123', token }, global: { plugins: makePlugins() } })
+}
 
 describe('HostView', () => {
   it('shows the pool the game was created with as columns of topics with their explanations', async () => {
-    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: [], prizes: [{ prize: 'early_five', awarded_to: [] }], claims: [] })
+    fake.answer(
+      'watch_lobby',
+      hostSnapshot({
+        pool_name: 'Platform Team',
+        pool: {
+          columns: [
+            [{ name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+            [{ name: 'JSON', explanation: 'A lightweight data format.' }],
+          ],
+        },
+      }),
+    )
 
-    const wrapper = mount(HostView, {
-      props: { code: 'ABC123', token: 'secret-token' },
-      global: { plugins: makePlugins() },
-    })
+    const wrapper = mountHost()
     await flushPromises()
 
     expect(wrapper.text()).toContain('Platform Team')
@@ -40,43 +44,30 @@ describe('HostView', () => {
   })
 
   it('shows the players the server reports for the lobby', async () => {
-    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'], prizes: [{ prize: 'early_five', awarded_to: [] }], claims: [] })
+    fake.answer('watch_lobby', hostSnapshot({ players: ['Ada'] }))
 
-    const wrapper = mount(HostView, {
-      props: { code: 'ABC123', token: 'secret-token' },
-      global: { plugins: makePlugins() },
-    })
+    const wrapper = mountHost()
     await flushPromises()
 
-    expect(watchLobby).toHaveBeenCalledWith({ code: 'ABC123', host_token: 'secret-token' })
+    expect(fake.payloads('watch_lobby')).toEqual([{ code: 'ABC123', host_token: 'secret-token' }])
     expect(wrapper.text()).toContain('Ada')
   })
 
   it('updates the list when a lobby update arrives', async () => {
-    vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: ['Ada'], prizes: [{ prize: 'early_five', awarded_to: [] }], claims: [] })
-    let notify: (players: string[]) => void = () => {}
-    vi.mocked(onLobbyUpdated).mockImplementation((handler) => {
-      notify = handler
-    })
+    fake.answer('watch_lobby', hostSnapshot({ players: ['Ada'] }))
 
-    const wrapper = mount(HostView, {
-      props: { code: 'ABC123', token: 'secret-token' },
-      global: { plugins: makePlugins() },
-    })
+    const wrapper = mountHost()
     await flushPromises()
-    notify(['Ada', 'Grace'])
+    fake.emit('lobby_updated', { players: ['Ada', 'Grace'] })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Grace')
   })
 
   it('explains when the host link is not valid for the game', async () => {
-    vi.mocked(watchLobby).mockResolvedValue({ ok: false, error: 'not_host' })
+    fake.answer('watch_lobby', { ok: false, error: 'not_host' })
 
-    const wrapper = mount(HostView, {
-      props: { code: 'ABC123', token: 'wrong-token' },
-      global: { plugins: makePlugins() },
-    })
+    const wrapper = mountHost()
     await flushPromises()
 
     expect(wrapper.text()).toContain('This host link is not valid for this game')

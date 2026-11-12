@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { fetchPools, type PoolSummary } from '../api/pools'
-import { useLobbyStore } from '../stores/lobby'
+import { useSessionStore } from '../stores/session'
 
-const store = useLobbyStore()
+const store = useSessionStore()
 const created = ref<{ code: string; hostLink: string } | null>(null)
 const failed = ref(false)
 const pools = ref<PoolSummary[]>([])

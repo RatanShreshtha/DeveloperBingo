@@ -15,15 +15,7 @@ from devbingo_backend.pool import (
 )
 from devbingo_backend.pool_library import PoolLibrary, PoolNotFound
 from devbingo_backend.pool_store import DEFAULT_POOL_NAME
-
-
-class TopicResponse(BaseModel):
-    name: str
-    explanation: str
-
-
-class PoolResponse(BaseModel):
-    columns: list[list[TopicResponse]]
+from devbingo_backend.wire import PoolResponse, TopicResponse
 
 
 class GamePoolResponse(PoolResponse):
@@ -89,12 +81,7 @@ _RULES: dict[type[PoolError], str] = {
 
 
 def pool_response(pool: Pool) -> PoolResponse:
-    return PoolResponse(
-        columns=[
-            [TopicResponse(name=topic.name, explanation=topic.explanation) for topic in column]
-            for column in pool.columns()
-        ]
-    )
+    return PoolResponse.from_pool(pool)
 
 
 def _refusal(rule: str, message: str) -> HTTPException:

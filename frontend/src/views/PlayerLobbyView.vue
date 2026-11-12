@@ -1,23 +1,33 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { PRIZE_LABELS } from '../prizes'
 import { END_MESSAGES } from '../endMessages'
-import { useLobbyStore } from '../stores/lobby'
+import { useSessionStore } from '../stores/session'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
 import PrizeBoard from './PrizeBoard.vue'
 
 const props = defineProps<{ code: string }>()
-const store = useLobbyStore()
+const store = useSessionStore()
+// False once a reload finds nothing to rejoin with, so the player is asked to join.
+const canPlay = ref(true)
 
-onMounted(() => {
-  store.loadDrawHistory(props.code)
+onMounted(async () => {
+  canPlay.value = await store.resume(props.code)
 })
 </script>
 
 <template>
   <section>
     <p>Game code: <strong>{{ code }}</strong></p>
+    <p v-if="store.replaced" role="alert" data-test="replaced">
+      This game was opened in another window, so this one has left it.
+    </p>
+    <template v-else-if="!canPlay">
+      <p v-if="store.error" role="alert">{{ store.error }}</p>
+      <RouterLink to="/join" data-test="join-link">Join this game</RouterLink>
+    </template>
+    <template v-else>
     <p v-if="store.endReason">
       {{ END_MESSAGES.player[store.endReason] }}
       <RouterLink :to="`/games/${code}/history`" data-test="history-link">View the game history</RouterLink>
@@ -37,7 +47,7 @@ onMounted(() => {
               type="button"
               data-test="tick-cell"
               :aria-pressed="store.ticks.includes(cell)"
-              :disabled="!store.drawnNames.includes(cell)"
+              :disabled="store.ended || !store.drawnNames.includes(cell)"
               @click="store.toggleTick(cell)"
             >{{ cell }}<span v-if="store.ticks.includes(cell)" aria-hidden="true"> ✓</span></button>
           </td>
@@ -58,5 +68,6 @@ onMounted(() => {
     <PrizeBoard :prizes="store.prizes" />
     <DrawHistory :draws="store.draws" />
     <LobbyList :players="store.players" />
+    </template>
   </section>
 </template>
