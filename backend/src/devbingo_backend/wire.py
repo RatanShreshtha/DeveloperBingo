@@ -24,6 +24,7 @@ class ErrorCode(StrEnum):
     NAME_TAKEN = "name_taken"
     GAME_FULL = "game_full"
     ALREADY_STARTED = "already_started"
+    GAME_ENDED = "game_ended"
     NOT_STARTED = "not_started"
     NO_TOPICS_LEFT = "no_topics_left"
     NOT_A_PLAYER = "not_a_player"
@@ -44,6 +45,7 @@ class ClientEvent(StrEnum):
     WATCH_LOBBY = "watch_lobby"
     START_GAME = "start_game"
     DRAW_TOPIC = "draw_topic"
+    END_GAME = "end_game"
     TICK_TOPIC = "tick_topic"
     UNTICK_TOPIC = "untick_topic"
     CLAIM_PRIZE = "claim_prize"
@@ -54,6 +56,7 @@ class ServerEvent(StrEnum):
 
     LOBBY_UPDATED = "lobby_updated"
     GAME_STARTED = "game_started"
+    GAME_ENDED = "game_ended"
     TOPIC_DRAWN = "topic_drawn"
     PRIZE_AWARDED = "prize_awarded"
 
@@ -160,6 +163,12 @@ class GameStarted(_Message):
     pass
 
 
+class GameEnded(_Message):
+    """The game is over: someone claimed the full house, or the host ended it."""
+
+    reason: Literal["full_house", "host"]
+
+
 class PrizeAwarded(_Message):
     prize: Prize
     awarded_to: list[str]
@@ -178,5 +187,6 @@ SOCKET_MODELS: list[type[BaseModel]] = [
     DrawAck,
     LobbyUpdated,
     GameStarted,
+    GameEnded,
     PrizeAwarded,
 ]

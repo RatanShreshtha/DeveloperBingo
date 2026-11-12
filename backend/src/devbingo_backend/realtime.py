@@ -1,5 +1,5 @@
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol, TypeVar
+from typing import Any, Literal, Protocol, TypeVar
 
 import socketio
 from pydantic import BaseModel, ValidationError
@@ -20,6 +20,7 @@ from devbingo_backend.wire import (
     ClientEvent,
     DrawAck,
     DrawAnnouncement,
+    GameEnded,
     GameStarted,
     HostLink,
     JoinAck,
@@ -161,6 +162,22 @@ class RealtimeAdapter:
         )
         return DrawAck(draw=announcement).model_dump(mode="json")
 
+    async def _announce_end(self, code: str, reason: Literal["full_house", "host"]) -> None:
+        await self._broadcaster.emit(
+            ServerEvent.GAME_ENDED, GameEnded(reason=reason).model_dump(mode="json"), room=code
+        )
+
+    async def end_game(self, sid: str, payload: object) -> Ack:
+        """The host ends the game. Everyone in the room is told."""
+        try:
+            host = _parse(HostLink, payload)
+            self._registry.end(host)
+        except GameError as err:
+            return _refusal(err)
+
+        await self._announce_end(host.code, "host")
+        return Accepted().model_dump(mode="json")
+
     async def claim_prize(self, sid: str, payload: object) -> Ack:
         """A valid claim is announced to the whole room. A refused one is told to the claimant only."""
         try:
@@ -179,6 +196,8 @@ class RealtimeAdapter:
             PrizeAwarded(prize=awarded.prize, awarded_to=list(awarded.awarded_to)).model_dump(mode="json"),
             room=player.code,
         )
+        if awarded.ends_game:
+            await self._announce_end(player.code, "full_house")
         return Accepted().model_dump(mode="json")
 
     # Ticks are private, and nothing is broadcast. The acknowledgement says only
@@ -228,6 +247,7 @@ def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
         ClientEvent.WATCH_LOBBY: adapter.watch_lobby,
         ClientEvent.START_GAME: adapter.start_game,
         ClientEvent.DRAW_TOPIC: adapter.draw_topic,
+        ClientEvent.END_GAME: adapter.end_game,
         ClientEvent.TICK_TOPIC: adapter.tick_topic,
         ClientEvent.UNTICK_TOPIC: adapter.untick_topic,
         ClientEvent.CLAIM_PRIZE: adapter.claim_prize,

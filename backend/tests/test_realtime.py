@@ -459,3 +459,86 @@ def test_a_payload_that_is_not_an_object_is_refused_as_an_invalid_message():
 
     assert run(adapter.tick_topic("sid-ada", None)) == {"ok": False, "error": "invalid_message"}
 
+
+
+def host_message(game):
+    return {"code": game.code, "host_token": game.host_token}
+
+
+def test_the_host_ending_the_game_is_announced_to_the_room():
+    broadcaster = RecordingBroadcaster()
+    adapter, registry, game, _ = started_game_with_every_topic_drawn(broadcaster)
+
+    ack = run(adapter.end_game("sid-host", host_message(game)))
+
+    assert ack == {"ok": True}
+    assert broadcaster.emitted[-1] == ("game_ended", game.code, {"reason": "host"})
+
+
+def test_only_the_host_can_end_the_game_over_the_socket():
+    broadcaster = RecordingBroadcaster()
+    adapter, registry, game, _ = started_game_with_every_topic_drawn(broadcaster)
+    emitted_before = list(broadcaster.emitted)
+
+    ack = run(adapter.end_game("sid-ada", {"code": game.code, "host_token": "not-the-host-token"}))
+
+    assert ack == {"ok": False, "error": "not_host"}
+    assert broadcaster.emitted == emitted_before
+
+
+def test_ending_a_game_twice_is_refused_and_announces_nothing_more():
+    broadcaster = RecordingBroadcaster()
+    adapter, registry, game, _ = started_game_with_every_topic_drawn(broadcaster)
+    run(adapter.end_game("sid-host", host_message(game)))
+    emitted_before = list(broadcaster.emitted)
+
+    ack = run(adapter.end_game("sid-host", host_message(game)))
+
+    assert ack == {"ok": False, "error": "game_ended"}
+    assert broadcaster.emitted == emitted_before
+
+
+def test_claiming_the_full_house_ends_the_game_and_tells_the_room():
+    broadcaster = RecordingBroadcaster()
+    adapter, registry, game, cells = started_game_with_every_topic_drawn(broadcaster)
+    for topic in topics_on(cells):
+        run(adapter.tick_topic("sid-ada", tick_message(game, topic)))
+
+    ack = run(adapter.claim_prize("sid-ada", claim_message(game, prize="full_house")))
+
+    assert ack == {"ok": True}
+    assert broadcaster.emitted[-2:] == [
+        ("prize_awarded", game.code, {"prize": "full_house", "awarded_to": ["Ada"]}),
+        ("game_ended", game.code, {"reason": "full_house"}),
+    ]
+
+
+def test_a_claim_for_another_prize_does_not_end_the_game():
+    broadcaster = RecordingBroadcaster()
+    adapter, _, game = started_game_with_five_ticks_for_ada(broadcaster)
+
+    run(adapter.claim_prize("sid-ada", claim_message(game)))
+
+    assert [event for event in broadcaster.emitted if event[0] == "game_ended"] == []
+
+
+def test_draws_and_claims_are_refused_after_the_game_ends():
+    adapter, registry, game = started_game_with_five_ticks_for_ada()
+    run(adapter.end_game("sid-host", host_message(game)))
+
+    draw = run(adapter.draw_topic("sid-host", host_message(game)))
+    claim = run(adapter.claim_prize("sid-ada", claim_message(game)))
+
+    assert draw == {"ok": False, "error": "game_ended"}
+    assert claim == {"ok": False, "error": "game_ended"}
+    assert registry.prize_board(game.code)[Prize.EARLY_FIVE] == []
+
+
+def test_a_dropped_player_cannot_rejoin_a_game_that_has_ended():
+    adapter, registry, game, _ = started_game_with_every_topic_drawn()
+    run(adapter.disconnect("sid-ada"))
+    run(adapter.end_game("sid-host", host_message(game)))
+
+    ack = run(adapter.join_game("sid-ada-2", {"code": game.code, "name": "Ada"}))
+
+    assert ack == {"ok": False, "error": "game_ended"}

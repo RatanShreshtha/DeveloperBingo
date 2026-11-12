@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { fetchDefaultPool, type TopicResponse } from '../api/pools'
 import type { HostLink } from '../api/games'
+import { END_MESSAGES } from '../endMessages'
 import { useLobbyStore } from '../stores/lobby'
 import DrawHistory from './DrawHistory.vue'
 import LobbyList from './LobbyList.vue'
@@ -33,14 +34,26 @@ onMounted(async () => {
     <p>Game code: <strong>{{ code }}</strong></p>
     <p v-if="store.error" role="alert">{{ store.error }}</p>
     <template v-else>
-      <div v-if="!store.started">
-        <button type="button" data-test="start-game" @click="store.start(hostLink())">
+      <p v-if="store.endReason">{{ END_MESSAGES.host[store.endReason] }}</p>
+      <div v-else>
+        <button
+          v-if="!store.started"
+          type="button"
+          data-test="start-game"
+          @click="store.start(hostLink())"
+        >
           Start game
         </button>
-      </div>
-      <div v-else>
-        <button type="button" data-test="draw-topic" @click="store.drawNext(hostLink())">
+        <button
+          v-else
+          type="button"
+          data-test="draw-topic"
+          @click="store.drawNext(hostLink())"
+        >
           Draw topic
+        </button>
+        <button type="button" data-test="end-game" @click="store.end(hostLink())">
+          End game
         </button>
       </div>
       <p v-if="store.actionError" role="alert">{{ store.actionError }}</p>

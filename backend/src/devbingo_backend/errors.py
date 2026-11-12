@@ -34,6 +34,10 @@ class GameAlreadyStarted(GameError):
     code = ErrorCode.ALREADY_STARTED
 
 
+class GameAlreadyEnded(GameError):
+    code = ErrorCode.GAME_ENDED
+
+
 class GameNotStarted(GameError):
     code = ErrorCode.NOT_STARTED
 

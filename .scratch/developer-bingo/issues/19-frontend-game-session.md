@@ -36,3 +36,5 @@
 
 - The rejoin token closes a race: after a reload, the old socket often hasn't dropped yet, so a rejoin by name alone would be refused.
 - Splitting host and player into separate stores was considered and rejected: they share most of the state, and a host-only store would hold little.
+- Ticket 13 leaves two gaps for the snapshot to fill. `game_ended` is only broadcast live, so a host or player who reloads after the end sees no ended state (the host even sees "Start game" again): the snapshot must carry the game's status and why it ended. A rejoin after the end is refused with `game_ended`, so a player cannot see the final prize board: the snapshot should let them read it.
+- Ticks and unticks are still accepted after the game ends. The spec refuses only draws and claims. Decide whether that should change when 12 adds the untick rule.
