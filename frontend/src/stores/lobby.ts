@@ -7,6 +7,7 @@ import {
   drawTopic,
   endGame,
   joinGame,
+  onClaimLogged,
   onGameEnded,
   onGameStarted,
   onLobbyUpdated,
@@ -18,6 +19,7 @@ import {
   untickTopic,
   watchLobby,
   type DrawnTopic,
+  type ClaimLogEntry,
   type ErrorCode,
   type GameEnd,
   type HostLink,
@@ -70,6 +72,8 @@ export const useLobbyStore = defineStore('lobby', () => {
   const prizes = ref<PrizeBoardEntry[]>([])
   const isAwarded = (prize: Prize) =>
     prizes.value.some((entry) => entry.prize === prize && entry.awarded_to.length > 0)
+  // Every claim in the game, accepted or refused, in order. Only the host is told these.
+  const claims = ref<ClaimLogEntry[]>([])
   // Problems loading the lobby, shown in place of it.
   const error = ref<string | null>(null)
   // Refusals of something the player or host did, shown next to the controls.
@@ -83,6 +87,9 @@ export const useLobbyStore = defineStore('lobby', () => {
   })
   onGameEnded((end) => {
     recordEnd(end.reason)
+  })
+  onClaimLogged((claim) => {
+    claims.value.push(claim)
   })
   onTopicDrawn(recordDraw)
   onReconnect(rejoin)
@@ -185,6 +192,7 @@ export const useLobbyStore = defineStore('lobby', () => {
     if (result.ok) {
       players.value = result.players
       prizes.value = result.prizes
+      claims.value = result.claims
     } else {
       error.value = messageFor(result.error)
     }
@@ -233,6 +241,8 @@ export const useLobbyStore = defineStore('lobby', () => {
     ticks,
     prizes,
     isAwarded,
+    claims,
+    messageFor,
     error,
     actionError,
     create,

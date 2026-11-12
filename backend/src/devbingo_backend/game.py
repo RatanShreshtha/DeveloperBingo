@@ -28,7 +28,7 @@ from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers impor
 from devbingo_backend.names import name_key
 from devbingo_backend.pool import Pool, Topic
 from devbingo_backend.prizes import Prize
-from devbingo_backend.settlement import Awarded, ClaimSettlement
+from devbingo_backend.settlement import Awarded, ClaimRecord, ClaimSettlement
 from devbingo_backend.ticket import Ticket, build_ticket
 from devbingo_backend.wire import HostLink
 
@@ -210,11 +210,13 @@ class GameRegistry:
         """Claim a prize. The claim is checked against what the player has ticked and what has
         been drawn. A valid claim awards the prize. Awarding the full house ends the game."""
         game, member = self._player_game(player)
-        self._refuse_if_ended(game, player.code)
-        if game.status != "started":
-            raise GameNotStarted(player.code)
+        refusal: GameError | None = None
+        if game.status == "ended":
+            refusal = GameAlreadyEnded(player.code)
+        elif game.status != "started":
+            refusal = GameNotStarted(player.code)
         ticked_and_drawn = member.ticks & game.drawn_names()
-        awarded = game.settlement.claim(prize, member.name, member.ticket, ticked_and_drawn)
+        awarded = game.settlement.claim(prize, member.name, member.ticket, ticked_and_drawn, refusal)
         if prize is Prize.FULL_HOUSE:
             self._finish(game)
             return replace(awarded, ends_game=True)
@@ -223,6 +225,11 @@ class GameRegistry:
     def prize_board(self, code: str) -> dict[Prize, list[str]]:
         """Each prize and the names of the players it was awarded to. Empty while it is still open."""
         return self._find(code).settlement.board()
+
+    def claim_log(self, code: str) -> list[ClaimRecord]:
+        """Every claim decided so far, accepted or refused, in order. For the host only: a refused
+        claim is private to the claimant among players."""
+        return self._find(code).settlement.log()
 
     @staticmethod
     def _refuse_if_ended(game: _Game, code: str) -> None:

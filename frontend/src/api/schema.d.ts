@@ -182,6 +182,18 @@ export interface components {
              */
             ok: true;
         };
+        /**
+         * ClaimLogEntry
+         * @description One decided claim as the host sees it. A refused claim says why, as a wire error code.
+         */
+        ClaimLogEntry: {
+            /** Player */
+            player: string;
+            prize: components["schemas"]["Prize"];
+            /** Accepted */
+            accepted: boolean;
+            error: components["schemas"]["ErrorCode"] | null;
+        };
         /** ClaimPayload */
         ClaimPayload: {
             /** Prize */
@@ -293,6 +305,8 @@ export interface components {
             players: string[];
             /** Prizes */
             prizes: components["schemas"]["PrizeBoardEntry"][];
+            /** Claims */
+            claims: components["schemas"]["ClaimLogEntry"][];
         };
     };
     responses: never;

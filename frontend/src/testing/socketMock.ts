@@ -19,6 +19,7 @@ export function socketModuleMock() {
     onGameEnded: vi.fn(),
     onTopicDrawn: vi.fn(),
     onPrizeAwarded: vi.fn(),
+    onClaimLogged: vi.fn(),
     onReconnect: vi.fn(),
   }
 }

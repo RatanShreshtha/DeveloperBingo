@@ -14,8 +14,10 @@ from devbingo_backend.game import (
     UnknownPrize,
 )
 from devbingo_backend.prizes import Prize
+from devbingo_backend.settlement import ClaimRecord
 from devbingo_backend.wire import (
     Accepted,
+    ClaimLogEntry,
     ClaimPayload,
     ClientEvent,
     DrawAck,
@@ -69,6 +71,17 @@ def _parse(model: type[M], payload: object) -> M:
 def _prize_board(board: dict[Prize, list[str]]) -> list[PrizeBoardEntry]:
     """The prize board in the order the engine keeps it."""
     return [PrizeBoardEntry(prize=prize, awarded_to=names) for prize, names in board.items()]
+
+
+def _claim_entry(record: ClaimRecord) -> ClaimLogEntry:
+    return ClaimLogEntry(
+        player=record.player, prize=record.prize, accepted=record.accepted, error=record.error
+    )
+
+
+def _host_room(code: str) -> str:
+    """The room only the game's host sockets are in. The game's own room has every player too."""
+    return f"{code}:host"
 
 
 class RealtimeAdapter:
@@ -132,9 +145,11 @@ class RealtimeAdapter:
             return _refusal(err)
 
         await self._broadcaster.enter_room(sid, host.code)
+        await self._broadcaster.enter_room(sid, _host_room(host.code))
         return WatchAck(
             players=players,
             prizes=_prize_board(self._registry.prize_board(host.code)),
+            claims=[_claim_entry(record) for record in self._registry.claim_log(host.code)],
         ).model_dump(mode="json")
 
     async def start_game(self, sid: str, payload: object) -> Ack:
@@ -187,7 +202,11 @@ class RealtimeAdapter:
                 prize = Prize(message.prize)
             except ValueError:
                 raise UnknownPrize from None
-            awarded = self._registry.claim(player, prize)
+            logged = len(self._registry.claim_log(player.code))
+            try:
+                awarded = self._registry.claim(player, prize)
+            finally:
+                await self._tell_host_of_claims(player.code, logged)
         except GameError as err:
             return _refusal(err)
 
@@ -199,6 +218,15 @@ class RealtimeAdapter:
         if awarded.ends_game:
             await self._announce_end(player.code, "full_house")
         return Accepted().model_dump(mode="json")
+
+    async def _tell_host_of_claims(self, code: str, already_told: int) -> None:
+        """Sends the host each claim logged since `already_told`, and nobody else."""
+        for record in self._registry.claim_log(code)[already_told:]:
+            await self._broadcaster.emit(
+                ServerEvent.CLAIM_LOGGED,
+                _claim_entry(record).model_dump(mode="json"),
+                room=_host_room(code),
+            )
 
     # Ticks are private, and nothing is broadcast. The acknowledgement says only
     # whether the change happened: the client keeps its own list, so no ticks are

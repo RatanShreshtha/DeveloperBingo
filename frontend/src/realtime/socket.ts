@@ -10,6 +10,7 @@ export type PlayerRef = Schemas['JoinPayload']
 export type DrawnTopic = Schemas['DrawAnnouncement']
 export type PrizeBoardEntry = Schemas['PrizeBoardEntry']
 export type PrizeAward = Schemas['PrizeAwarded']
+export type ClaimLogEntry = Schemas['ClaimLogEntry']
 export type GameEnd = Schemas['GameEnded']
 export type ErrorCode = Schemas['ErrorCode']
 export type Refusal = Schemas['Refusal']
@@ -43,6 +44,8 @@ type Announcements = {
   game_ended: GameEnd
   topic_drawn: DrawnTopic
   prize_awarded: PrizeAward
+  // Sent to the host only.
+  claim_logged: ClaimLogEntry
 }
 
 let socket: Socket | null = null
@@ -98,6 +101,11 @@ export function claimPrize(prize: string): Promise<ClaimResult> {
 
 export function onPrizeAwarded(handler: (award: PrizeAward) => void): void {
   listen('prize_awarded', handler)
+}
+
+// Every claim as it is decided, accepted or refused. The server tells only the host.
+export function onClaimLogged(handler: (claim: ClaimLogEntry) => void): void {
+  listen('claim_logged', handler)
 }
 
 export function onLobbyUpdated(handler: (players: string[]) => void): void {

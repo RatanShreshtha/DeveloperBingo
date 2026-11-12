@@ -24,6 +24,11 @@ class RecordingBroadcaster:
         self.emitted.append((event, room or to or "", data))
 
 
+def to_room(broadcaster, code):
+    """What was emitted to the game's room, where every player is. The host-only room is left out."""
+    return [event for event in broadcaster.emitted if event[1] == code]
+
+
 def run(coro):
     return asyncio.run(coro)
 
@@ -74,7 +79,9 @@ def test_the_host_can_watch_the_lobby_with_the_host_token():
     assert ack["ok"] is True
     assert ack["players"] == ["Ada"]
     assert ack["prizes"] == wire_board_of()
-    assert broadcaster.entered == [("sid-host", game.code)]
+    assert ack["claims"] == []
+    # The second room is host-only, where claims are told that players must not see.
+    assert broadcaster.entered == [("sid-host", game.code), ("sid-host", f"{game.code}:host")]
 
 
 def test_starting_the_game_is_announced_to_the_room():
@@ -306,12 +313,12 @@ def test_a_valid_claim_for_a_new_prize_is_acknowledged_and_announced_to_the_room
 def test_an_incomplete_full_house_claim_is_refused_and_not_announced():
     broadcaster = RecordingBroadcaster()
     adapter, _, game = started_game_with_five_ticks_for_ada(broadcaster)
-    emitted_before = list(broadcaster.emitted)
+    emitted_before = to_room(broadcaster, game.code)
 
     ack = run(adapter.claim_prize("sid-ada", claim_message(game, prize="full_house")))
 
     assert ack == {"ok": False, "error": "claim_not_valid"}
-    assert broadcaster.emitted == emitted_before
+    assert to_room(broadcaster, game.code) == emitted_before
 
 
 def test_a_refused_claim_is_told_to_the_claimant_only():
@@ -321,12 +328,12 @@ def test_a_refused_claim_is_told_to_the_claimant_only():
     adapter = RealtimeAdapter(registry, broadcaster)
     run(adapter.join_game("sid-ada", {"code": game.code, "name": "Ada"}))
     registry.start(game)
-    emitted_before = list(broadcaster.emitted)
+    emitted_before = to_room(broadcaster, game.code)
 
     ack = run(adapter.claim_prize("sid-ada", claim_message(game)))
 
     assert ack == {"ok": False, "error": "claim_not_valid"}
-    assert broadcaster.emitted == emitted_before
+    assert to_room(broadcaster, game.code) == emitted_before
 
 
 def test_a_second_claim_for_an_awarded_prize_is_refused():

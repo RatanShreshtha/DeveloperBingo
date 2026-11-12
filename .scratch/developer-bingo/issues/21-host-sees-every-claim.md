@@ -6,11 +6,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] Every claim is recorded in order: the player, the prize, and whether it was accepted or refused (with the refusal reason)
-- [ ] The host sees each claim as it happens
-- [ ] A refused claim is still told only to the claimant among players. The host's view is the only other place it appears
-- [ ] The host's snapshot on watch (or rejoin) includes the claims so far
-- [ ] Tests cover an accepted claim, a refused claim, and the host's view after a reconnect
+- [x] Every claim is recorded in order: the player, the prize, and whether it was accepted or refused (with the refusal reason)
+- [x] The host sees each claim as it happens
+- [x] A refused claim is still told only to the claimant among players. The host's view is the only other place it appears
+- [x] The host's snapshot on watch (or rejoin) includes the claims so far
+- [x] Tests cover an accepted claim, a refused claim, and the host's view after a reconnect
 
 ## Notes
 
