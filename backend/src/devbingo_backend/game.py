@@ -194,6 +194,10 @@ class GameRegistry:
         game.draws.append(draw)
         return draw
 
+    def pool_of(self, code: str) -> Pool:
+        """The pool this game was created with. Public: it is fixed for the life of the game."""
+        return self._find(code).pool
+
     def draw_history(self, code: str) -> tuple[Draw, ...]:
         """Every draw so far, in order. Public: every player in the room may see them."""
         return tuple(self._find(code).draws)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { fetchDefaultPool, type TopicResponse } from '../api/pools'
+import { fetchGamePool, type TopicResponse } from '../api/pools'
 import type { HostLink } from '../api/games'
 import { END_MESSAGES } from '../endMessages'
 import { useLobbyStore } from '../stores/lobby'
@@ -23,7 +23,7 @@ onMounted(async () => {
   store.watchAsHost(hostLink())
   store.loadDrawHistory(props.code)
   try {
-    pool.value = (await fetchDefaultPool()).columns
+    pool.value = (await fetchGamePool(props.code)).columns
   } catch {
     poolError.value = true
   }
@@ -64,6 +64,6 @@ onMounted(async () => {
       <LobbyList :players="store.players" />
     </template>
     <PoolColumns v-if="pool" :columns="pool" />
-    <p v-else-if="poolError" role="alert">Could not load the default pool.</p>
+    <p v-else-if="poolError" role="alert">Could not load this game's pool.</p>
   </section>
 </template>

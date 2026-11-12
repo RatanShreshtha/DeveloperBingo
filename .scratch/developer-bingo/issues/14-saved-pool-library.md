@@ -6,8 +6,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] The host can copy the default pool into a custom pool
-- [ ] A custom pool is validated against the pool rules before saving
-- [ ] A saved pool is shared across all hosts
-- [ ] The host can pick a saved pool when setting up a game
-- [ ] The default pool remains read-only
+- [x] The host can copy the default pool into a custom pool
+- [x] A custom pool is validated against the pool rules before saving
+- [x] A saved pool is shared across all hosts
+- [x] The host can pick a saved pool when setting up a game
+- [x] The default pool remains read-only

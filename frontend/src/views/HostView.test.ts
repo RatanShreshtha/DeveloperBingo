@@ -7,7 +7,7 @@ import HostView from './HostView.vue'
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 vi.mock('../api/pools', () => ({
-  fetchDefaultPool: vi.fn(async () => ({
+  fetchGamePool: vi.fn(async () => ({
     columns: [
       [{ name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
       [{ name: 'JSON', explanation: 'A lightweight data format.' }],
@@ -21,7 +21,7 @@ beforeEach(() => {
 })
 
 describe('HostView', () => {
-  it('shows the default pool as columns of topics with their explanations', async () => {
+  it('shows the pool the game was created with as columns of topics with their explanations', async () => {
     vi.mocked(watchLobby).mockResolvedValue({ ok: true, players: [], prizes: [{ prize: 'early_five', awarded_to: [] }], claims: [] })
 
     const wrapper = mount(HostView, {

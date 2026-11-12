@@ -6,7 +6,7 @@ import HostView from './HostView.vue'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 vi.mock('../api/pools', () => ({
-  fetchDefaultPool: vi.fn(async () => ({ columns: [] })),
+  fetchGamePool: vi.fn(async () => ({ columns: [] })),
 }))
 vi.mock('../realtime/socket', async () => (await import('../testing/socketMock')).socketModuleMock())
 

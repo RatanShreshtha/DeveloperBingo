@@ -30,7 +30,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Game */
+        /**
+         * Create Game
+         * @description Create a game on the default pool, or on the saved pool named by `pool_id`.
+         */
         post: operations["create_game_games_post"];
         delete?: never;
         options?: never;
@@ -92,10 +95,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pools */
+        get: operations["list_pools_pools_get"];
+        put?: never;
+        /**
+         * Save Pool
+         * @description Save a custom pool for every host to use, once it meets the pool rules.
+         */
+        post: operations["save_pool_pools_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pools/{pool_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Pool */
+        get: operations["read_pool_pools__pool_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/games/{code}/pool": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Game Pool */
+        get: operations["read_game_pool_games__code__pool_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CreateGameRequest */
+        CreateGameRequest: {
+            /** Pool Id */
+            pool_id?: number | null;
+        };
         /**
          * DrawAnnouncement
          * @description A draw as players see it: its place in the game, the topic and its explanation.
@@ -148,10 +211,37 @@ export interface components {
             /** Players */
             players: string[];
         };
+        /** NewPool */
+        NewPool: {
+            /** Name */
+            name: string;
+            /** Topics */
+            topics: components["schemas"]["TopicResponse"][];
+        };
+        /** PoolRefusal */
+        PoolRefusal: {
+            /** Rule */
+            rule: string;
+            /** Message */
+            message: string;
+        };
+        /** PoolRefused */
+        PoolRefused: {
+            detail: components["schemas"]["PoolRefusal"];
+        };
         /** PoolResponse */
         PoolResponse: {
             /** Columns */
             columns: components["schemas"]["TopicResponse"][][];
+        };
+        /** PoolSummaryResponse */
+        PoolSummaryResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Is Default */
+            is_default: boolean;
         };
         /** TopicResponse */
         TopicResponse: {
@@ -344,7 +434,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateGameRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -353,6 +447,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HostLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -437,6 +540,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PoolResponse"];
+                };
+            };
+        };
+    };
+    list_pools_pools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolSummaryResponse"][];
+                };
+            };
+        };
+    };
+    save_pool_pools_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPool"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolSummaryResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolRefused"];
+                };
+            };
+        };
+    };
+    read_pool_pools__pool_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pool_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_game_pool_games__code__pool_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -127,8 +127,8 @@ export const useLobbyStore = defineStore('lobby', () => {
     return result
   }
 
-  async function create() {
-    return createGame()
+  async function create(poolId?: number) {
+    return createGame(poolId)
   }
 
   async function join(code: string, name: string): Promise<boolean> {

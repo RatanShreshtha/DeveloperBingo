@@ -26,7 +26,25 @@
     "/games": {
       "post": {
         "summary": "Create Game",
+        "description": "Create a game on the default pool, or on the saved pool named by `pool_id`.",
         "operationId": "create_game_games_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateGameRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -34,6 +52,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HostLink"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -147,10 +175,164 @@
           }
         }
       }
+    },
+    "/pools": {
+      "get": {
+        "summary": "List Pools",
+        "operationId": "list_pools_pools_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PoolSummaryResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Pools Pools Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Save Pool",
+        "description": "Save a custom pool for every host to use, once it meets the pool rules.",
+        "operationId": "save_pool_pools_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPool"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolSummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolRefused"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pools/{pool_id}": {
+      "get": {
+        "summary": "Read Pool",
+        "operationId": "read_pool_pools__pool_id__get",
+        "parameters": [
+          {
+            "name": "pool_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Pool Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/games/{code}/pool": {
+      "get": {
+        "summary": "Read Game Pool",
+        "operationId": "read_game_pool_games__code__pool_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "CreateGameRequest": {
+        "properties": {
+          "pool_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Id"
+          }
+        },
+        "type": "object",
+        "title": "CreateGameRequest"
+      },
       "DrawAnnouncement": {
         "description": "A draw as players see it: its place in the game, the topic and its explanation.",
         "properties": {
@@ -265,6 +447,57 @@
         ],
         "title": "LobbyResponse"
       },
+      "NewPool": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/TopicResponse"
+            },
+            "type": "array",
+            "title": "Topics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "topics"
+        ],
+        "title": "NewPool"
+      },
+      "PoolRefusal": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule",
+          "message"
+        ],
+        "title": "PoolRefusal"
+      },
+      "PoolRefused": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/PoolRefusal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "PoolRefused"
+      },
       "PoolResponse": {
         "properties": {
           "columns": {
@@ -283,6 +516,29 @@
           "columns"
         ],
         "title": "PoolResponse"
+      },
+      "PoolSummaryResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "is_default"
+        ],
+        "title": "PoolSummaryResponse"
       },
       "TopicResponse": {
         "properties": {
