@@ -5,6 +5,46 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/games/{code}/history": {
+      "get": {
+        "summary": "Read Game History",
+        "description": "A finished game's record. Public: anyone with the game's code may read it.",
+        "operationId": "read_game_history_games__code__history_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -151,6 +191,40 @@
   },
   "components": {
     "schemas": {
+      "ClaimLogEntry": {
+        "description": "One decided claim as the host sees it. A refused claim says why, as a wire error code.",
+        "properties": {
+          "player": {
+            "title": "Player",
+            "type": "string"
+          },
+          "prize": {
+            "$ref": "#/components/schemas/Prize"
+          },
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "player",
+          "prize",
+          "accepted",
+          "error"
+        ],
+        "title": "ClaimLogEntry",
+        "type": "object"
+      },
       "DrawAnnouncement": {
         "description": "A draw as players see it: its place in the game, the topic and its explanation.",
         "properties": {
@@ -190,6 +264,91 @@
           "draws"
         ],
         "title": "DrawHistoryResponse"
+      },
+      "ErrorCode": {
+        "description": "Why a request was refused. Each engine error declares the code it maps to.",
+        "enum": [
+          "not_found",
+          "not_host",
+          "name_taken",
+          "game_full",
+          "already_started",
+          "game_ended",
+          "not_started",
+          "no_topics_left",
+          "not_a_player",
+          "not_drawn",
+          "not_on_ticket",
+          "claim_not_valid",
+          "prize_taken",
+          "already_joined",
+          "not_joined",
+          "unknown_prize",
+          "invalid_message",
+          "settlement_open",
+          "claim_pending"
+        ],
+        "title": "ErrorCode",
+        "type": "string"
+      },
+      "GameHistoryResponse": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "full_house",
+              "host"
+            ],
+            "title": "Reason"
+          },
+          "pool_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Name"
+          },
+          "draws": {
+            "items": {
+              "$ref": "#/components/schemas/DrawAnnouncement"
+            },
+            "type": "array",
+            "title": "Draws"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimLogEntry"
+            },
+            "type": "array",
+            "title": "Claims"
+          },
+          "winners": {
+            "items": {
+              "$ref": "#/components/schemas/PrizeBoardEntry"
+            },
+            "type": "array",
+            "title": "Winners"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "reason",
+          "pool_name",
+          "draws",
+          "claims",
+          "winners"
+        ],
+        "title": "GameHistoryResponse",
+        "description": "A finished game: its draws in order, every claim with its outcome, and who won each prize."
       },
       "HTTPValidationError": {
         "properties": {
@@ -284,6 +443,40 @@
         ],
         "title": "PoolResponse"
       },
+      "Prize": {
+        "description": "The prizes a game can award, in the order the prize board lists them.\n\nThe value is the name the wire uses.",
+        "enum": [
+          "early_five",
+          "top_line",
+          "middle_line",
+          "bottom_line",
+          "four_corners",
+          "full_house"
+        ],
+        "title": "Prize",
+        "type": "string"
+      },
+      "PrizeBoardEntry": {
+        "description": "One prize, and the names of the players it was awarded to. Empty while it is open.",
+        "properties": {
+          "prize": {
+            "$ref": "#/components/schemas/Prize"
+          },
+          "awarded_to": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Awarded To",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prize",
+          "awarded_to"
+        ],
+        "title": "PrizeBoardEntry",
+        "type": "object"
+      },
       "TopicResponse": {
         "properties": {
           "name": {
@@ -357,40 +550,6 @@
         "title": "Accepted",
         "type": "object"
       },
-      "ClaimLogEntry": {
-        "description": "One decided claim as the host sees it. A refused claim says why, as a wire error code.",
-        "properties": {
-          "player": {
-            "title": "Player",
-            "type": "string"
-          },
-          "prize": {
-            "$ref": "#/components/schemas/Prize"
-          },
-          "accepted": {
-            "title": "Accepted",
-            "type": "boolean"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ErrorCode"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "player",
-          "prize",
-          "accepted",
-          "error"
-        ],
-        "title": "ClaimLogEntry",
-        "type": "object"
-      },
       "ClaimPayload": {
         "properties": {
           "prize": {
@@ -422,32 +581,6 @@
         ],
         "title": "DrawAck",
         "type": "object"
-      },
-      "ErrorCode": {
-        "description": "Why a request was refused. Each engine error declares the code it maps to.",
-        "enum": [
-          "not_found",
-          "not_host",
-          "name_taken",
-          "game_full",
-          "already_started",
-          "game_ended",
-          "not_started",
-          "no_topics_left",
-          "not_a_player",
-          "not_drawn",
-          "not_on_ticket",
-          "claim_not_valid",
-          "prize_taken",
-          "already_joined",
-          "not_joined",
-          "unknown_prize",
-          "invalid_message",
-          "settlement_open",
-          "claim_pending"
-        ],
-        "title": "ErrorCode",
-        "type": "string"
       },
       "GameEnded": {
         "description": "The game is over: someone claimed the full house, or the host ended it.",
@@ -555,19 +688,6 @@
         "title": "LobbyUpdated",
         "type": "object"
       },
-      "Prize": {
-        "description": "The prizes a game can award, in the order the prize board lists them.\n\nThe value is the name the wire uses.",
-        "enum": [
-          "early_five",
-          "top_line",
-          "middle_line",
-          "bottom_line",
-          "four_corners",
-          "full_house"
-        ],
-        "title": "Prize",
-        "type": "string"
-      },
       "PrizeAwarded": {
         "properties": {
           "prize": {
@@ -586,27 +706,6 @@
           "awarded_to"
         ],
         "title": "PrizeAwarded",
-        "type": "object"
-      },
-      "PrizeBoardEntry": {
-        "description": "One prize, and the names of the players it was awarded to. Empty while it is open.",
-        "properties": {
-          "prize": {
-            "$ref": "#/components/schemas/Prize"
-          },
-          "awarded_to": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Awarded To",
-            "type": "array"
-          }
-        },
-        "required": [
-          "prize",
-          "awarded_to"
-        ],
-        "title": "PrizeBoardEntry",
         "type": "object"
       },
       "Refusal": {

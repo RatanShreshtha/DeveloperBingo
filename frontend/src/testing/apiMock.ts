@@ -8,5 +8,6 @@ export function apiGamesMock() {
   return {
     createGame: vi.fn(),
     fetchDrawHistory: vi.fn(async () => ({ draws: [] })),
+    fetchGameHistory: vi.fn(),
   }
 }

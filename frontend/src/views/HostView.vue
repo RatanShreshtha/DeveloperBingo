@@ -35,7 +35,10 @@ onMounted(async () => {
     <p>Game code: <strong>{{ code }}</strong></p>
     <p v-if="store.error" role="alert">{{ store.error }}</p>
     <template v-else>
-      <p v-if="store.endReason">{{ END_MESSAGES.host[store.endReason] }}</p>
+      <p v-if="store.endReason">
+        {{ END_MESSAGES.host[store.endReason] }}
+        <RouterLink :to="`/games/${code}/history`" data-test="history-link">View the game history</RouterLink>
+      </p>
       <div v-else>
         <button
           v-if="!store.started"
