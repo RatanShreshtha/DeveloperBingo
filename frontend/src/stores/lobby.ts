@@ -52,7 +52,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   invalid_message: 'That request was not understood. Please reload the page.',
 }
 
-function messageFor(code: ErrorCode): string {
+export function messageFor(code: ErrorCode): string {
   return ERROR_MESSAGES[code]
 }
 

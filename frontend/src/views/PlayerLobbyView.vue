@@ -18,7 +18,10 @@ onMounted(() => {
 <template>
   <section>
     <p>Game code: <strong>{{ code }}</strong></p>
-    <p v-if="store.endReason">{{ END_MESSAGES.player[store.endReason] }}</p>
+    <p v-if="store.endReason">
+      {{ END_MESSAGES.player[store.endReason] }}
+      <RouterLink :to="`/games/${code}/history`" data-test="history-link">View the game history</RouterLink>
+    </p>
     <p v-else-if="store.started">The game has started.</p>
     <p v-else>Waiting for the host to start the game.</p>
     <table v-if="store.ticket" class="ticket" aria-label="Your ticket">

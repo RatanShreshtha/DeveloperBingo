@@ -6,11 +6,11 @@
 
 **Status:** ready-for-agent
 
-- [ ] A finished game stores its draws in order
-- [ ] A finished game stores its claims with their outcomes
-- [ ] A finished game stores its winners
-- [ ] The stored history can be viewed by game ID
-- [ ] The stored history round-trips correctly
+- [x] A finished game stores its draws in order
+- [x] A finished game stores its claims with their outcomes
+- [x] A finished game stores its winners
+- [x] The stored history can be viewed by game ID
+- [x] The stored history round-trips correctly
 
 ## Notes
 - Ticket 13 ends a game in one place, `GameRegistry._finish`, whether the host ended it or the full house was awarded. Saving the history belongs there, so neither path can skip it.

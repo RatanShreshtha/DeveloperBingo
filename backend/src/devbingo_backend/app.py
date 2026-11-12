@@ -11,12 +11,15 @@ from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
 from devbingo_backend.game import GameNotFound, GameRegistry, NotHost
+from devbingo_backend.history import HistoryStore, PostgresHistoryStore
+from devbingo_backend.history_api import history_router
 from devbingo_backend.pool_library import (
     PoolLibrary,
     PoolLibraryUnavailable,
     PoolNotFound,
     PostgresPoolLibrary,
 )
+from devbingo_backend.pool_store import DEFAULT_POOL_NAME
 from devbingo_backend.pools_api import PoolResponse, build_pools_router, pool_response
 from devbingo_backend.realtime import DEFAULT_WINDOW_SECONDS, build_socket_server
 from devbingo_backend.wire import SOCKET_MODELS, DrawAnnouncement, DrawHistoryResponse, HostLink
@@ -41,12 +44,14 @@ def create_app(
     database_url: str | None = None,
     pool_library: PoolLibrary | None = None,
     settlement_window_seconds: float | None = None,
+    history_store: HistoryStore | None = None,
 ) -> FastAPI:
     """`settlement_window_seconds` is how long a settlement window stays open. Without it the
     SETTLEMENT_WINDOW_SECONDS environment variable is used, then one second."""
     url = database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     engine = create_engine(url, connect_args={"connect_timeout": 2})
-    registry = GameRegistry()
+    history = history_store or PostgresHistoryStore(engine)
+    registry = GameRegistry(on_finished=history.save)
     library = pool_library or PostgresPoolLibrary(engine)
 
     def database_is_up() -> bool:
@@ -71,6 +76,9 @@ def create_app(
         """Whatever needed a pool gets a 503 when the library can't be read, with no fallback."""
         return JSONResponse(status_code=503, content={"detail": "pool library unavailable"})
 
+    app.include_router(history_router(history))
+    app.state.registry = registry
+
     @app.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
         up = database_is_up()
@@ -83,11 +91,13 @@ def create_app(
     def create_game(body: CreateGameRequest | None = None) -> HostLink:
         """Create a game on the default pool, or on the saved pool named by `pool_id`."""
         if body is None or body.pool_id is None:
-            return registry.create_game(library.load_default())
+            return registry.create_game(library.load_default(), pool_name=DEFAULT_POOL_NAME)
         try:
-            return registry.create_game(library.load(body.pool_id))
+            pool = library.load(body.pool_id)
         except PoolNotFound:
             raise HTTPException(status_code=404, detail="pool not found") from None
+        name = next((p.name for p in library.list_pools() if p.id == body.pool_id), None)
+        return registry.create_game(pool, pool_name=name)
 
     @app.get("/games/{code}/lobby", response_model=LobbyResponse)
     def read_lobby(

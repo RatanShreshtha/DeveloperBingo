@@ -1,7 +1,9 @@
 import hashlib
 import hmac
+import logging
 import random
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
@@ -36,6 +38,8 @@ from devbingo_backend.wire import HostLink
 
 MAX_PLAYERS = 200
 
+logger = logging.getLogger(__name__)
+
 _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _CODE_LENGTH = 6
 
@@ -62,6 +66,20 @@ class Draw:
     topic: Topic
 
 
+@dataclass(frozen=True)
+class GameSummary:
+    """A finished game as the History Store keeps it. The game's code is its ID."""
+
+    code: str
+    reason: Literal["full_house", "host"]
+    # The pool's name, when it has one.
+    pool_name: str | None
+    draws: tuple[Draw, ...]
+    claims: tuple[ClaimRecord, ...]
+    # Every prize, in the order of Prize, with the players it was awarded to (empty if unawarded).
+    winners: dict[Prize, tuple[str, ...]]
+
+
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -79,9 +97,11 @@ class _Player:
 
 @dataclass
 class _Game:
+    code: str
     host_token_hash: str
     # Fixed from creation: tickets are dealt from it as players join, so it can't change.
     pool: Pool
+    pool_name: str | None = None
     status: Literal["lobby", "started", "ended"] = "lobby"
     # Keyed by name_key(name), so one player has one entry. In the order players joined.
     players: dict[str, _Player] = field(default_factory=dict)
@@ -100,14 +120,23 @@ class _Game:
 class GameRegistry:
     """In-memory store of live games. Holds all lobby and start rules."""
 
-    def __init__(self, rng: random.Random | None = None) -> None:
+    def __init__(
+        self,
+        rng: random.Random | None = None,
+        on_finished: Callable[[GameSummary], None] | None = None,
+    ) -> None:
+        """`on_finished` is handed a summary of each game as it ends. It holds no networking or
+        storage itself: the caller decides what to do with it."""
         self._games: dict[str, _Game] = {}
         self._rng = rng or random.Random()
+        self._on_finished = on_finished
 
-    def create_game(self, pool: Pool) -> HostLink:
+    def create_game(self, pool: Pool, pool_name: str | None = None) -> HostLink:
         code = self._new_code()
         host_token = secrets.token_urlsafe(24)
-        self._games[code] = _Game(host_token_hash=_hash_token(host_token), pool=pool)
+        self._games[code] = _Game(
+            code=code, host_token_hash=_hash_token(host_token), pool=pool, pool_name=pool_name
+        )
         return HostLink(code=code, host_token=host_token)
 
     def join(self, player: PlayerRef) -> Joined:
@@ -175,7 +204,7 @@ class GameRegistry:
             for prize in game.settlement.open_prizes()
             if (outcome := game.settlement.close(prize, self._evidence(game), refusal)) is not None
         )
-        self._finish(game)
+        self._finish(game, "host")
         return settled
 
     def draw(self, host: HostLink) -> Draw:
@@ -244,7 +273,7 @@ class GameRegistry:
         refusal = GameAlreadyEnded(code) if game.status == "ended" else None
         settled = game.settlement.close(prize, self._evidence(game), refusal)
         if settled is not None and settled.awarded_to and prize is Prize.FULL_HOUSE:
-            self._finish(game)
+            self._finish(game, "full_house")
             return replace(settled, ends_game=True)
         return settled
 
@@ -278,10 +307,24 @@ class GameRegistry:
         if game.status == "ended":
             raise GameAlreadyEnded(code)
 
-    @staticmethod
-    def _finish(game: _Game) -> None:
-        """The one place a game ends, whether the host ended it or the full house was awarded."""
+    def _finish(self, game: _Game, reason: Literal["full_house", "host"]) -> None:
+        """The one place a game ends, whether the host ended it or the full house was awarded.
+        A failing observer is logged: it never stops the game from ending."""
         game.status = "ended"
+        if self._on_finished is None:
+            return
+        summary = GameSummary(
+            code=game.code,
+            reason=reason,
+            pool_name=game.pool_name,
+            draws=tuple(game.draws),
+            claims=tuple(game.settlement.log()),
+            winners={prize: tuple(names) for prize, names in game.settlement.board().items()},
+        )
+        try:
+            self._on_finished(summary)
+        except Exception:
+            logger.exception("could not hand over the summary of game %s", game.code)
 
     def _player_game(self, player: PlayerRef) -> tuple[_Game, _Player]:
         """The game and the player's record. Refuses anyone not in the game."""

@@ -19,6 +19,25 @@ export async function createGame(poolId?: number): Promise<HostLink> {
   return (await response.json()) as HostLink
 }
 
+export type GameHistoryResponse = components['schemas']['GameHistoryResponse']
+
+/** The history request failed; `status` is the HTTP status (404: none stored, 503: store down). */
+export class GameHistoryError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`Game history request failed with status ${status}`)
+    this.status = status
+  }
+}
+
+export async function fetchGameHistory(code: string): Promise<GameHistoryResponse> {
+  const response = await fetch(`/games/${encodeURIComponent(code)}/history`)
+  if (!response.ok) {
+    throw new GameHistoryError(response.status)
+  }
+  return (await response.json()) as GameHistoryResponse
+}
+
 export async function fetchDrawHistory(code: string): Promise<DrawHistoryResponse> {
   const response = await fetch(`/games/${encodeURIComponent(code)}/draws`)
   if (!response.ok) {
