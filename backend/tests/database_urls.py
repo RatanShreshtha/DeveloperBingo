@@ -1,4 +1,10 @@
+import os
 import socket
+
+from devbingo_backend.app import DEFAULT_DATABASE_URL
+
+# The database the database tests use, unless TEST_DATABASE_URL points elsewhere.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_DATABASE_URL)
 
 
 def unused_database_url() -> str:

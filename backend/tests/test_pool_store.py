@@ -1,10 +1,9 @@
-import os
 
 import pytest
+from database_urls import TEST_DATABASE_URL as DATABASE_URL
 from database_urls import database_is_reachable
 from sqlmodel import Session, create_engine, select
 
-from devbingo_backend.app import DEFAULT_DATABASE_URL
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.pool_store import (
     PoolRecord,
@@ -13,7 +12,6 @@ from devbingo_backend.pool_store import (
     load_default_pool,
 )
 
-DATABASE_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_DATABASE_URL)
 
 
 @pytest.fixture

@@ -2,6 +2,8 @@
 
 from typing import Any, Protocol
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.pool import Pool
 from devbingo_backend.pool_store import ensure_default_pool, load_default_pool
@@ -39,6 +41,7 @@ class PostgresPoolLibrary:
         try:
             ensure_default_pool(self._engine)
             return load_default_pool(self._engine)
-        except Exception:
-            # Whatever the driver reports, the pool can't be read right now.
+        except SQLAlchemyError:
+            # The database can't be reached or queried right now. Anything else is a bug and
+            # is left to surface rather than be mistaken for an outage.
             raise PoolLibraryUnavailable from None

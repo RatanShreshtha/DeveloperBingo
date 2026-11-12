@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 
 import socketio
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
@@ -58,6 +59,11 @@ def create_app(database_url: str | None = None, pool_library: PoolLibrary | None
 
     app = FastAPI(title="DeveloperBingo API", lifespan=lifespan)
 
+    @app.exception_handler(PoolLibraryUnavailable)
+    def pool_library_unavailable(_request: Request, _error: PoolLibraryUnavailable) -> JSONResponse:
+        """Whatever needed a pool gets a 503 when the library can't be read, with no fallback."""
+        return JSONResponse(status_code=503, content={"detail": "pool library unavailable"})
+
     @app.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
         up = database_is_up()
@@ -68,11 +74,7 @@ def create_app(database_url: str | None = None, pool_library: PoolLibrary | None
 
     @app.post("/games", status_code=201, response_model=HostLink)
     def create_game() -> HostLink:
-        try:
-            pool = library.load_default()
-        except PoolLibraryUnavailable:
-            raise HTTPException(status_code=503, detail="pool library unavailable") from None
-        return registry.create_game(pool)
+        return registry.create_game(library.load_default())
 
     @app.get("/games/{code}/lobby", response_model=LobbyResponse)
     def read_lobby(
@@ -100,10 +102,7 @@ def create_app(database_url: str | None = None, pool_library: PoolLibrary | None
 
     @app.get("/pools/default", response_model=PoolResponse)
     def read_default_pool() -> PoolResponse:
-        try:
-            pool = library.load_default()
-        except PoolLibraryUnavailable:
-            raise HTTPException(status_code=503, detail="pool library unavailable") from None
+        pool = library.load_default()
         return PoolResponse(
             columns=[
                 [TopicResponse(name=topic.name, explanation=topic.explanation) for topic in column]
