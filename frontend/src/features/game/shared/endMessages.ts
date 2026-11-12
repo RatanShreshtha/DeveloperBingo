@@ -1,4 +1,4 @@
-import type { GameEnd } from './realtime/protocol'
+import type { GameEnd } from '../../../realtime/protocol'
 
 // What each person is told when the game is over, by who is reading.
 export const END_MESSAGES: Record<'host' | 'player', Record<GameEnd['reason'], string>> = {

@@ -1,12 +1,11 @@
-import { createPinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { playerSnapshot } from '../testing/snapshots'
-import { makePlugins, makeRouter } from './testRouter'
-import { startFresh } from './testSetup'
-import JoinView from './JoinView.vue'
+import { playerSnapshot } from '../../../testing/snapshots'
+import { makeApplicationPlugins, makePlugins } from '../../../testing/testRouter'
+import { startFresh } from '../../../testing/testSetup'
+import JoinView from './JoinPage.vue'
 
-vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
+vi.mock('../../../api/games', async () => (await import('../../../testing/apiMock')).apiGamesMock())
 
 let fake: ReturnType<typeof startFresh>
 
@@ -24,8 +23,9 @@ async function fillAndSubmit(wrapper: ReturnType<typeof mount>, code: string, na
 describe('JoinView', () => {
   it('moves the player to the lobby after joining', async () => {
     fake.answer('join_game', playerSnapshot({ ticket: [[null]] }))
-    const router = makeRouter()
-    const wrapper = mount(JoinView, { global: { plugins: [createPinia(), router] } })
+    const plugins = makeApplicationPlugins()
+    const router = plugins.router
+    const wrapper = mount(JoinView, { global: { plugins: [plugins] } })
 
     await fillAndSubmit(wrapper, 'ABC123', 'Ada')
 

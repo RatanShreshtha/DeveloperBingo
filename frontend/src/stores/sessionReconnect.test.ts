@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
-import { useSessionStore } from './session'
+import { usePlayerSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
@@ -22,7 +22,7 @@ beforeEach(() => {
 describe('session store after the connection drops and returns', () => {
   it('joins again as the same player and takes back its ticks and prizes', async () => {
     fake.answer('join_game', playerSnapshot({ ticket }))
-    const store = useSessionStore()
+    const store = usePlayerSession()
     await store.join('ABC123', 'Ada')
     fake.answer(
       'join_game',
@@ -37,7 +37,7 @@ describe('session store after the connection drops and returns', () => {
   })
 
   it('does nothing when no player has joined yet', async () => {
-    const store = useSessionStore()
+    const store = usePlayerSession()
 
     await fake.reconnect()
 

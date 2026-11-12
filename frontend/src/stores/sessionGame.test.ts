@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
-import { useSessionStore } from './session'
+import { useHostSession, usePlayerSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
@@ -19,7 +19,7 @@ beforeEach(() => {
 describe('session store game flow', () => {
   it('marks the game as started when the host starts it', async () => {
     fake.answer('start_game', { ok: true })
-    const store = useSessionStore()
+    const store = useHostSession()
 
     await store.start(link)
 
@@ -29,7 +29,7 @@ describe('session store game flow', () => {
 
   it('keeps the game unstarted and shows the refusal beside the controls', async () => {
     fake.answer('start_game', { ok: false, error: 'not_host' })
-    const store = useSessionStore()
+    const store = useHostSession()
 
     await store.start({ ...link, host_token: 'wrong-token' })
 
@@ -40,7 +40,7 @@ describe('session store game flow', () => {
 
   it('records a draw the host makes', async () => {
     fake.answer('draw_topic', { ok: true, draw: firstDraw })
-    const store = useSessionStore()
+    const store = useHostSession()
 
     await store.drawNext(link)
 
@@ -49,7 +49,7 @@ describe('session store game flow', () => {
 
   it("does not record a draw twice when the room also announces the host's own draw", async () => {
     fake.answer('draw_topic', { ok: true, draw: firstDraw })
-    const store = useSessionStore()
+    const store = useHostSession()
 
     await store.drawNext(link)
     fake.emit('topic_drawn', firstDraw)
@@ -58,7 +58,7 @@ describe('session store game flow', () => {
   })
 
   it('appends draws announced by the room, in order', () => {
-    const store = useSessionStore()
+    const store = useHostSession()
 
     fake.emit('topic_drawn', firstDraw)
     fake.emit('topic_drawn', { position: 2, name: 'JSON', explanation: 'A text format.' })
@@ -67,7 +67,7 @@ describe('session store game flow', () => {
   })
 
   it('marks the game started when the room announces it', () => {
-    const store = useSessionStore()
+    const store = useHostSession()
 
     fake.emit('game_started', {})
 
@@ -76,7 +76,7 @@ describe('session store game flow', () => {
 
   it('restores status and draws from a snapshot, so a rejoin between the start and the first draw shows started', async () => {
     fake.answer('join_game', playerSnapshot({ status: 'started', draws: [] }))
-    const store = useSessionStore()
+    const store = usePlayerSession()
 
     await store.join('ABC123', 'Ada')
 
@@ -86,7 +86,7 @@ describe('session store game flow', () => {
 
   it('restores the draws made so far from a snapshot', async () => {
     fake.answer('join_game', playerSnapshot({ status: 'started', draws: [firstDraw] }))
-    const store = useSessionStore()
+    const store = usePlayerSession()
 
     await store.join('ABC123', 'Ada')
 
@@ -95,7 +95,7 @@ describe('session store game flow', () => {
 
   it('keeps a refused draw separate from the lobby error', async () => {
     fake.answer('draw_topic', { ok: false, error: 'no_topics_left' })
-    const store = useSessionStore()
+    const store = useHostSession()
 
     await store.drawNext(link)
 

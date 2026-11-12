@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { hostSnapshot } from '../testing/snapshots'
-import { useSessionStore } from './session'
+import { useHostSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
@@ -19,11 +19,11 @@ beforeEach(() => {
 
 describe('session store claim log', () => {
   it('lists no claims until the host hears of one', () => {
-    expect(useSessionStore().claims).toEqual([])
+    expect(useHostSession().claims).toEqual([])
   })
 
   it('adds each claim the server logs, in order', () => {
-    const store = useSessionStore()
+    const store = useHostSession()
 
     fake.emit('claim_logged', refused)
     fake.emit('claim_logged', accepted)
@@ -33,7 +33,7 @@ describe('session store claim log', () => {
 
   it('takes the claims so far from the watch acknowledgement, so a reconnecting host sees them', async () => {
     fake.answer('watch_lobby', hostSnapshot({ claims: [refused, accepted] }))
-    const store = useSessionStore()
+    const store = useHostSession()
 
     await store.watchAsHost(link)
 

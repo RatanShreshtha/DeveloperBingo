@@ -1,9 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import PlayerLobbyView from './PlayerLobbyView.vue'
-import { joinedAda, startFresh } from './testSetup'
+import PlayerLobbyView from './PlayerPage.vue'
+import { joinedAda, startFresh } from '../../../testing/testSetup'
 
-vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
+vi.mock('../../../api/games', async () => (await import('../../../testing/apiMock')).apiGamesMock())
 
 let fake: ReturnType<typeof startFresh>
 

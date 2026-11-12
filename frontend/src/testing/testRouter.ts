@@ -1,11 +1,15 @@
-import { createPinia } from 'pinia'
-import { createMemoryHistory, createRouter } from 'vue-router'
-import { routes } from '../router'
+import { createMemoryHistory } from 'vue-router'
+import { createApplicationPlugins } from '../application'
+import { createRouter } from '../router'
 
 export function makeRouter() {
-  return createRouter({ history: createMemoryHistory(), routes })
+  return createRouter(createMemoryHistory())
 }
 
 export function makePlugins() {
-  return [createPinia(), makeRouter()]
+  return [makeApplicationPlugins()]
+}
+
+export function makeApplicationPlugins() {
+  return createApplicationPlugins(createMemoryHistory())
 }

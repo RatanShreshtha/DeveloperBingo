@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TopicResponse } from '../api/pools'
+import type { TopicResponse } from '../../../api/pools'
 
 defineProps<{ columns: TopicResponse[][] }>()
 </script>

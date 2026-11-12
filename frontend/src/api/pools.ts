@@ -1,4 +1,5 @@
 import type { components } from './schema'
+import { HttpError, requestJson } from './request'
 
 export type PoolResponse = components['schemas']['PoolResponse']
 export type TopicResponse = components['schemas']['TopicResponse']
@@ -14,33 +15,25 @@ export class PoolRefusedError extends Error {
 }
 
 export async function fetchDefaultPool(): Promise<PoolResponse> {
-  const response = await fetch('/pools/default')
-  if (!response.ok) {
-    throw new Error(`Default pool request failed with status ${response.status}`)
-  }
-  return (await response.json()) as PoolResponse
+  return requestJson<PoolResponse>('/pools/default')
 }
 
 export async function fetchPools(): Promise<PoolSummary[]> {
-  const response = await fetch('/pools')
-  if (!response.ok) {
-    throw new Error(`Pool list request failed with status ${response.status}`)
-  }
-  return (await response.json()) as PoolSummary[]
+  return requestJson<PoolSummary[]>('/pools')
 }
 
 export async function savePool(name: string, topics: TopicResponse[]): Promise<PoolSummary> {
-  const response = await fetch('/pools', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, topics }),
-  })
-  if (response.status === 422) {
-    const body = (await response.json()) as components['schemas']['PoolRefused']
-    throw new PoolRefusedError(body.detail.rule, body.detail.message)
+  try {
+    return await requestJson<PoolSummary>('/pools', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, topics }),
+    })
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 422) {
+      const body = (await error.response.json()) as components['schemas']['PoolRefused']
+      throw new PoolRefusedError(body.detail.rule, body.detail.message)
+    }
+    throw error
   }
-  if (!response.ok) {
-    throw new Error(`Saving the pool failed with status ${response.status}`)
-  }
-  return (await response.json()) as PoolSummary
 }

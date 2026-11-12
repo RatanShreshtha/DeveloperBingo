@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { newestDrawsFirst } from '../draws'
-import type { DrawnTopic } from '../realtime/protocol'
+import { newestDrawsFirst } from './draws'
+import type { DrawnTopic } from '../../../realtime/protocol'
 
 const props = defineProps<{ draws: DrawnTopic[] }>()
 const latestDraws = computed(() => newestDrawsFirst(props.draws))

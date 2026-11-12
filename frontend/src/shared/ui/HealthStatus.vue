@@ -1,21 +1,29 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useHealthStore } from '../stores/health'
+import { computed, onMounted } from 'vue'
+import { fetchHealth, type HealthResponse } from '../../api/health'
+import { HttpError } from '../../api/request'
+import { useAsyncState } from '../useAsyncState'
 
-const store = useHealthStore()
+const { data: health, error, pending: loading, run } = useAsyncState<HealthResponse>()
+const errorMessage = computed(() => {
+  if (!error.value) return null
+  return error.value instanceof HttpError
+    ? `Backend health check failed with status ${error.value.status}`
+    : 'Could not reach the backend'
+})
 
 onMounted(() => {
-  store.load()
+  void run(fetchHealth)
 })
 </script>
 
 <template>
   <section class="health border-t border-base-300 pt-4 text-sm text-base-content/70">
-    <p v-if="store.loading">Checking backend…</p>
-    <p v-else-if="store.error" class="text-error" role="alert">{{ store.error }}</p>
-    <div v-else-if="store.health" class="flex flex-wrap gap-x-4 gap-y-1">
-      <p>Status: {{ store.health.status }}</p>
-      <p>Database: {{ store.health.database }}</p>
+    <p v-if="loading">Checking backend…</p>
+    <p v-else-if="errorMessage" class="text-error" role="alert">{{ errorMessage }}</p>
+    <div v-else-if="health" class="flex flex-wrap gap-x-4 gap-y-1">
+      <p>Status: {{ health.status }}</p>
+      <p>Database: {{ health.database }}</p>
     </div>
   </section>
 </template>

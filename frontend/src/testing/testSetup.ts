@@ -1,8 +1,8 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { installFakeTransport } from '../testing/fakeTransport'
-import { playerSnapshot } from '../testing/snapshots'
+import { installFakeTransport } from './fakeTransport'
+import { playerSnapshot } from './snapshots'
 import type { PlayerSnapshot } from '../realtime/protocol'
-import { useSessionStore } from '../stores/session'
+import { usePlayerSession } from '../stores/session'
 
 /** A fresh fake server, empty browser storage and a fresh store, as every view test starts. */
 export function startFresh() {
@@ -18,7 +18,7 @@ export async function joinedAda(
   overrides: Partial<PlayerSnapshot> = {},
 ) {
   fake.answer('join_game', playerSnapshot(overrides))
-  const store = useSessionStore()
+  const store = usePlayerSession()
   await store.join('ABC123', 'Ada')
   return store
 }

@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import type { HostLink } from '../api/games'
-import { END_MESSAGES } from '../endMessages'
-import { useSessionStore } from '../stores/session'
+import type { HostLink } from '../../../api/games'
+import { useHostSession } from '../../../stores/session'
+import { messageFor } from '../shared/errors'
+import DrawHistory from '../shared/DrawHistory.vue'
+import EndBanner from '../shared/EndBanner.vue'
+import GameHeader from '../shared/GameHeader.vue'
+import LobbyList from '../shared/LobbyList.vue'
+import PrizeBoard from '../shared/PrizeBoard.vue'
 import ClaimLog from './ClaimLog.vue'
-import DrawHistory from './DrawHistory.vue'
-import LobbyList from './LobbyList.vue'
-import PrizeBoard from './PrizeBoard.vue'
 import PoolColumns from './PoolColumns.vue'
 
 const props = defineProps<{ code: string; token: string | undefined }>()
-const store = useSessionStore()
+const store = useHostSession()
 
 function hostLink(): HostLink {
   return { code: props.code, host_token: props.token ?? '' }
@@ -23,16 +25,10 @@ onMounted(() => {
 
 <template>
   <section class="space-y-5">
-    <div class="flex flex-wrap items-center gap-3">
-      <h2 class="text-2xl font-bold">Host dashboard</h2>
-      <p class="badge badge-outline h-auto px-3 py-2">Game code: <strong class="ml-1">{{ code }}</strong></p>
-    </div>
+    <GameHeader title="Host dashboard" :code="code" />
     <p v-if="store.error" class="alert alert-error" role="alert">{{ store.error }}</p>
     <template v-else>
-      <p v-if="store.endReason" class="alert alert-info">
-        {{ END_MESSAGES.host[store.endReason] }}
-        <RouterLink class="link" :to="`/games/${code}/history`" data-test="history-link">View the game history</RouterLink>
-      </p>
+      <EndBanner v-if="store.endReason" role="host" :reason="store.endReason" :code="code" />
       <div v-else class="flex flex-wrap gap-3">
         <button
           v-if="!store.started"
@@ -63,7 +59,7 @@ onMounted(() => {
       <DrawHistory :draws="store.draws" />
       <div class="grid gap-5 md:grid-cols-2">
         <PrizeBoard :prizes="store.prizes" />
-        <ClaimLog :claims="store.claims" :message-for="store.messageFor" />
+        <ClaimLog :claims="store.claims" :message-for="messageFor" />
       </div>
       <LobbyList :players="store.players" />
     </template>

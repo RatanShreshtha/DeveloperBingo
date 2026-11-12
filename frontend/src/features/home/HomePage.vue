@@ -1,37 +1,31 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { fetchPools, type PoolSummary } from '../api/pools'
-import { useSessionStore } from '../stores/session'
+import { computed, onMounted, ref } from 'vue'
+import { createGame as createRemoteGame } from '../../api/games'
+import { fetchPools, type PoolSummary } from '../../api/pools'
+import { useAsyncState } from '../../shared/useAsyncState'
 
-const store = useSessionStore()
-const created = ref<{ code: string; hostLink: string } | null>(null)
-const failed = ref(false)
-const pools = ref<PoolSummary[]>([])
+const { data: created, error: createError, run: create } =
+  useAsyncState<{ code: string; hostLink: string }>()
+const { data: poolList, error: poolError, run: loadPools } = useAsyncState<PoolSummary[]>()
+const pools = computed(() => poolList.value ?? [])
 // The picked pool's id. The default pool has an id like any other, so every option has a value.
 const pickedId = ref<number | undefined>(undefined)
 
 onMounted(async () => {
-  try {
-    pools.value = await fetchPools()
-    pickedId.value = pools.value.find((pool) => pool.is_default)?.id
-  } catch {
-    // Without the list the host can still create a game on the default pool.
-  }
+  await loadPools(fetchPools)
+  pickedId.value = pools.value.find((pool) => pool.is_default)?.id
 })
 
 async function createGame() {
-  failed.value = false
-  try {
+  await create(async () => {
     // The default pool is the server's fallback, so choosing it sends no pool id.
     const picked = pools.value.find((pool) => pool.id === pickedId.value)
-    const game = await store.create(picked && !picked.is_default ? picked.id : undefined)
-    created.value = {
+    const game = await createRemoteGame(picked && !picked.is_default ? picked.id : undefined)
+    return {
       code: game.code,
       hostLink: `/host/${game.code}?token=${game.host_token}`,
     }
-  } catch {
-    failed.value = true
-  }
+  })
 }
 </script>
 
@@ -44,6 +38,9 @@ async function createGame() {
     <div class="card bg-base-100 shadow-sm">
       <div class="card-body">
         <h3 class="card-title">Host a game</h3>
+        <p v-if="poolError" class="alert alert-warning" role="alert">
+          Could not load saved pools. You can still create a game with the default pool.
+        </p>
         <label v-if="pools.length > 1" class="form-control block space-y-2">
           <span class="font-medium">Pool</span>
           <select v-model="pickedId" class="select select-bordered w-full" data-test="pool-picker">
@@ -55,7 +52,7 @@ async function createGame() {
         <div class="card-actions">
           <button type="button" class="btn btn-primary dark:btn-neutral" data-test="create-game" @click="createGame">Create game</button>
         </div>
-        <p v-if="failed" class="alert alert-error" role="alert">Could not create a game. Please try again.</p>
+        <p v-if="createError" class="alert alert-error" role="alert">Could not create a game. Please try again.</p>
         <div v-if="created" class="rounded-box bg-base-200 p-4">
           <p>Game code: <strong>{{ created.code }}</strong></p>
           <p class="mt-2">

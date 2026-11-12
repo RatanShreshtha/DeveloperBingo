@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
-import { useSessionStore } from './session'
+import { usePlayerSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
@@ -16,11 +16,11 @@ beforeEach(() => {
 
 describe('session store prizes', () => {
   it('lists no prizes until the server sends the board', () => {
-    expect(useSessionStore().prizes).toEqual([])
+    expect(usePlayerSession().prizes).toEqual([])
   })
 
   it('shows who was awarded a prize when the room announces it', async () => {
-    const store = useSessionStore()
+    const store = usePlayerSession()
     await store.join('ABC123', 'Ada')
 
     fake.emit('prize_awarded', { prize: 'early_five', awarded_to: ['Ada'] })
@@ -30,7 +30,7 @@ describe('session store prizes', () => {
 
   it('restores the prize board a player gets when they join', async () => {
     fake.answer('join_game', playerSnapshot({ prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }] }))
-    const store = useSessionStore()
+    const store = usePlayerSession()
 
     await store.join('ABC123', 'Ada')
 
@@ -39,7 +39,7 @@ describe('session store prizes', () => {
 
   it('sends a claim for the prize, which waits until its window settles', async () => {
     fake.answer('claim_prize', { ok: true, waiting: true })
-    const store = useSessionStore()
+    const store = usePlayerSession()
     await store.join('ABC123', 'Ada')
 
     await store.claimPrize('early_five')
@@ -55,7 +55,7 @@ describe('session store prizes', () => {
 
   it('shows why a waiting claim was refused when its window settles', async () => {
     fake.answer('claim_prize', { ok: true, waiting: true })
-    const store = useSessionStore()
+    const store = usePlayerSession()
     await store.join('ABC123', 'Ada')
     await store.claimPrize('early_five')
 
@@ -66,7 +66,7 @@ describe('session store prizes', () => {
   })
 
   it('stays settled when the window closes before the acknowledgement arrives', async () => {
-    const store = useSessionStore()
+    const store = usePlayerSession()
     fake.answer('claim_prize', () => {
       fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
       return { ok: true, waiting: true }
@@ -80,7 +80,7 @@ describe('session store prizes', () => {
 
   it('shows why a claim was refused, and changes no prize', async () => {
     fake.answer('claim_prize', { ok: false, error: 'claim_not_valid' })
-    const store = useSessionStore()
+    const store = usePlayerSession()
     await store.join('ABC123', 'Ada')
 
     await store.claimPrize('early_five')
@@ -91,7 +91,7 @@ describe('session store prizes', () => {
 
   it('says a prize is taken when someone else has been awarded it', async () => {
     fake.answer('claim_prize', { ok: false, error: 'prize_taken' })
-    const store = useSessionStore()
+    const store = usePlayerSession()
     await store.join('ABC123', 'Ada')
 
     await store.claimPrize('early_five')

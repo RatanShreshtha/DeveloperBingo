@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
-import HealthView from './components/HealthView.vue'
+import HealthStatus from './shared/ui/HealthStatus.vue'
 </script>
 
 <template>
@@ -14,7 +14,7 @@ import HealthView from './components/HealthView.vue'
       <RouterView />
     </main>
     <footer class="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
-      <HealthView />
+      <HealthStatus />
     </footer>
   </div>
 </template>

@@ -1,25 +1,16 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchGameHistory } from '../api/games'
-import { hostSnapshot } from '../testing/snapshots'
-import GameHistoryView from './GameHistoryView.vue'
-import HostView from './HostView.vue'
-import PlayerLobbyView from './PlayerLobbyView.vue'
-import { makePlugins } from './testRouter'
-import { joinedAda, startFresh } from './testSetup'
+import { fetchGameHistory } from '../../api/games'
+import { HttpError } from '../../api/request'
+import { hostSnapshot } from '../../testing/snapshots'
+import GameHistoryView from './GameHistoryPage.vue'
+import HostView from '../game/host/HostPage.vue'
+import PlayerLobbyView from '../game/player/PlayerPage.vue'
+import { makePlugins } from '../../testing/testRouter'
+import { joinedAda, startFresh } from '../../testing/testSetup'
 
-vi.mock('../api/games', async () => {
-  const mock = (await import('../testing/apiMock')).apiGamesMock()
-  class GameHistoryError extends Error {
-    status: number
-    constructor(status: number) {
-      super(`status ${status}`)
-      this.status = status
-    }
-  }
-  return { ...mock, GameHistoryError }
-})
-vi.mock('../api/pools', () => ({ fetchDefaultPool: vi.fn(async () => ({ columns: [] })) }))
+vi.mock('../../api/games', async () => (await import('../../testing/apiMock')).apiGamesMock())
+vi.mock('../../api/pools', () => ({ fetchDefaultPool: vi.fn(async () => ({ columns: [] })) }))
 
 const history = {
   code: 'ABC123',
@@ -54,6 +45,7 @@ describe('GameHistoryView', () => {
     const wrapper = mountHistory()
     await flushPromises()
 
+    expect(fetchGameHistory).toHaveBeenCalledWith('ABC123')
     const draws = wrapper.findAll('[data-test="draw"]').map((d) => d.text())
     expect(draws).toEqual(['2. Index: Speeds lookups', '1. Cache: Keeps results close'])
     expect(history.draws.map((draw) => draw.position)).toEqual([1, 2])
@@ -84,12 +76,27 @@ describe('GameHistoryView', () => {
   })
 
   it('says when there is no history', async () => {
-    const { GameHistoryError } = await import('../api/games')
-    vi.mocked(fetchGameHistory).mockRejectedValue(new GameHistoryError(404))
+    vi.mocked(fetchGameHistory).mockRejectedValue(new HttpError(new Response(null, { status: 404 })))
     const wrapper = mountHistory()
     await flushPromises()
 
     expect(wrapper.get('[role="alert"]').text()).toBe('There is no stored history for this game')
+  })
+
+  it('says when history is unavailable', async () => {
+    vi.mocked(fetchGameHistory).mockRejectedValue(new HttpError(new Response(null, { status: 503 })))
+    const wrapper = mountHistory()
+    await flushPromises()
+
+    expect(wrapper.get('[role="alert"]').text()).toBe('Game history is unavailable right now. Try again shortly.')
+  })
+
+  it('reports a network failure', async () => {
+    vi.mocked(fetchGameHistory).mockRejectedValue(new TypeError('network'))
+    const wrapper = mountHistory()
+    await flushPromises()
+
+    expect(wrapper.get('[role="alert"]').text()).toBe('Could not load the game history')
   })
 })
 

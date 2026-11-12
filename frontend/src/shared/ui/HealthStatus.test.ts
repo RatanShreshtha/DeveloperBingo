@@ -1,7 +1,6 @@
-import { createPinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import HealthView from './HealthView.vue'
+import HealthView from './HealthStatus.vue'
 
 function stubHealthResponse(body: unknown) {
   vi.stubGlobal(
@@ -11,9 +10,7 @@ function stubHealthResponse(body: unknown) {
 }
 
 async function renderHealthView() {
-  const wrapper = mount(HealthView, {
-    global: { plugins: [createPinia()] },
-  })
+  const wrapper = mount(HealthView)
   await flushPromises()
   return wrapper
 }

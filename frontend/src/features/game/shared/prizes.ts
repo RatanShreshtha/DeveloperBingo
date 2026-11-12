@@ -1,4 +1,4 @@
-import type { components } from './api/schema'
+import type { components } from '../../../api/schema'
 
 export type Prize = components['schemas']['Prize']
 

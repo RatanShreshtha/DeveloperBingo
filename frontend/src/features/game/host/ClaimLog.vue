@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { PRIZE_LABELS } from '../prizes'
-import type { ClaimLogEntry, ErrorCode } from '../realtime/protocol'
+import { PRIZE_LABELS } from '../shared/prizes'
+import type { ClaimLogEntry, ErrorCode } from '../../../realtime/protocol'
 
 defineProps<{ claims: ClaimLogEntry[]; messageFor: (code: ErrorCode) => string }>()
 </script>

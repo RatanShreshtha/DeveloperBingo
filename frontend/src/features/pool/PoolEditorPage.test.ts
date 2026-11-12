@@ -1,10 +1,10 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchDefaultPool, PoolRefusedError, savePool } from '../api/pools'
-import { makePlugins } from './testRouter'
-import PoolEditorView from './PoolEditorView.vue'
+import { fetchDefaultPool, PoolRefusedError, savePool } from '../../api/pools'
+import { makePlugins } from '../../testing/testRouter'
+import PoolEditorView from './PoolEditorPage.vue'
 
-vi.mock('../api/pools', async () => (await import('../testing/apiMock')).apiPoolsMock())
+vi.mock('../../api/pools', async () => (await import('../../testing/apiMock')).apiPoolsMock())
 
 const SIZES = [9, 10, 10, 10, 10, 10, 10, 10, 11]
 
@@ -81,5 +81,20 @@ describe('PoolEditorView', () => {
 
     expect(wrapper.get('[role="alert"]').text()).toContain('Could not load')
     expect(wrapper.find('button[data-test="save-pool"]').exists()).toBe(false)
+  })
+
+  it('reports other save failures and clears the error after a successful retry', async () => {
+    vi.mocked(savePool).mockRejectedValueOnce(new Error('unavailable'))
+    vi.mocked(savePool).mockResolvedValueOnce({ id: 2, name: 'Mine', is_default: false })
+    const wrapper = await mountEditor()
+
+    await wrapper.get('button[data-test="save-pool"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('Could not save the pool')
+
+    await wrapper.get('button[data-test="save-pool"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Saved')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 })

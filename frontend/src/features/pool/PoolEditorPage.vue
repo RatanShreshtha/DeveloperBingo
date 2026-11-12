@@ -1,37 +1,28 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { fetchDefaultPool, PoolRefusedError, savePool, type TopicResponse } from '../api/pools'
+import { fetchDefaultPool, PoolRefusedError, savePool, type PoolSummary, type TopicResponse } from '../../api/pools'
+import { useAsyncState } from '../../shared/useAsyncState'
 
 const name = ref('')
 const topics = ref<TopicResponse[] | null>(null)
-const loadFailed = ref(false)
-const refusal = ref<string | null>(null)
-const failed = ref(false)
-const saved = ref(false)
+const { data: loadedTopics, error: loadError, run: load } = useAsyncState<TopicResponse[]>()
+const { data: saved, error: saveError, run: saveRequest } = useAsyncState<PoolSummary>()
 
 onMounted(async () => {
-  try {
+  await load(async () => {
     const pool = await fetchDefaultPool()
-    topics.value = pool.columns.flat().map((topic) => ({ ...topic }))
-  } catch {
-    loadFailed.value = true
-  }
+    return pool.columns.flat().map((topic) => ({ ...topic }))
+  })
+  topics.value = loadedTopics.value
 })
 
 async function save() {
-  refusal.value = null
-  failed.value = false
-  saved.value = false
-  try {
-    await savePool(name.value, topics.value ?? [])
-    saved.value = true
-  } catch (error) {
-    if (error instanceof PoolRefusedError) {
-      refusal.value = error.message
-    } else {
-      failed.value = true
-    }
+  if (!topics.value) {
+    throw new Error('Cannot save a pool before the default pool has loaded')
   }
+  const editedTopics = topics.value
+  saved.value = null
+  await saveRequest(() => savePool(name.value, editedTopics))
 }
 </script>
 
@@ -41,7 +32,7 @@ async function save() {
       <h2 class="text-2xl font-bold">New custom pool</h2>
       <p><RouterLink class="link" to="/">Back to home</RouterLink></p>
     </div>
-    <p v-if="loadFailed" class="alert alert-error" role="alert">Could not load the default pool to copy.</p>
+    <p v-if="loadError" class="alert alert-error" role="alert">Could not load the default pool to copy.</p>
     <template v-if="topics">
       <div class="card bg-base-100 shadow-sm">
         <div class="card-body">
@@ -75,8 +66,8 @@ async function save() {
           <div class="card-actions">
             <button class="btn btn-primary dark:btn-neutral" type="button" data-test="save-pool" @click="save">Save pool</button>
           </div>
-          <p v-if="refusal" class="alert alert-error" role="alert">{{ refusal }}</p>
-          <p v-if="failed" class="alert alert-error" role="alert">Could not save the pool. Please try again.</p>
+          <p v-if="saveError instanceof PoolRefusedError" class="alert alert-error" role="alert">{{ saveError.message }}</p>
+          <p v-else-if="saveError" class="alert alert-error" role="alert">Could not save the pool. Please try again.</p>
           <p v-if="saved" class="alert alert-success">Saved. Pick it when you create a game.</p>
         </div>
       </div>

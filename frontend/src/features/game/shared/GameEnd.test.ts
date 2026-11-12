@@ -1,12 +1,12 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { hostSnapshot } from '../testing/snapshots'
-import HostView from './HostView.vue'
-import PlayerLobbyView from './PlayerLobbyView.vue'
-import { makePlugins } from './testRouter'
-import { joinedAda, startFresh } from './testSetup'
+import { hostSnapshot } from '../../../testing/snapshots'
+import HostView from '../host/HostPage.vue'
+import PlayerLobbyView from '../player/PlayerPage.vue'
+import { makePlugins } from '../../../testing/testRouter'
+import { joinedAda, startFresh } from '../../../testing/testSetup'
 
-vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
+vi.mock('../../../api/games', async () => (await import('../../../testing/apiMock')).apiGamesMock())
 
 let fake: ReturnType<typeof startFresh>
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { savedSessionFor } from '../realtime/savedSession'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
-import { useSessionStore } from './session'
+import { usePlayerSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
@@ -32,7 +32,7 @@ function answerJoin(answer: Answer) {
 
 /** Joins the way `how` says, with the server answering `answer`. Resolves however the join ends. */
 async function enterBy(how: How, answer: Answer) {
-  const store = useSessionStore()
+  const store = usePlayerSession()
   if (how === 'fresh') {
     answerJoin(answer)
     await store.join('ABC123', 'Ada')
