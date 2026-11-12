@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
@@ -16,8 +15,5 @@ export default defineConfig({
       '/pools': 'http://localhost:8000',
       '/socket.io': { target: 'http://localhost:8000', ws: true },
     },
-  },
-  test: {
-    environment: 'jsdom',
   },
 })

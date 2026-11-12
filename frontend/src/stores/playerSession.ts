@@ -1,6 +1,6 @@
 import { ref } from 'vue'
-import { messageFor, UNREACHABLE } from '../features/game/shared/errors'
-import type { Prize } from '../features/game/shared/prizes'
+import { messageFor, UNREACHABLE } from '../utils/errors'
+import type { Prize } from '../utils/prizes'
 import type { ClaimSettled, PlayerRef, PlayerSnapshot } from '../realtime/protocol'
 import { forgetSession, saveSession, savedSessionFor } from '../realtime/savedSession'
 import type { GameSession } from './gameSession'
