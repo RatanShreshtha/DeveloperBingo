@@ -1,18 +1,15 @@
 """What each command reports, so the adapter only turns outcomes into emits."""
 
-import asyncio
-
 import pytest
-from helpers import ManualScheduler
+from helpers import RealtimeTable, host_message, run
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import GameRegistry, Outcome, PlayerRef
-from devbingo_backend.realtime import RealtimeAdapter
 
 
 @pytest.fixture
 def registry():
-    return GameRegistry(scheduler=ManualScheduler())
+    return GameRegistry()
 
 
 @pytest.fixture
@@ -49,33 +46,16 @@ def test_a_draw_reports_the_topic_drawn(registry, game):
     assert drawn.draw.position == 1
 
 
-class BrokenBroadcaster:
-    """Takes sockets into rooms, but every message it is asked to send fails."""
+def test_a_failed_announcement_never_costs_the_caller_their_acknowledgement(caplog):
+    t = RealtimeTable()
+    t.broadcaster.failing = {"lobby_updated", "game_started", "topic_drawn"}
 
-    async def enter_room(self, sid: str, room: str) -> None:
-        pass
-
-    async def leave_room(self, sid: str, room: str) -> None:
-        pass
-
-    async def emit(self, event, data, room=None, to=None) -> None:
-        raise RuntimeError(f"cannot emit {event}")
-
-
-def test_a_failed_announcement_never_costs_the_caller_their_acknowledgement(registry, game, caplog):
-    adapter = RealtimeAdapter(registry, BrokenBroadcaster())
-    host = {"code": game.code, "host_token": game.host_token}
-
-    async def commands():
-        joined = await adapter.join_game("sid-1", {"code": game.code, "name": "Ada"})
-        started = await adapter.start_game("sid-host", host)
-        drawn = await adapter.draw_topic("sid-host", host)
-        return joined, started, drawn
-
-    joined, started, drawn = asyncio.run(commands())
+    joined = t.join()
+    started = run(t.adapter.start_game("sid-host", host_message(t.game)))
+    drawn = run(t.adapter.draw_topic("sid-host", host_message(t.game)))
 
     assert joined["ok"] is True
     assert started == {"ok": True}
     assert drawn["ok"] is True and drawn["draw"]["position"] == 1
-    assert registry.host_snapshot(game).status == "started"
-    assert "cannot emit" in caplog.text or "could not send" in caplog.text
+    assert t.registry.host_snapshot(t.game).status == "started"
+    assert "could not send" in caplog.text

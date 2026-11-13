@@ -1,56 +1,25 @@
 """A client that reloads or reconnects gets the whole game back in one snapshot, and a player who
 reloads can take their name over from a socket the server has not yet noticed dropping."""
 
-import random
-
-from helpers import ManualScheduler, start_and_draw_everything, wire_board_of
-from test_realtime import RecordingBroadcaster, host_message, run, topics_on
+from helpers import RealtimeTable, host_message, run, topics_on, wire_board_of
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import GameRegistry
 from devbingo_backend.prizes import Prize
-from devbingo_backend.realtime import RealtimeAdapter
-
-
-def a_game(scheduler=None):
-    registry = GameRegistry(rng=random.Random(5), scheduler=scheduler or ManualScheduler())
-    game = registry.create_game(DEFAULT_POOL, pool_name="Default")
-    broadcaster = RecordingBroadcaster()
-    adapter = RealtimeAdapter(registry, broadcaster)
-    return adapter, registry, game, broadcaster
-
-
-def join(adapter, game, sid="sid-ada", name="Ada", **extra):
-    return run(adapter.join_game(sid, {"code": game.code, "name": name, **extra}))
-
-
-def ready_to_claim(adapter, registry, game, sid="sid-ada", name="Ada"):
-    """Ada has joined, every topic is drawn and she has ticked her whole ticket."""
-    ada = join(adapter, game, sid, name)
-    start_and_draw_everything(registry, game)
-    for topic in topics_on(ada["ticket"]):
-        run(adapter.tick_topic(sid, {"topic": topic}))
-    return ada
-
-
-def claim(adapter, sid="sid-ada", prize="early_five"):
-    return run(adapter.claim_prize(sid, {"prize": prize}))
 
 
 # --- the snapshot, as the wire carries it (its content is tested in test_game_snapshot.py) ---
 
 
 def test_a_join_acknowledgement_carries_the_players_whole_snapshot():
-    scheduler = ManualScheduler()
-    adapter, registry, game, _ = a_game(scheduler)
-    ada = ready_to_claim(adapter, registry, game)
-    claim(adapter, prize="top_line")
-    claim(adapter)
-    close_top_line, close_early_five = scheduler.pending
+    t = RealtimeTable()
+    ada = t.ready_to_claim(whole_ticket=True)
+    t.claim(prize="top_line")
+    t.claim()
+    close_top_line, close_early_five = t.scheduler.pending
     run(close_early_five())  # top line's window stays open
-    run(adapter.disconnect("sid-ada"))
+    run(t.adapter.disconnect("sid-ada"))
 
-    ack = join(adapter, game, "sid-ada-2")
+    ack = t.join("sid-ada-2")
 
     assert ack["ok"] is True
     assert ack["status"] == "started"
@@ -68,12 +37,11 @@ def test_a_join_acknowledgement_carries_the_players_whole_snapshot():
 
 
 def test_a_watch_acknowledgement_carries_the_hosts_whole_snapshot():
-    scheduler = ManualScheduler()
-    adapter, registry, game, _ = a_game(scheduler)
-    ready_to_claim(adapter, registry, game)
-    claim(adapter)
+    t = RealtimeTable()
+    t.ready_to_claim(whole_ticket=True)
+    t.claim()
 
-    ack = run(adapter.watch_lobby("sid-host", host_message(game)))
+    ack = run(t.adapter.watch_lobby("sid-host", host_message(t.game)))
 
     assert ack["ok"] is True
     assert ack["status"] == "started"
@@ -89,98 +57,98 @@ def test_a_watch_acknowledgement_carries_the_hosts_whole_snapshot():
 
 
 def test_the_first_join_returns_a_rejoin_token_and_a_rejoin_returns_a_new_one():
-    adapter, _, game, _ = a_game()
-    first = join(adapter, game)
-    run(adapter.disconnect("sid-ada"))
+    t = RealtimeTable()
+    first = t.join()
+    run(t.adapter.disconnect("sid-ada"))
 
-    second = join(adapter, game, "sid-ada-2")
+    second = t.join("sid-ada-2")
 
     assert first["rejoin_token"]
     assert second["rejoin_token"] and second["rejoin_token"] != first["rejoin_token"]
 
 
 def test_the_right_token_takes_the_name_over_while_the_old_socket_is_still_connected():
-    adapter, registry, game, broadcaster = a_game()
-    first = join(adapter, game)
-    registry.start(game)
+    t = RealtimeTable()
+    first = t.join()
+    t.registry.start(t.game)
 
-    second = join(adapter, game, "sid-ada-2", rejoin_token=first["rejoin_token"])
+    second = t.join("sid-ada-2", rejoin_token=first["rejoin_token"])
 
     assert second["ok"] is True
     assert second["ticket"] == first["ticket"]
-    assert broadcaster.left == [("sid-ada", game.code)]
-    assert ("replaced", "sid-ada", {}) in broadcaster.emitted
+    assert t.broadcaster.left == [("sid-ada", t.game.code)]
+    assert ("replaced", "sid-ada", {}) in t.broadcaster.emitted
 
 
 def test_the_replaced_socket_no_longer_acts_for_the_player():
-    adapter, registry, game, _ = a_game()
-    first = join(adapter, game)
-    start_and_draw_everything(registry, game)
-    join(adapter, game, "sid-ada-2", rejoin_token=first["rejoin_token"])
+    t = RealtimeTable()
+    first = t.join()
+    t.start_and_draw_everything()
+    t.join("sid-ada-2", rejoin_token=first["rejoin_token"])
 
-    ack = run(adapter.tick_topic("sid-ada", {"topic": topics_on(first["ticket"])[0]}))
+    ack = run(t.adapter.tick_topic("sid-ada", {"topic": topics_on(first["ticket"])[0]}))
 
     assert ack == {"ok": False, "error": "not_joined"}
 
 
 def test_the_replaced_sockets_late_disconnect_does_not_drop_the_new_one():
-    adapter, registry, game, _ = a_game()
-    first = join(adapter, game)
-    start_and_draw_everything(registry, game)
-    join(adapter, game, "sid-ada-2", rejoin_token=first["rejoin_token"])
+    t = RealtimeTable()
+    first = t.join()
+    t.start_and_draw_everything()
+    t.join("sid-ada-2", rejoin_token=first["rejoin_token"])
 
-    run(adapter.disconnect("sid-ada"))
-    ack = run(adapter.tick_topic("sid-ada-2", {"topic": topics_on(first["ticket"])[0]}))
+    run(t.adapter.disconnect("sid-ada"))
+    ack = run(t.adapter.tick_topic("sid-ada-2", {"topic": topics_on(first["ticket"])[0]}))
 
     assert ack == {"ok": True}
-    assert join(adapter, game, "sid-ada-3")["error"] == "name_taken"
+    assert t.join("sid-ada-3")["error"] == "name_taken"
 
 
 def test_a_connected_name_is_refused_without_the_token():
-    adapter, _, game, _ = a_game()
-    join(adapter, game)
+    t = RealtimeTable()
+    t.join()
 
-    ack = join(adapter, game, "sid-ada-2")
+    ack = t.join("sid-ada-2")
 
     assert ack == {"ok": False, "error": "name_taken"}
 
 
 def test_a_connected_name_is_refused_with_a_wrong_token():
-    adapter, _, game, broadcaster = a_game()
-    join(adapter, game)
+    t = RealtimeTable()
+    t.join()
 
-    ack = join(adapter, game, "sid-ada-2", rejoin_token="not-the-token")
+    ack = t.join("sid-ada-2", rejoin_token="not-the-token")
 
     assert ack == {"ok": False, "error": "name_taken"}
-    assert broadcaster.left == []
+    assert t.broadcaster.left == []
 
 
 def test_a_token_replaced_by_a_newer_join_no_longer_works():
-    adapter, _, game, _ = a_game()
-    first = join(adapter, game)
-    join(adapter, game, "sid-ada-2", rejoin_token=first["rejoin_token"])
+    t = RealtimeTable()
+    first = t.join()
+    t.join("sid-ada-2", rejoin_token=first["rejoin_token"])
 
-    ack = join(adapter, game, "sid-ada-3", rejoin_token=first["rejoin_token"])
+    ack = t.join("sid-ada-3", rejoin_token=first["rejoin_token"])
 
     assert ack == {"ok": False, "error": "name_taken"}
 
 
 def test_a_dropped_player_still_rejoins_by_name_alone_and_with_a_wrong_token():
-    adapter, _, game, _ = a_game()
-    join(adapter, game)
-    run(adapter.disconnect("sid-ada"))
+    t = RealtimeTable()
+    t.join()
+    run(t.adapter.disconnect("sid-ada"))
 
-    assert join(adapter, game, "sid-ada-2", rejoin_token="stale")["ok"] is True
+    assert t.join("sid-ada-2", rejoin_token="stale")["ok"] is True
 
 
 def test_a_takeover_does_not_announce_a_change_to_the_lobby():
-    adapter, _, game, broadcaster = a_game()
-    first = join(adapter, game)
-    before = len(broadcaster.emitted)
+    t = RealtimeTable()
+    first = t.join()
+    before = len(t.broadcaster.emitted)
 
-    join(adapter, game, "sid-ada-2", rejoin_token=first["rejoin_token"])
+    t.join("sid-ada-2", rejoin_token=first["rejoin_token"])
 
-    assert [e for e in broadcaster.emitted[before:] if e[0] == "lobby_updated"] == []
+    assert [e for e in t.broadcaster.emitted[before:] if e[0] == "lobby_updated"] == []
 
 
 def settled_to(broadcaster):
@@ -190,19 +158,18 @@ def settled_to(broadcaster):
 def test_a_takeover_during_a_pending_claim_sends_the_result_to_the_new_socket_only():
     # The client used to claim again after a rejoin to get its answer back; a window closing in
     # between made that a false `prize_taken` refusal in the host's log. Nothing is claimed again now.
-    scheduler = ManualScheduler()
-    adapter, registry, game, broadcaster = a_game(scheduler)
-    ada = ready_to_claim(adapter, registry, game)
-    claim(adapter)
+    t = RealtimeTable()
+    ada = t.ready_to_claim(whole_ticket=True)
+    t.claim()
 
-    takeover = join(adapter, game, "sid-ada-2", rejoin_token=ada["rejoin_token"])
-    scheduler.close_all()
+    takeover = t.join("sid-ada-2", rejoin_token=ada["rejoin_token"])
+    t.scheduler.close_all()
 
     assert takeover["pending_claims"] == ["early_five"]
-    assert settled_to(broadcaster) == [
+    assert settled_to(t.broadcaster) == [
         ("sid-ada-2", {"prize": "early_five", "accepted": True, "error": None})
     ]
-    claims = registry.host_snapshot(game).claims
+    claims = t.registry.host_snapshot(t.game).claims
     assert [(entry.player, entry.accepted) for entry in claims] == [("Ada", True)]
 
 
@@ -211,65 +178,62 @@ def window_events(broadcaster):
 
 
 def test_the_host_is_told_when_a_window_opens_and_when_the_last_one_closes():
-    scheduler = ManualScheduler()
-    adapter, registry, game, broadcaster = a_game(scheduler)
-    ready_to_claim(adapter, registry, game)
+    t = RealtimeTable()
+    t.ready_to_claim(whole_ticket=True)
 
-    claim(adapter)
-    opened = list(window_events(broadcaster))
-    scheduler.close_all()
+    t.claim()
+    opened = list(window_events(t.broadcaster))
+    t.scheduler.close_all()
 
     assert opened == [{"open": True}]
-    assert window_events(broadcaster) == [{"open": True}, {"open": False}]
-    assert {room for _, room, _ in broadcaster.window_changes} == {f"{game.code}:host"}
+    assert window_events(t.broadcaster) == [{"open": True}, {"open": False}]
+    assert {room for _, room, _ in t.broadcaster.window_changes} == {f"{t.game.code}:host"}
 
 
 # --- one handle per player: the name the engine stored, whatever the client typed ---
 
 
 def test_a_join_tells_the_player_the_name_the_game_stored():
-    adapter, _, game, _ = a_game()
+    t = RealtimeTable()
 
-    assert join(adapter, game, name="  Ada ")["name"] == "Ada"
+    assert t.join(name="  Ada ")["name"] == "Ada"
 
 
 def test_a_rejoin_by_another_case_is_told_the_name_first_stored():
-    adapter, _, game, _ = a_game()
-    join(adapter, game)
-    run(adapter.disconnect("sid-ada"))
+    t = RealtimeTable()
+    t.join()
+    run(t.adapter.disconnect("sid-ada"))
 
-    assert join(adapter, game, "sid-ada-2", name="ada")["name"] == "Ada"
+    assert t.join("sid-ada-2", name="ada")["name"] == "Ada"
 
 
 def test_a_claim_by_a_player_who_joined_with_spaces_is_answered():
-    scheduler = ManualScheduler()
-    adapter, registry, game, broadcaster = a_game(scheduler)
-    ready_to_claim(adapter, registry, game, name="Ada ")
+    t = RealtimeTable()
+    t.ready_to_claim(name="Ada ", whole_ticket=True)
 
-    claim(adapter)
-    scheduler.close_all()
+    t.claim()
+    t.scheduler.close_all()
 
-    assert settled_to(broadcaster) == [("sid-ada", {"prize": "early_five", "accepted": True, "error": None})]
-    assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ("Ada",)
+    assert settled_to(t.broadcaster) == [("sid-ada", {"prize": "early_five", "accepted": True, "error": None})]
+    assert t.registry.host_snapshot(t.game).prizes[Prize.EARLY_FIVE] == ("Ada",)
 
 
 def test_a_claim_waiting_through_a_takeover_by_another_case_is_answered():
-    scheduler = ManualScheduler()
-    adapter, registry, game, broadcaster = a_game(scheduler)
-    ada = ready_to_claim(adapter, registry, game)
-    claim(adapter)
+    t = RealtimeTable()
+    ada = t.ready_to_claim(whole_ticket=True)
+    t.claim()
 
-    join(adapter, game, "sid-ada-2", name="ada", rejoin_token=ada["rejoin_token"])
-    scheduler.close_all()
+    t.join("sid-ada-2", name="ada", rejoin_token=ada["rejoin_token"])
+    t.scheduler.close_all()
 
-    assert settled_to(broadcaster) == [("sid-ada-2", {"prize": "early_five", "accepted": True, "error": None})]
+    assert settled_to(t.broadcaster) == [("sid-ada-2", {"prize": "early_five", "accepted": True, "error": None})]
 
 
 def test_a_takeover_by_another_case_replaces_the_old_socket():
-    adapter, _, game, broadcaster = a_game()
-    ada = join(adapter, game)
+    t = RealtimeTable()
+    ada = t.join()
 
-    join(adapter, game, "sid-ada-2", name="ADA", rejoin_token=ada["rejoin_token"])
+    t.join("sid-ada-2", name="ADA", rejoin_token=ada["rejoin_token"])
 
-    assert [target for event, target, _ in broadcaster.emitted if event == "replaced"] == ["sid-ada"]
-    assert broadcaster.left == [("sid-ada", game.code)]
+    assert [target for event, target, _ in t.broadcaster.emitted if event == "replaced"] == ["sid-ada"]
+    assert t.broadcaster.left == [("sid-ada", t.game.code)]
