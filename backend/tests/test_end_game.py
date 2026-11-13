@@ -1,7 +1,12 @@
 import random
 
 import pytest
-from helpers import ManualRegistry, claim_and_settle, names_on, start_and_draw_everything
+from helpers import (
+    ManualRegistry,
+    claim_and_settle,
+    names_on,
+    start_and_draw_everything,
+)
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -45,7 +50,9 @@ def test_claiming_full_house_ends_the_game(started_with_every_topic_drawn):
         registry.draw(game)
 
 
-def test_claiming_any_other_prize_leaves_the_game_running(started_with_every_topic_drawn):
+def test_claiming_any_other_prize_leaves_the_game_running(
+    started_with_every_topic_drawn,
+):
     registry, game, ticket = started_with_every_topic_drawn
     for topic in names_on(ticket)[:5]:
         registry.tick(PlayerRef(game.code, "Ada"), topic)
@@ -55,7 +62,9 @@ def test_claiming_any_other_prize_leaves_the_game_running(started_with_every_top
     assert outcome.ended is None
 
 
-def test_a_refused_full_house_claim_does_not_end_the_game(started_with_every_topic_drawn):
+def test_a_refused_full_house_claim_does_not_end_the_game(
+    started_with_every_topic_drawn,
+):
     registry, game, ticket = started_with_every_topic_drawn
     for topic in names_on(ticket)[:14]:
         registry.tick(PlayerRef(game.code, "Ada"), topic)
@@ -116,7 +125,9 @@ def test_claims_are_refused_after_the_game_ends(started_with_every_topic_drawn):
     assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 
 
-def test_a_dropped_player_can_rejoin_after_the_game_ends_to_read_the_result(started_with_every_topic_drawn):
+def test_a_dropped_player_can_rejoin_after_the_game_ends_to_read_the_result(
+    started_with_every_topic_drawn,
+):
     registry, game, _ = started_with_every_topic_drawn
     ada = PlayerRef(game.code, "Ada")
     registry.disconnect(ada)
@@ -135,7 +146,9 @@ def test_a_new_player_cannot_join_after_the_game_ends(started_with_every_topic_d
         registry.join(PlayerRef(game.code, "Late"))
 
 
-def test_ticks_and_unticks_are_refused_after_the_game_ends(started_with_every_topic_drawn):
+def test_ticks_and_unticks_are_refused_after_the_game_ends(
+    started_with_every_topic_drawn,
+):
     registry, game, ticket = started_with_every_topic_drawn
     ada = PlayerRef(game.code, "Ada")
     topic = names_on(ticket)[0]

@@ -73,6 +73,8 @@ def test_creating_a_game_returns_the_host_link_model():
     with TestClient(create_app(UNUSED_DATABASE)) as client:
         spec = client.get("/openapi.json").json()
 
-    created = spec["paths"]["/games"]["post"]["responses"]["201"]["content"]["application/json"]
+    created = spec["paths"]["/games"]["post"]["responses"]["201"]["content"][
+        "application/json"
+    ]
     assert created["schema"]["$ref"].endswith("/HostLink")
     assert "CreateGameResponse" not in spec["components"]["schemas"]

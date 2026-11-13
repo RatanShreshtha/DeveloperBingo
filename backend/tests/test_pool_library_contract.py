@@ -44,7 +44,17 @@ def library(request):
 def test_the_default_pool_has_ninety_topics_in_nine_columns(library):
     pool = library.load_default()
 
-    assert [len(column) for column in pool.columns()] == [9, 10, 10, 10, 10, 10, 10, 10, 11]
+    assert [len(column) for column in pool.columns()] == [
+        9,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        11,
+    ]
     assert len(pool.topics) == 90
 
 
@@ -120,6 +130,7 @@ def test_getting_an_unknown_id_is_refused(library):
 
 # The pool rules. Each case breaks exactly one, except where it says otherwise.
 
+
 def duplicated() -> list[Topic]:
     topics = custom_topics()
     topics[1] = Topic(topics[0].name.upper(), "another explanation")
@@ -164,7 +175,9 @@ RULE_CASES = [
 
 
 @pytest.mark.parametrize(("name", "topics", "rule", "limit"), RULE_CASES)
-def test_a_pool_that_breaks_a_rule_is_refused_naming_it_and_is_not_saved(library, name, topics, rule, limit):
+def test_a_pool_that_breaks_a_rule_is_refused_naming_it_and_is_not_saved(
+    library, name, topics, rule, limit
+):
     before = library.list_pools()
 
     with pytest.raises(PoolError) as refused:
@@ -194,6 +207,7 @@ def test_topic_names_and_explanations_are_kept_trimmed(library):
 
 # Seeding the default pool in Postgres.
 
+
 def test_two_libraries_on_one_database_keep_a_single_default_pool(postgres_engine):
     first = PostgresPoolLibrary(postgres_engine)
     second = PostgresPoolLibrary(postgres_engine)
@@ -205,7 +219,9 @@ def test_two_libraries_on_one_database_keep_a_single_default_pool(postgres_engin
 
 
 def test_the_postgres_library_reports_unavailable_when_the_database_is_down():
-    library = PostgresPoolLibrary(create_engine(unused_database_url(), connect_args={"connect_timeout": 2}))
+    library = PostgresPoolLibrary(
+        create_engine(unused_database_url(), connect_args={"connect_timeout": 2})
+    )
 
     with pytest.raises(PoolLibraryUnavailable):
         library.load_default()

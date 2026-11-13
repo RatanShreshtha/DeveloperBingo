@@ -31,7 +31,10 @@ function failureFor(response: Response): HttpError {
   return new HttpError(response)
 }
 
-export async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+export async function requestJson<T>(
+  url: string,
+  init?: RequestInit,
+): Promise<T> {
   const response = await fetch(url, init)
   if (!response.ok) {
     throw failureFor(response)

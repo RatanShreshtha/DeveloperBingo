@@ -9,7 +9,12 @@ from devbingo_backend.pool import Topic, build_pool
 
 def custom_pool(prefix: str):
     """A valid pool whose topics are named differently from the default pool's."""
-    return build_pool([Topic(f"{prefix}{number:02}", f"{prefix}{number:02} explained") for number in range(90)])
+    return build_pool(
+        [
+            Topic(f"{prefix}{number:02}", f"{prefix}{number:02} explained")
+            for number in range(90)
+        ]
+    )
 
 
 def test_a_game_deals_tickets_from_the_pool_it_was_created_with():

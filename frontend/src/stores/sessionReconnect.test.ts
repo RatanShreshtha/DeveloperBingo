@@ -1,6 +1,9 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import {
+  installFakeTransport,
+  type FakeTransport,
+} from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
 import { usePlayerSession } from './session'
 
@@ -24,14 +27,23 @@ describe('session store after the connection drops and returns', () => {
     await store.join('ABC123', 'Ada')
     fake.answer(
       'join_game',
-      playerSnapshot({ ticket, ticks: ['Pi'], prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }] }),
+      playerSnapshot({
+        ticket,
+        ticks: ['Pi'],
+        prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }],
+      }),
     )
 
     await fake.reconnect()
 
-    expect(fake.payloads('join_game')[1]).toMatchObject({ code: 'ABC123', name: 'Ada' })
+    expect(fake.payloads('join_game')[1]).toMatchObject({
+      code: 'ABC123',
+      name: 'Ada',
+    })
     expect(store.ticks).toEqual(['Pi'])
-    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: ['Grace'] }])
+    expect(store.prizes).toEqual([
+      { prize: 'early_five', awarded_to: ['Grace'] },
+    ])
   })
 
   it('does nothing when no player has joined yet', async () => {

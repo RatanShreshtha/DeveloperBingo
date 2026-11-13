@@ -18,11 +18,13 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   prize_taken: 'Someone has already been awarded this prize',
   unknown_prize: 'That prize does not exist',
   settlement_open: 'A claim is being settled. Draws resume in a moment.',
-  claim_pending: 'Your claim is waiting to be settled, so you cannot untick a topic now',
+  claim_pending:
+    'Your claim is waiting to be settled, so you cannot untick a topic now',
   invalid_message: 'That request was not understood. Please reload the page.',
 }
 
-export const UNREACHABLE = 'Could not reach the server. Check your connection and try again.'
+export const UNREACHABLE =
+  'Could not reach the server. Check your connection and try again.'
 
 export function messageFor(code: ErrorCode): string {
   return ERROR_MESSAGES[code]

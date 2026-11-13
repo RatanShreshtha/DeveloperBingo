@@ -1,6 +1,10 @@
 import { ref } from 'vue'
 import { messageFor, UNREACHABLE } from '../utils/errors'
-import type { ClaimLogEntry, HostLink, HostSnapshot } from '../realtime/protocol'
+import type {
+  ClaimLogEntry,
+  HostLink,
+  HostSnapshot,
+} from '../realtime/protocol'
 import type { GameSession } from './gameSession'
 
 export function createHostSession(game: GameSession) {
@@ -77,5 +81,16 @@ export function createHostSession(game: GameSession) {
     windowOpen.value = change.open
   })
 
-  return { hostLink, claims, pool, poolName, windowOpen, watchAsHost, reconnect, start, end, drawNext }
+  return {
+    hostLink,
+    claims,
+    pool,
+    poolName,
+    windowOpen,
+    watchAsHost,
+    reconnect,
+    start,
+    end,
+    drawNext,
+  }
 }

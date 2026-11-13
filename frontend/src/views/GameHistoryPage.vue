@@ -32,7 +32,9 @@ onMounted(() => {
 <template>
   <section class="space-y-5">
     <h2 class="text-2xl font-bold">Game {{ code }}</h2>
-    <p v-if="errorMessage" class="alert alert-error" role="alert">{{ errorMessage }}</p>
+    <p v-if="errorMessage" class="alert alert-error" role="alert">
+      {{ errorMessage }}
+    </p>
     <template v-else-if="history">
       <p class="alert">
         {{ END_MESSAGES.history[history.end_reason] }}
@@ -44,7 +46,9 @@ onMounted(() => {
             v-for="entry in history.prizes"
             :key="entry.prize"
             :prize="entry.prize"
-            :outcome="entry.awarded_to.length ? entry.awarded_to.join(', ') : 'nobody'"
+            :outcome="
+              entry.awarded_to.length ? entry.awarded_to.join(', ') : 'nobody'
+            "
             data-test="winner"
           />
         </ul>
@@ -52,13 +56,22 @@ onMounted(() => {
       <BoardCard title="Draws" heading="h3">
         <p v-if="history.draws.length === 0">Nothing was drawn.</p>
         <ol v-else class="space-y-2">
-          <DrawItem v-for="draw in latestDraws" :key="draw.position" :draw="draw" data-test="draw" />
+          <DrawItem
+            v-for="draw in latestDraws"
+            :key="draw.position"
+            :draw="draw"
+            data-test="draw"
+          />
         </ol>
       </BoardCard>
       <BoardCard title="Claims" heading="h3">
         <p v-if="history.claims.length === 0">No claims were made.</p>
         <ol v-else class="space-y-2">
-          <ClaimItem v-for="(claim, index) in history.claims" :key="index" :claim="claim" />
+          <ClaimItem
+            v-for="(claim, index) in history.claims"
+            :key="index"
+            :claim="claim"
+          />
         </ol>
       </BoardCard>
     </template>

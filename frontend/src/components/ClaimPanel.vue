@@ -2,7 +2,10 @@
 import type { PrizeBoardEntry } from '../realtime/protocol'
 import { PRIZE_LABELS, type Prize } from '../utils/prizes'
 
-const props = defineProps<{ prizes: readonly PrizeBoardEntry[]; pending: readonly Prize[] }>()
+const props = defineProps<{
+  prizes: readonly PrizeBoardEntry[]
+  pending: readonly Prize[]
+}>()
 defineEmits<{ claim: [prize: Prize] }>()
 
 const isPending = (prize: Prize) => props.pending.includes(prize)
@@ -21,7 +24,10 @@ const isPending = (prize: Prize) => props.pending.includes(prize)
           :data-test="`claim-${prize}`"
           :disabled="awarded_to.length > 0 || isPending(prize)"
           @click="$emit('claim', prize)"
-        >{{ isPending(prize) ? 'Claiming' : 'Claim' }} {{ PRIZE_LABELS[prize] }}{{ isPending(prize) ? '…' : '' }}</button>
+        >
+          {{ isPending(prize) ? 'Claiming' : 'Claim' }} {{ PRIZE_LABELS[prize]
+          }}{{ isPending(prize) ? '…' : '' }}
+        </button>
       </div>
     </div>
   </section>

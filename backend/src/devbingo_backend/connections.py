@@ -11,7 +11,9 @@ from typing import TYPE_CHECKING
 
 from devbingo_backend.errors import NotJoined
 
-if TYPE_CHECKING:  # the engine owns a Connections, so it is only named here, not imported
+if (
+    TYPE_CHECKING
+):  # the engine owns a Connections, so it is only named here, not imported
     from devbingo_backend.game import PlayerRef
 
 

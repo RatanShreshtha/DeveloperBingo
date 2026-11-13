@@ -8,9 +8,15 @@ import { SEND_TIMEOUT_MS, socketIoTransport } from './transport'
 
 describe('the socket.io transport', () => {
   it('sends every command with a reply timeout, so an unreachable server rejects instead of waiting forever', async () => {
-    await socketIoTransport().send('end_game', { code: 'ABC123', host_token: 'secret-token' })
+    await socketIoTransport().send('end_game', {
+      code: 'ABC123',
+      host_token: 'secret-token',
+    })
 
     expect(timeout).toHaveBeenCalledWith(SEND_TIMEOUT_MS)
-    expect(emitWithAck).toHaveBeenCalledWith('end_game', { code: 'ABC123', host_token: 'secret-token' })
+    expect(emitWithAck).toHaveBeenCalledWith('end_game', {
+      code: 'ABC123',
+      host_token: 'secret-token',
+    })
   })
 })

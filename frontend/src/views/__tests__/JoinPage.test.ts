@@ -11,7 +11,11 @@ beforeEach(() => {
   fake = startFresh()
 })
 
-async function fillAndSubmit(wrapper: ReturnType<typeof mount>, code: string, name: string) {
+async function fillAndSubmit(
+  wrapper: ReturnType<typeof mount>,
+  code: string,
+  name: string,
+) {
   await wrapper.get('input[name="code"]').setValue(code)
   await wrapper.get('input[name="name"]').setValue(name)
   await wrapper.get('form').trigger('submit')
@@ -27,7 +31,9 @@ describe('JoinView', () => {
 
     await fillAndSubmit(wrapper, 'ABC123', 'Ada')
 
-    expect(fake.payloads('join_game')).toEqual([{ code: 'ABC123', name: 'Ada', rejoin_token: null }])
+    expect(fake.payloads('join_game')).toEqual([
+      { code: 'ABC123', name: 'Ada', rejoin_token: null },
+    ])
     expect(router.currentRoute.value.path).toBe('/games/ABC123')
   })
 
@@ -37,7 +43,9 @@ describe('JoinView', () => {
 
     await fillAndSubmit(wrapper, 'ABC123', 'Ada')
 
-    expect(JSON.parse(sessionStorage.getItem('devbingo:player') ?? 'null')).toEqual({
+    expect(
+      JSON.parse(sessionStorage.getItem('devbingo:player') ?? 'null'),
+    ).toEqual({
       code: 'ABC123',
       name: 'Ada',
       token: 'secret',

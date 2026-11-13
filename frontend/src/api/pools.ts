@@ -22,7 +22,10 @@ export async function fetchPools(): Promise<PoolSummary[]> {
   return requestJson<PoolSummary[]>('/pools')
 }
 
-export async function savePool(name: string, topics: TopicResponse[]): Promise<PoolSummary> {
+export async function savePool(
+  name: string,
+  topics: TopicResponse[],
+): Promise<PoolSummary> {
   try {
     return await requestJson<PoolSummary>('/pools', {
       method: 'POST',
@@ -31,7 +34,8 @@ export async function savePool(name: string, topics: TopicResponse[]): Promise<P
     })
   } catch (error) {
     if (error instanceof HttpError && error.status === 422) {
-      const body = (await error.response.json()) as components['schemas']['PoolRefused']
+      const body =
+        (await error.response.json()) as components['schemas']['PoolRefused']
       throw new PoolRefusedError(body.detail.rule, body.detail.message)
     }
     throw error

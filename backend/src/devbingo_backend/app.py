@@ -9,7 +9,11 @@ from sqlmodel import create_engine, text
 
 from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry
 from devbingo_backend.games_api import build_games_router
-from devbingo_backend.history import HistoryStore, HistoryUnavailable, PostgresHistoryStore
+from devbingo_backend.history import (
+    HistoryStore,
+    HistoryUnavailable,
+    PostgresHistoryStore,
+)
 from devbingo_backend.history_api import history_router
 from devbingo_backend.http_errors import register_error_handlers
 from devbingo_backend.pool_library import PoolLibrary, PostgresPoolLibrary
@@ -46,7 +50,9 @@ def create_app(
         else float(os.environ.get("SETTLEMENT_WINDOW_SECONDS", DEFAULT_WINDOW_SECONDS))
     )
     registry = GameRegistry(
-        on_ended=history.save, code_taken=code_has_history, window_seconds=window_seconds
+        on_ended=history.save,
+        code_taken=code_has_history,
+        window_seconds=window_seconds,
     )
     library = pool_library or PostgresPoolLibrary(engine)
 

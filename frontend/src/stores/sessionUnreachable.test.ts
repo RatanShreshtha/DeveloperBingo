@@ -1,6 +1,9 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import {
+  installFakeTransport,
+  type FakeTransport,
+} from '../testing/fakeTransport'
 import { hostSnapshot, playerSnapshot } from '../testing/snapshots'
 import { UNREACHABLE } from '../utils/errors'
 import { useHostSession, usePlayerSession } from './session'
@@ -27,17 +30,20 @@ describe('host actions when the server cannot be reached', () => {
     ['start_game', (s: ReturnType<typeof useHostSession>) => s.start()],
     ['draw_topic', (s: ReturnType<typeof useHostSession>) => s.drawNext()],
     ['end_game', (s: ReturnType<typeof useHostSession>) => s.end()],
-  ] as const)('says so beside the controls and changes nothing when %s fails', async (command, act) => {
-    const store = await watching()
-    fake.answer(command, unreachable)
+  ] as const)(
+    'says so beside the controls and changes nothing when %s fails',
+    async (command, act) => {
+      const store = await watching()
+      fake.answer(command, unreachable)
 
-    await act(store)
+      await act(store)
 
-    expect(store.actionError).toBe(UNREACHABLE)
-    expect(store.error).toBeNull()
-    expect(store.ended).toBe(false)
-    expect(store.draws).toEqual([])
-  })
+      expect(store.actionError).toBe(UNREACHABLE)
+      expect(store.error).toBeNull()
+      expect(store.ended).toBe(false)
+      expect(store.draws).toEqual([])
+    },
+  )
 
   it('does nothing before the host is watching: there is no link to act with', async () => {
     const store = useHostSession()

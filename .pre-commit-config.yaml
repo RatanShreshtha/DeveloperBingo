@@ -1,0 +1,32 @@
+# Fast lint and format checks on staged files. CI runs the full gate set.
+# Setup: `uv tool install pre-commit`, then `pre-commit install` from the repo root.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (backend)
+        entry: uv run --project backend ruff check
+        language: system
+        types: [python]
+        files: ^backend/
+
+      - id: ruff-format
+        name: ruff format --check (backend)
+        entry: uv run --project backend ruff format --check
+        language: system
+        types: [python]
+        files: ^backend/
+
+      - id: eslint
+        name: eslint (frontend)
+        entry: npx --prefix frontend eslint --max-warnings 0
+        language: system
+        files: ^frontend/.*\.(ts|vue|js)$
+        exclude: ^frontend/src/api/schema\.d\.ts$
+
+      - id: prettier-check
+        name: prettier --check (frontend)
+        entry: npx --prefix frontend prettier --check
+        language: system
+        files: ^frontend/
+        exclude: ^frontend/(package-lock\.json|src/api/openapi\.json|src/api/schema\.d\.ts)$

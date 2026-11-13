@@ -1,15 +1,14 @@
 import random
 
 import pytest
-
 from helpers import ManualRegistry, start_and_draw_everything
 from test_claims import PRIZE_TOPICS, tick
 
 from devbingo_backend.default_pool import DEFAULT_POOL
+from devbingo_backend.errors import ErrorCode
 from devbingo_backend.game import PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
-from devbingo_backend.errors import ErrorCode
 
 
 @pytest.fixture

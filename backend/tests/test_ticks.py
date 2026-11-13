@@ -49,7 +49,11 @@ def test_a_topic_not_on_the_players_ticket_cannot_be_ticked(game_with_ada):
     registry, game, ticket = game_with_ada
     ada = PlayerRef(game.code, "Ada")
     draw_everything(registry, game)
-    off_ticket = next(topic.name for topic in DEFAULT_POOL.topics if topic.name not in set(names_on(ticket)))
+    off_ticket = next(
+        topic.name
+        for topic in DEFAULT_POOL.topics
+        if topic.name not in set(names_on(ticket))
+    )
 
     with pytest.raises(TopicNotOnTicket):
         registry.tick(ada, off_ticket)
@@ -73,7 +77,11 @@ def test_an_untick_of_a_topic_not_on_the_ticket_is_refused(game_with_ada):
     draw_everything(registry, game)
     registry.tick(ada, names_on(ticket)[0])
     before = registry.player_snapshot(ada).ticks
-    off_ticket = next(topic.name for topic in DEFAULT_POOL.topics if topic.name not in set(names_on(ticket)))
+    off_ticket = next(
+        topic.name
+        for topic in DEFAULT_POOL.topics
+        if topic.name not in set(names_on(ticket))
+    )
 
     with pytest.raises(TopicNotOnTicket):
         registry.untick(ada, off_ticket)

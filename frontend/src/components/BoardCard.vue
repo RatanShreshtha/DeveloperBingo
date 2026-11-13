@@ -1,5 +1,7 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ title: string; heading?: 'h2' | 'h3' }>(), { heading: 'h2' })
+withDefaults(defineProps<{ title: string; heading?: 'h2' | 'h3' }>(), {
+  heading: 'h2',
+})
 </script>
 
 <template>

@@ -5,7 +5,12 @@ from pydantic import BaseModel
 
 from devbingo_backend.pool import PoolError, Topic
 from devbingo_backend.pool_library import PoolLibrary
-from devbingo_backend.wire import PoolRefused, PoolResponse, PoolSummaryResponse, TopicResponse
+from devbingo_backend.wire import (
+    PoolRefused,
+    PoolResponse,
+    PoolSummaryResponse,
+    TopicResponse,
+)
 
 
 class NewPool(BaseModel):
@@ -14,7 +19,9 @@ class NewPool(BaseModel):
 
 
 def _refusal(error: PoolError) -> HTTPException:
-    return HTTPException(status_code=422, detail={"rule": error.rule, "message": str(error)})
+    return HTTPException(
+        status_code=422, detail={"rule": error.rule, "message": str(error)}
+    )
 
 
 def build_pools_router(library: PoolLibrary) -> APIRouter:
@@ -42,7 +49,10 @@ def build_pools_router(library: PoolLibrary) -> APIRouter:
     def save_pool(body: NewPool) -> PoolSummaryResponse:
         """Save a custom pool for every host to use, once it meets the pool rules."""
         try:
-            saved = library.save(body.name, [Topic(topic.name, topic.explanation) for topic in body.topics])
+            saved = library.save(
+                body.name,
+                [Topic(topic.name, topic.explanation) for topic in body.topics],
+            )
         except PoolError as error:
             raise _refusal(error) from None
         return PoolSummaryResponse.from_summary(saved)

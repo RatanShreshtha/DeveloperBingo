@@ -3,7 +3,9 @@ from pathlib import Path
 
 from devbingo_backend.app import create_app
 
-COMMITTED_SCHEMA = Path(__file__).parents[2] / "frontend" / "src" / "api" / "openapi.json"
+COMMITTED_SCHEMA = (
+    Path(__file__).parents[2] / "frontend" / "src" / "api" / "openapi.json"
+)
 
 
 def test_the_committed_openapi_schema_matches_the_backend():

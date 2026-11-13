@@ -1,7 +1,12 @@
 from collections.abc import Callable, Set
 from dataclasses import dataclass, field
 
-from devbingo_backend.errors import ClaimNotValid, ErrorCode, GameError, PrizeAlreadyAwarded
+from devbingo_backend.errors import (
+    ClaimNotValid,
+    ErrorCode,
+    GameError,
+    PrizeAlreadyAwarded,
+)
 from devbingo_backend.prizes import Prize, prizes_earned
 from devbingo_backend.ticket import Ticket
 
@@ -93,7 +98,9 @@ class ClaimSettlement:
             waiting.append(claimant)
         return Pending(prize, opened_window=False)
 
-    def close(self, prize: Prize, evidence: Evidence, refusal: GameError | None = None) -> Settled | None:
+    def close(
+        self, prize: Prize, evidence: Evidence, refusal: GameError | None = None
+    ) -> Settled | None:
         """Close the prize's window: judge every waiting claim and award the prize to those that
         earn it. Does nothing when no window is open. `refusal` refuses every waiting claim."""
         waiting = self._windows.pop(prize, None)
@@ -130,9 +137,13 @@ class ClaimSettlement:
         """The prizes the player has a claim waiting on, in the order of Prize."""
         return [prize for prize in Prize if claimant in self._windows.get(prize, [])]
 
-    def _decide(self, claimant: str, prize: Prize, error: GameError | None) -> ClaimRecord:
+    def _decide(
+        self, claimant: str, prize: Prize, error: GameError | None
+    ) -> ClaimRecord:
         """The one place a claim is logged: the moment it is decided."""
-        record = ClaimRecord(claimant, prize, accepted=error is None, error=error.code if error else None)
+        record = ClaimRecord(
+            claimant, prize, accepted=error is None, error=error.code if error else None
+        )
         self._log.append(record)
         return record
 

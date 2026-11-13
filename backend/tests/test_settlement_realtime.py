@@ -38,11 +38,19 @@ def a_table(scheduler=None) -> RealtimeTable:
 
 
 def logged(t, who, accepted=True, error=None, prize="early_five"):
-    return ("claim_logged", t.host, {"player": who, "prize": prize, "accepted": accepted, "error": error})
+    return (
+        "claim_logged",
+        t.host,
+        {"player": who, "prize": prize, "accepted": accepted, "error": error},
+    )
 
 
 def settled(t, who, accepted=True, error=None, prize="early_five"):
-    return ("claim_settled", RealtimeTable.sid(who), {"prize": prize, "accepted": accepted, "error": error})
+    return (
+        "claim_settled",
+        RealtimeTable.sid(who),
+        {"prize": prize, "accepted": accepted, "error": error},
+    )
 
 
 def window(t, is_open):
@@ -69,7 +77,11 @@ def test_a_close_logs_each_claim_then_awards_then_tells_each_claimant_then_the_w
     assert t.broadcaster.sent == [
         logged(t, "Ada"),
         logged(t, "Grace"),
-        ("prize_awarded", t.game.code, {"prize": "early_five", "awarded_to": ["Ada", "Grace"]}),
+        (
+            "prize_awarded",
+            t.game.code,
+            {"prize": "early_five", "awarded_to": ["Ada", "Grace"]},
+        ),
         settled(t, "Ada"),
         settled(t, "Grace"),
         window(t, False),
@@ -79,7 +91,9 @@ def test_a_close_logs_each_claim_then_awards_then_tells_each_claimant_then_the_w
 def test_a_claim_refused_at_close_is_settled_for_that_claimant_only():
     t = a_table()
     # Grace takes back two ticks, so her claim is not valid; it still queues in Ada's open window.
-    grace_ticks = sorted(t.registry.player_snapshot(PlayerRef(t.game.code, "Grace")).ticks)
+    grace_ticks = sorted(
+        t.registry.player_snapshot(PlayerRef(t.game.code, "Grace")).ticks
+    )
     for topic in grace_ticks[:2]:
         run(t.adapter.untick_topic("sid-grace", tick_message(t.game, topic, "Grace")))
     t.claim("Ada")
@@ -92,7 +106,11 @@ def test_a_claim_refused_at_close_is_settled_for_that_claimant_only():
         settled(t, "Ada"),
         settled(t, "Grace", False, "claim_not_valid"),
     ]
-    assert ("prize_awarded", t.game.code, {"prize": "early_five", "awarded_to": ["Ada"]}) in t.broadcaster.sent
+    assert (
+        "prize_awarded",
+        t.game.code,
+        {"prize": "early_five", "awarded_to": ["Ada"]},
+    ) in t.broadcaster.sent
 
 
 def test_a_full_house_close_announces_the_end_before_telling_the_claimants():
@@ -149,7 +167,11 @@ def test_a_failed_send_is_logged_and_every_other_send_still_goes_out(caplog):
     with caplog.at_level(logging.ERROR, logger="devbingo_backend.realtime"):
         t.scheduler.close_all()
 
-    assert t.broadcaster.sent == [settled(t, "Ada"), settled(t, "Grace"), window(t, False)]
+    assert t.broadcaster.sent == [
+        settled(t, "Ada"),
+        settled(t, "Grace"),
+        window(t, False),
+    ]
     assert len(caplog.records) == 3
     assert all(record.exc_info for record in caplog.records)
     assert t.registry.host_snapshot(t.game).prizes[Prize.EARLY_FIVE] == ("Ada", "Grace")
@@ -184,4 +206,8 @@ def test_settling_through_the_test_registry_records_the_outcomes_and_still_annou
     (outcome,) = registry.settle()
 
     assert outcome.settled[0].awarded_to == ("Ada",)
-    assert ("prize_awarded", game.code, {"prize": "early_five", "awarded_to": ["Ada"]}) in broadcaster.emitted
+    assert (
+        "prize_awarded",
+        game.code,
+        {"prize": "early_five", "awarded_to": ["Ada"]},
+    ) in broadcaster.emitted

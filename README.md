@@ -27,12 +27,23 @@ The backend tests need Postgres running, as above.
 
 ```sh
 # Backend, from backend/
+uv run ruff check        # lint
+uv run ruff format       # format (use --check to only verify)
 uv run pytest
 
 # Frontend, from frontend/
-npm run test        # Vitest
-npm run typecheck   # vue-tsc
+npm run lint          # ESLint
+npm run format        # Prettier (use format:check to only verify)
+npm run typecheck     # vue-tsc
+npm run test          # Vitest
 npm run build
+```
+
+CI runs every check above, plus a check that the generated API types are current (see below). To also run the lint and format checks on each commit, install the [pre-commit](https://pre-commit.com) hooks once from the repo root:
+
+```sh
+uv tool install pre-commit
+pre-commit install
 ```
 
 ## API types

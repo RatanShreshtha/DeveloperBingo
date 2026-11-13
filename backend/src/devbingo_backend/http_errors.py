@@ -21,7 +21,9 @@ RESPONSES: dict[type[Exception], tuple[int, str]] = {
 def register_error_handlers(app: FastAPI) -> None:
     for error, (status, detail) in RESPONSES.items():
 
-        def respond(_request: Request, _error: Exception, status=status, detail=detail) -> JSONResponse:
+        def respond(
+            _request: Request, _error: Exception, status=status, detail=detail
+        ) -> JSONResponse:
             return JSONResponse(status_code=status, content={"detail": detail})
 
         app.add_exception_handler(error, respond)

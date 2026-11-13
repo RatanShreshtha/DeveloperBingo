@@ -15,9 +15,20 @@ export const routes: RouteRecordRaw[] = [
   { path: '/about', component: () => import('../views/AboutView.vue') },
   { path: '/rules', component: () => import('../views/RulesView.vue') },
   { path: '/join', component: () => import('../views/JoinPage.vue') },
-  { path: '/pools/new', component: () => import('../views/PoolEditorPage.vue') },
-  { path: '/games/:code/history', component: () => import('../views/GameHistoryPage.vue'), props: true },
-  { path: '/games/:code', component: () => import('../views/PlayerPage.vue'), props: true },
+  {
+    path: '/pools/new',
+    component: () => import('../views/PoolEditorPage.vue'),
+  },
+  {
+    path: '/games/:code/history',
+    component: () => import('../views/GameHistoryPage.vue'),
+    props: true,
+  },
+  {
+    path: '/games/:code',
+    component: () => import('../views/PlayerPage.vue'),
+    props: true,
+  },
   {
     path: '/host/:code',
     component: () => import('../views/HostPage.vue'),

@@ -7,8 +7,12 @@ const ticket = [
   [null, 'Cache', null],
 ]
 
-function render(props: Partial<InstanceType<typeof TicketGrid>['$props']> = {}) {
-  return mount(TicketGrid, { props: { ticket, ticks: [], drawn: ['Algorithm'], ended: false, ...props } })
+function render(
+  props: Partial<InstanceType<typeof TicketGrid>['$props']> = {},
+) {
+  return mount(TicketGrid, {
+    props: { ticket, ticks: [], drawn: ['Algorithm'], ended: false, ...props },
+  })
 }
 
 describe('TicketGrid', () => {
@@ -23,20 +27,28 @@ describe('TicketGrid', () => {
   it('disables topics that have not been drawn yet', () => {
     const cells = render().findAll('[data-test="tick-cell"]')
 
-    expect(cells.find((cell) => cell.text() === 'Cache')?.attributes('disabled')).toBeDefined()
+    expect(
+      cells.find((cell) => cell.text() === 'Cache')?.attributes('disabled'),
+    ).toBeDefined()
     expect(cells[0].attributes('disabled')).toBeUndefined()
   })
 
   it('shows ticked topics as pressed', () => {
     const wrapper = render({ ticks: ['Algorithm'] })
 
-    expect(wrapper.findAll('[data-test="tick-cell"]')[0].attributes('aria-pressed')).toBe('true')
+    expect(
+      wrapper.findAll('[data-test="tick-cell"]')[0].attributes('aria-pressed'),
+    ).toBe('true')
   })
 
   it('disables every cell once the game has ended', () => {
     const wrapper = render({ ended: true, ticks: ['Algorithm'] })
 
-    expect(wrapper.findAll('[data-test="tick-cell"]').every((c) => c.attributes('disabled') !== undefined)).toBe(true)
+    expect(
+      wrapper
+        .findAll('[data-test="tick-cell"]')
+        .every((c) => c.attributes('disabled') !== undefined),
+    ).toBe(true)
   })
 
   it('keeps the ticket in a keyboard-focusable scroll region', () => {

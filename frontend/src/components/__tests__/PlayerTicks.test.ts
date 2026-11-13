@@ -17,7 +17,13 @@ function setUpTicket(overrides = {}) {
       ['Algorithm', null, 'JSON'],
       [null, 'Cache', null],
     ],
-    draws: [{ position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+    draws: [
+      {
+        position: 1,
+        name: 'Algorithm',
+        explanation: 'A finite sequence of steps.',
+      },
+    ],
     ...overrides,
   })
 }
@@ -36,10 +42,18 @@ describe('PlayerLobbyView ticking', () => {
   })
 
   it('disables every tick once the game has ended', async () => {
-    await setUpTicket({ status: 'ended', end_reason: 'host', ticks: ['Algorithm'] })
+    await setUpTicket({
+      status: 'ended',
+      end_reason: 'host',
+      ticks: ['Algorithm'],
+    })
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    expect(wrapper.findAll('[data-test="tick-cell"]').every((c) => c.attributes('disabled') !== undefined)).toBe(true)
+    expect(
+      wrapper
+        .findAll('[data-test="tick-cell"]')
+        .every((c) => c.attributes('disabled') !== undefined),
+    ).toBe(true)
     expect(usePlayerSession().ended).toBe(true)
   })
 })

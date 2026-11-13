@@ -1,7 +1,10 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { savedSessionFor } from '../realtime/savedSession'
-import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import {
+  installFakeTransport,
+  type FakeTransport,
+} from '../testing/fakeTransport'
 import { hostSnapshot, playerSnapshot } from '../testing/snapshots'
 import { useHostSession, usePlayerSession } from './session'
 
@@ -20,7 +23,11 @@ describe('saving the session', () => {
 
     await usePlayerSession().join('ABC123', 'Ada')
 
-    expect(savedSessionFor('ABC123')).toEqual({ code: 'ABC123', name: 'Ada', token: 'tok-1' })
+    expect(savedSessionFor('ABC123')).toEqual({
+      code: 'ABC123',
+      name: 'Ada',
+      token: 'tok-1',
+    })
   })
 
   it('keeps the name the game stored, not the one typed', async () => {
@@ -59,7 +66,9 @@ describe('resuming after a reload', () => {
     ])
     expect(store.ended).toBe(true)
     expect(store.endReason).toBe('full_house')
-    expect(store.prizes).toEqual([{ prize: 'full_house', awarded_to: ['Grace'] }])
+    expect(store.prizes).toEqual([
+      { prize: 'full_house', awarded_to: ['Grace'] },
+    ])
     expect(savedSessionFor('ABC123')?.token).toBe('tok-2')
   })
 
@@ -127,7 +136,12 @@ describe('reconnecting', () => {
     const store = useHostSession()
     await store.watchAsHost(link)
 
-    fake.emit('claim_logged', { player: 'Ada', prize: 'early_five', accepted: false, error: 'claim_not_valid' })
+    fake.emit('claim_logged', {
+      player: 'Ada',
+      prize: 'early_five',
+      accepted: false,
+      error: 'claim_not_valid',
+    })
 
     expect(store.windowOpen).toBe(true)
   })
@@ -170,7 +184,11 @@ describe('claims pending across a reconnect', () => {
     fake.answer('join_game', playerSnapshot({ pending_claims: ['early_five'] }))
 
     await fake.reconnect()
-    fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
+    fake.emit('claim_settled', {
+      prize: 'early_five',
+      accepted: true,
+      error: null,
+    })
 
     expect(store.isPending('early_five')).toBe(false)
     expect(fake.payloads('claim_prize')).toHaveLength(1)
@@ -185,7 +203,9 @@ describe('claims pending across a reconnect', () => {
     fake.answer(
       'join_game',
       playerSnapshot({
-        decided_claims: [{ prize: 'early_five', accepted: false, error: 'claim_not_valid' }],
+        decided_claims: [
+          { prize: 'early_five', accepted: false, error: 'claim_not_valid' },
+        ],
       }),
     )
 
@@ -198,7 +218,10 @@ describe('claims pending across a reconnect', () => {
 
 describe('after the game ends', () => {
   it('shows that ticks are refused', async () => {
-    fake.answer('join_game', playerSnapshot({ status: 'ended', end_reason: 'host' }))
+    fake.answer(
+      'join_game',
+      playerSnapshot({ status: 'ended', end_reason: 'host' }),
+    )
     fake.answer('tick_topic', { ok: false, error: 'game_ended' })
     const store = usePlayerSession()
     await store.join('ABC123', 'Ada')

@@ -3,10 +3,16 @@
 import random
 
 import pytest
-from helpers import ManualRegistry, ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
+from helpers import (
+    ManualRegistry,
+    ManualScheduler,
+    claim_and_settle,
+    names_on,
+    start_and_draw_everything,
+)
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.errors import ErrorCode
+from devbingo_backend.errors import ErrorCode, GameAlreadyEnded
 from devbingo_backend.game import GameRegistry, PlayerRef
 from devbingo_backend.prizes import Prize
 
@@ -80,7 +86,7 @@ def test_claims_refused_when_the_host_ends_the_game_are_in_the_summary(setup):
 def test_the_summary_is_handed_over_once_even_if_ending_is_tried_again(setup):
     registry, game, _, summaries = setup
     registry.end(game)
-    with pytest.raises(Exception):
+    with pytest.raises(GameAlreadyEnded):
         registry.end(game)
     assert len(summaries) == 1
 
@@ -95,7 +101,7 @@ def test_a_failing_observer_does_not_stop_the_game_ending(caplog):
         registry.end(game)
 
     assert any(r.exc_info for r in caplog.records)
-    with pytest.raises(Exception):
+    with pytest.raises(GameAlreadyEnded):
         registry.start(game)  # ended
 
 

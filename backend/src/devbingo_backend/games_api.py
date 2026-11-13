@@ -14,7 +14,9 @@ def build_games_router(registry: GameRegistry, library: PoolLibrary) -> APIRoute
     def create_game(body: CreateGameRequest | None = None) -> HostLink:
         """Create a game on the default pool, or on the saved pool named by `pool_id`."""
         if body is None or body.pool_id is None:
-            return registry.create_game(library.load_default(), pool_name=DEFAULT_POOL_NAME)
+            return registry.create_game(
+                library.load_default(), pool_name=DEFAULT_POOL_NAME
+            )
         saved = library.get(body.pool_id)
         return registry.create_game(saved.pool, pool_name=saved.name)
 

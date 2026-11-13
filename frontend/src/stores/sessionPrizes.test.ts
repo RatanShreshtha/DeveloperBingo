@@ -1,6 +1,9 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import {
+  installFakeTransport,
+  type FakeTransport,
+} from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
 import { usePlayerSession } from './session'
 
@@ -27,12 +30,19 @@ describe('session store prizes', () => {
   })
 
   it('restores the prize board a player gets when they join', async () => {
-    fake.answer('join_game', playerSnapshot({ prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }] }))
+    fake.answer(
+      'join_game',
+      playerSnapshot({
+        prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }],
+      }),
+    )
     const store = usePlayerSession()
 
     await store.join('ABC123', 'Ada')
 
-    expect(store.prizes).toEqual([{ prize: 'early_five', awarded_to: ['Grace'] }])
+    expect(store.prizes).toEqual([
+      { prize: 'early_five', awarded_to: ['Grace'] },
+    ])
   })
 
   it('sends a claim for the prize, which waits until its window settles', async () => {
@@ -45,7 +55,11 @@ describe('session store prizes', () => {
     expect(fake.payloads('claim_prize')).toEqual([{ prize: 'early_five' }])
     expect(store.isPending('early_five')).toBe(true)
 
-    fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
+    fake.emit('claim_settled', {
+      prize: 'early_five',
+      accepted: true,
+      error: null,
+    })
 
     expect(store.isPending('early_five')).toBe(false)
     expect(store.actionError).toBeNull()
@@ -57,7 +71,11 @@ describe('session store prizes', () => {
     await store.join('ABC123', 'Ada')
     await store.claimPrize('early_five')
 
-    fake.emit('claim_settled', { prize: 'early_five', accepted: false, error: 'game_ended' })
+    fake.emit('claim_settled', {
+      prize: 'early_five',
+      accepted: false,
+      error: 'game_ended',
+    })
 
     expect(store.isPending('early_five')).toBe(false)
     expect(store.actionError).toBe('The game has ended')
@@ -66,7 +84,11 @@ describe('session store prizes', () => {
   it('stays settled when the window closes before the acknowledgement arrives', async () => {
     const store = usePlayerSession()
     fake.answer('claim_prize', () => {
-      fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
+      fake.emit('claim_settled', {
+        prize: 'early_five',
+        accepted: true,
+        error: null,
+      })
       return { ok: true, waiting: true }
     })
     await store.join('ABC123', 'Ada')
@@ -94,6 +116,8 @@ describe('session store prizes', () => {
 
     await store.claimPrize('early_five')
 
-    expect(store.actionError).toBe('Someone has already been awarded this prize')
+    expect(store.actionError).toBe(
+      'Someone has already been awarded this prize',
+    )
   })
 })

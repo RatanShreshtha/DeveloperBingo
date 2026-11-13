@@ -130,7 +130,9 @@ class PostgresHistoryStore:
                     raise AlreadyStored(summary.code)
                 session.add(
                     GameHistoryRecord(
-                        code=summary.code, reason=summary.end_reason, pool_name=summary.pool_name
+                        code=summary.code,
+                        reason=summary.end_reason,
+                        pool_name=summary.pool_name,
                     )
                 )
                 session.flush()
@@ -208,7 +210,9 @@ class PostgresHistoryStore:
             code=game.code,
             end_reason=game.reason,  # type: ignore[arg-type]
             pool_name=game.pool_name,
-            draws=tuple(Draw(row.position, Topic(row.name, row.explanation)) for row in draws),
+            draws=tuple(
+                Draw(row.position, Topic(row.name, row.explanation)) for row in draws
+            ),
             claims=tuple(
                 ClaimRecord(
                     row.player,

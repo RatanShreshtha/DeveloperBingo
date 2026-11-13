@@ -1,4 +1,12 @@
-from helpers import RealtimeTable, claim_message, host_message, run, tick_message, topics_on, wire_board_of
+from helpers import (
+    RealtimeTable,
+    claim_message,
+    host_message,
+    run,
+    tick_message,
+    topics_on,
+    wire_board_of,
+)
 
 from devbingo_backend.game import PlayerRef
 from devbingo_backend.prizes import Prize
@@ -34,25 +42,32 @@ def test_the_host_can_watch_the_lobby_with_the_host_token():
     t = RealtimeTable()
     t.registry.join(PlayerRef(t.game.code, "Ada"))
 
-    ack = run(t.adapter.watch_lobby(
-        "sid-host", {"code": t.game.code, "host_token": t.game.host_token}
-    ))
+    ack = run(
+        t.adapter.watch_lobby(
+            "sid-host", {"code": t.game.code, "host_token": t.game.host_token}
+        )
+    )
 
     assert ack["ok"] is True
     assert ack["players"] == ["Ada"]
     assert ack["prizes"] == wire_board_of()
     assert ack["claims"] == []
     # The second room is host-only, where claims are told that players must not see.
-    assert t.broadcaster.entered == [("sid-host", t.game.code), ("sid-host", f"{t.game.code}:host")]
+    assert t.broadcaster.entered == [
+        ("sid-host", t.game.code),
+        ("sid-host", f"{t.game.code}:host"),
+    ]
 
 
 def test_starting_the_game_is_announced_to_the_room():
     t = RealtimeTable()
     t.registry.join(PlayerRef(t.game.code, "Ada"))
 
-    ack = run(t.adapter.start_game(
-        "sid-host", {"code": t.game.code, "host_token": t.game.host_token}
-    ))
+    ack = run(
+        t.adapter.start_game(
+            "sid-host", {"code": t.game.code, "host_token": t.game.host_token}
+        )
+    )
 
     assert ack == {"ok": True}
     assert t.broadcaster.emitted == [("game_started", t.game.code, {})]
@@ -61,9 +76,11 @@ def test_starting_the_game_is_announced_to_the_room():
 def test_only_the_host_can_start_the_game_over_the_socket():
     t = RealtimeTable()
 
-    ack = run(t.adapter.start_game(
-        "sid-player", {"code": t.game.code, "host_token": "not-the-host-token"}
-    ))
+    ack = run(
+        t.adapter.start_game(
+            "sid-player", {"code": t.game.code, "host_token": "not-the-host-token"}
+        )
+    )
 
     assert ack == {"ok": False, "error": "not_host"}
     assert t.broadcaster.emitted == []
@@ -74,9 +91,11 @@ def test_a_draw_is_announced_to_the_room_with_its_explanation():
     t.registry.join(PlayerRef(t.game.code, "Ada"))
     t.registry.start(t.game)
 
-    ack = run(t.adapter.draw_topic(
-        "sid-host", {"code": t.game.code, "host_token": t.game.host_token}
-    ))
+    ack = run(
+        t.adapter.draw_topic(
+            "sid-host", {"code": t.game.code, "host_token": t.game.host_token}
+        )
+    )
 
     draw = t.registry.host_snapshot(t.game).draws[0]
     expected = {
@@ -91,9 +110,11 @@ def test_a_draw_is_announced_to_the_room_with_its_explanation():
 def test_a_draw_before_the_game_starts_is_refused_to_the_sender_only():
     t = RealtimeTable()
 
-    ack = run(t.adapter.draw_topic(
-        "sid-host", {"code": t.game.code, "host_token": t.game.host_token}
-    ))
+    ack = run(
+        t.adapter.draw_topic(
+            "sid-host", {"code": t.game.code, "host_token": t.game.host_token}
+        )
+    )
 
     assert ack == {"ok": False, "error": "not_started"}
     assert t.broadcaster.emitted == []
@@ -109,7 +130,9 @@ def test_a_tick_is_acknowledged_without_sending_any_ticks_back():
     ack = run(t.adapter.tick_topic("sid-ada", tick_message(t.game, topic)))
 
     assert ack == {"ok": True}
-    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset({topic})
+    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset(
+        {topic}
+    )
     assert t.broadcaster.emitted == emitted_before
 
 
@@ -123,7 +146,9 @@ def test_an_untick_is_acknowledged_without_sending_any_ticks_back():
     ack = run(t.adapter.untick_topic("sid-ada", tick_message(t.game, topic)))
 
     assert ack == {"ok": True}
-    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    assert (
+        t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    )
 
 
 def test_an_untick_of_a_topic_not_on_the_ticket_is_refused():
@@ -131,7 +156,9 @@ def test_an_untick_of_a_topic_not_on_the_ticket_is_refused():
     cells = t.join()["ticket"]
     t.start_and_draw_everything()
     on_ticket = set(topics_on(cells))
-    off_ticket = next(name for name in ("Pi", "Zero-day", "Yak shaving") if name not in on_ticket)
+    off_ticket = next(
+        name for name in ("Pi", "Zero-day", "Yak shaving") if name not in on_ticket
+    )
 
     ack = run(t.adapter.untick_topic("sid-ada", tick_message(t.game, off_ticket)))
 
@@ -144,10 +171,16 @@ def test_a_refused_tick_names_the_reason_and_changes_nothing():
     t.registry.start(t.game)
     emitted_before = list(t.broadcaster.emitted)
 
-    ack = run(t.adapter.tick_topic("sid-ada", tick_message(t.game, topics_on(joined["ticket"])[0])))
+    ack = run(
+        t.adapter.tick_topic(
+            "sid-ada", tick_message(t.game, topics_on(joined["ticket"])[0])
+        )
+    )
 
     assert ack == {"ok": False, "error": "not_drawn"}
-    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    assert (
+        t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    )
     assert t.broadcaster.emitted == emitted_before
 
 
@@ -212,7 +245,9 @@ def test_a_valid_claim_waits_then_is_announced_to_the_room_and_settled_for_the_c
 
     assert ack == WAITING
     assert t.to_room()[-1] == (
-        "prize_awarded", t.game.code, {"prize": "early_five", "awarded_to": ["Ada"]}
+        "prize_awarded",
+        t.game.code,
+        {"prize": "early_five", "awarded_to": ["Ada"]},
     )
     assert t.settled_for() == [{"prize": "early_five", "accepted": True, "error": None}]
 
@@ -228,7 +263,9 @@ def test_a_valid_claim_for_a_new_prize_is_announced_to_the_room():
 
     assert ack == WAITING
     assert t.to_room()[-1] == (
-        "prize_awarded", t.game.code, {"prize": "top_line", "awarded_to": ["Ada"]}
+        "prize_awarded",
+        t.game.code,
+        {"prize": "top_line", "awarded_to": ["Ada"]},
     )
 
 
@@ -237,7 +274,9 @@ def test_an_incomplete_full_house_claim_is_refused_and_not_announced():
     t.ready_to_claim()
     emitted_before = t.to_room()
 
-    ack = run(t.adapter.claim_prize("sid-ada", claim_message(t.game, prize="full_house")))
+    ack = run(
+        t.adapter.claim_prize("sid-ada", claim_message(t.game, prize="full_house"))
+    )
 
     assert ack == {"ok": False, "error": "claim_not_valid"}
     assert t.to_room() == emitted_before
@@ -305,7 +344,9 @@ def test_a_socket_that_never_joined_cannot_tick_or_untick():
 
     assert ticked == {"ok": False, "error": "not_joined"}
     assert unticked == {"ok": False, "error": "not_joined"}
-    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    assert (
+        t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    )
 
 
 def test_a_player_cannot_tick_as_another_player_by_naming_them_in_the_message():
@@ -318,7 +359,9 @@ def test_a_player_cannot_tick_as_another_player_by_naming_them_in_the_message():
     # Grace's socket says it is Ada. Whatever happens, Ada's ticks must not change.
     run(t.adapter.tick_topic("sid-grace", tick_message(t.game, topic, name="Ada")))
 
-    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    assert (
+        t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    )
 
 
 def test_a_player_cannot_untick_another_player_by_naming_them_in_the_message():
@@ -331,7 +374,9 @@ def test_a_player_cannot_untick_another_player_by_naming_them_in_the_message():
 
     run(t.adapter.untick_topic("sid-grace", tick_message(t.game, topic, name="Ada")))
 
-    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset({topic})
+    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset(
+        {topic}
+    )
 
 
 def test_a_claim_is_judged_on_the_socket_s_player_not_the_name_in_the_message():
@@ -363,18 +408,32 @@ def test_a_host_command_with_no_token_is_refused_as_an_invalid_message():
     t = RealtimeTable()
 
     for command in (t.adapter.watch_lobby, t.adapter.start_game, t.adapter.draw_topic):
-        assert run(command("sid-host", {"code": t.game.code})) == {"ok": False, "error": "invalid_message"}
+        assert run(command("sid-host", {"code": t.game.code})) == {
+            "ok": False,
+            "error": "invalid_message",
+        }
 
 
 def test_a_tick_or_claim_with_a_missing_or_wrong_typed_field_is_refused_as_an_invalid_message():
     t = RealtimeTable()
-    cells = t.join()["ticket"]
+    t.join()
     t.start_and_draw_everything()
 
-    assert run(t.adapter.tick_topic("sid-ada", {})) == {"ok": False, "error": "invalid_message"}
-    assert run(t.adapter.untick_topic("sid-ada", {"topic": 7})) == {"ok": False, "error": "invalid_message"}
-    assert run(t.adapter.claim_prize("sid-ada", {})) == {"ok": False, "error": "invalid_message"}
-    assert t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    assert run(t.adapter.tick_topic("sid-ada", {})) == {
+        "ok": False,
+        "error": "invalid_message",
+    }
+    assert run(t.adapter.untick_topic("sid-ada", {"topic": 7})) == {
+        "ok": False,
+        "error": "invalid_message",
+    }
+    assert run(t.adapter.claim_prize("sid-ada", {})) == {
+        "ok": False,
+        "error": "invalid_message",
+    }
+    assert (
+        t.registry.player_snapshot(PlayerRef(t.game.code, "Ada")).ticks == frozenset()
+    )
 
 
 def test_a_payload_that_is_not_an_object_is_refused_as_an_invalid_message():
@@ -382,8 +441,10 @@ def test_a_payload_that_is_not_an_object_is_refused_as_an_invalid_message():
     t.join()
     t.start_and_draw_everything()
 
-    assert run(t.adapter.tick_topic("sid-ada", None)) == {"ok": False, "error": "invalid_message"}
-
+    assert run(t.adapter.tick_topic("sid-ada", None)) == {
+        "ok": False,
+        "error": "invalid_message",
+    }
 
 
 def test_the_host_ending_the_game_is_announced_to_the_room():
@@ -403,7 +464,11 @@ def test_only_the_host_can_end_the_game_over_the_socket():
     t.start_and_draw_everything()
     emitted_before = list(t.broadcaster.emitted)
 
-    ack = run(t.adapter.end_game("sid-ada", {"code": t.game.code, "host_token": "not-the-host-token"}))
+    ack = run(
+        t.adapter.end_game(
+            "sid-ada", {"code": t.game.code, "host_token": "not-the-host-token"}
+        )
+    )
 
     assert ack == {"ok": False, "error": "not_host"}
     assert t.broadcaster.emitted == emitted_before

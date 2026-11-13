@@ -10,7 +10,10 @@ let fake: ReturnType<typeof startFresh>
 
 beforeEach(() => {
   fake = startFresh()
-  fake.answer('watch_lobby', hostSnapshot({ players: ['Ada'], status: 'started' }))
+  fake.answer(
+    'watch_lobby',
+    hostSnapshot({ players: ['Ada'], status: 'started' }),
+  )
 })
 
 function mountHost() {
@@ -29,7 +32,9 @@ describe('HostView ending the game', () => {
     await wrapper.get('[data-test="end-game"]').trigger('click')
     await flushPromises()
 
-    expect(fake.payloads('end_game')).toEqual([{ code: 'ABC123', host_token: 'secret-token' }])
+    expect(fake.payloads('end_game')).toEqual([
+      { code: 'ABC123', host_token: 'secret-token' },
+    ])
   })
 
   it('takes away the start, draw and end controls once the game has ended', async () => {
@@ -45,12 +50,17 @@ describe('HostView ending the game', () => {
   })
 
   it('shows the ended game, not Start game, after the host reloads', async () => {
-    fake.answer('watch_lobby', hostSnapshot({ status: 'ended', end_reason: 'full_house' }))
+    fake.answer(
+      'watch_lobby',
+      hostSnapshot({ status: 'ended', end_reason: 'full_house' }),
+    )
     const wrapper = mountHost()
     await flushPromises()
 
     expect(wrapper.find('[data-test="start-game"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('The game is over: the full house was claimed')
+    expect(wrapper.text()).toContain(
+      'The game is over: the full house was claimed',
+    )
   })
 })
 
@@ -61,7 +71,9 @@ describe('PlayerLobbyView when the game ends', () => {
     fake.emit('game_ended', { reason: 'full_house' })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('The game is over: the full house was claimed')
+    expect(wrapper.text()).toContain(
+      'The game is over: the full house was claimed',
+    )
     expect(wrapper.find('[data-test="claim-early_five"]').exists()).toBe(false)
   })
 

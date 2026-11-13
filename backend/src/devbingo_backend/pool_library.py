@@ -57,23 +57,31 @@ def admit(name: str, topics: Sequence[Topic]) -> tuple[str, Pool]:
     from the trimmed topics, or raises a PoolError naming the first rule broken. The topic count
     is checked first of all, so an oversized request is turned away before its topics are read."""
     if len(topics) > MAX_TOPICS:
-        raise PoolRuleBroken("too_many_topics", f"a pool has at most {MAX_TOPICS} topics")
+        raise PoolRuleBroken(
+            "too_many_topics", f"a pool has at most {MAX_TOPICS} topics"
+        )
     name = name.strip()
     if not name:
         raise PoolRuleBroken("empty_name", "a pool needs a name")
     if len(name) > MAX_POOL_NAME:
-        raise PoolRuleBroken("name_too_long", f"a pool name has at most {MAX_POOL_NAME} characters")
+        raise PoolRuleBroken(
+            "name_too_long", f"a pool name has at most {MAX_POOL_NAME} characters"
+        )
     if name.casefold() == DEFAULT_POOL_NAME.casefold():
-        raise PoolRuleBroken("reserved_name", f'"{DEFAULT_POOL_NAME}" is the built-in pool\'s name')
+        raise PoolRuleBroken(
+            "reserved_name", f'"{DEFAULT_POOL_NAME}" is the built-in pool\'s name'
+        )
     trimmed = [Topic(topic.name.strip(), topic.explanation.strip()) for topic in topics]
     for topic in trimmed:
         if len(topic.name) > MAX_TOPIC_NAME:
             raise PoolRuleBroken(
-                "topic_name_too_long", f"a topic name has at most {MAX_TOPIC_NAME} characters"
+                "topic_name_too_long",
+                f"a topic name has at most {MAX_TOPIC_NAME} characters",
             )
         if len(topic.explanation) > MAX_EXPLANATION:
             raise PoolRuleBroken(
-                "explanation_too_long", f"an explanation has at most {MAX_EXPLANATION} characters"
+                "explanation_too_long",
+                f"an explanation has at most {MAX_EXPLANATION} characters",
             )
     return name, build_pool(trimmed)
 
@@ -117,7 +125,10 @@ class InMemoryPoolLibrary:
         return PoolSummary(pool_id, name, is_default=False)
 
     def list_pools(self) -> list[PoolSummary]:
-        return [PoolSummary(pool_id, name, pool_id == 1) for pool_id, (name, _) in self._pools.items()]
+        return [
+            PoolSummary(pool_id, name, pool_id == 1)
+            for pool_id, (name, _) in self._pools.items()
+        ]
 
     def get(self, pool_id: int) -> SavedPool:
         try:
@@ -179,7 +190,9 @@ class PostgresPoolLibrary:
             self._ready = True
 
     @staticmethod
-    def _add(session: Session, name: str, pool: Pool, is_default: bool = False) -> PoolRecord:
+    def _add(
+        session: Session, name: str, pool: Pool, is_default: bool = False
+    ) -> PoolRecord:
         record = PoolRecord(name=name, is_default=is_default)
         session.add(record)
         session.flush()
@@ -201,7 +214,9 @@ class PostgresPoolLibrary:
             .where(PoolTopicRecord.pool_id == record.id)
             .order_by(PoolTopicRecord.position)
         ).all()
-        return SavedPool(record.name, build_pool([Topic(row.name, row.explanation) for row in rows]))
+        return SavedPool(
+            record.name, build_pool([Topic(row.name, row.explanation) for row in rows])
+        )
 
     def load_default(self) -> Pool:
         try:

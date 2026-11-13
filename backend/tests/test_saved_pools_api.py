@@ -1,14 +1,17 @@
 from fastapi.testclient import TestClient
+from unavailable import UnavailablePoolLibrary
 
 from devbingo_backend.app import create_app
-from devbingo_backend.pool_library import InMemoryPoolLibrary
 from devbingo_backend.game import HostLink
+from devbingo_backend.pool_library import InMemoryPoolLibrary
 from devbingo_backend.wire import PoolResponse
-from unavailable import UnavailablePoolLibrary
 
 
 def topics(prefix="Mine", count=90):
-    return [{"name": f"{prefix}{n:02}", "explanation": f"{prefix}{n:02} explained"} for n in range(count)]
+    return [
+        {"name": f"{prefix}{n:02}", "explanation": f"{prefix}{n:02} explained"}
+        for n in range(count)
+    ]
 
 
 def make_client(library=None):
@@ -41,7 +44,9 @@ def test_an_unknown_pool_is_not_found():
 
 def test_a_pool_with_the_wrong_number_of_topics_is_refused_naming_the_rule():
     with make_client() as client:
-        response = client.post("/pools", json={"name": "Short", "topics": topics(count=89)})
+        response = client.post(
+            "/pools", json={"name": "Short", "topics": topics(count=89)}
+        )
 
     assert response.status_code == 422
     assert response.json()["detail"]["rule"] == "pool_size"
@@ -66,7 +71,9 @@ def test_a_refused_pool_is_not_saved():
 
 def test_the_default_pool_stays_read_only():
     with make_client() as client:
-        default_id = next(p["id"] for p in client.get("/pools").json() if p["is_default"])
+        default_id = next(
+            p["id"] for p in client.get("/pools").json() if p["is_default"]
+        )
         assert client.put(f"/pools/{default_id}", json={}).status_code == 405
         assert client.delete(f"/pools/{default_id}").status_code == 405
 
@@ -75,12 +82,17 @@ def test_pool_routes_report_service_unavailable_when_the_library_is_down():
     with make_client(UnavailablePoolLibrary()) as client:
         assert client.get("/pools").status_code == 503
         assert client.get("/pools/1").status_code == 503
-        assert client.post("/pools", json={"name": "x", "topics": topics()}).status_code == 503
+        assert (
+            client.post("/pools", json={"name": "x", "topics": topics()}).status_code
+            == 503
+        )
 
 
 def test_a_game_created_with_a_saved_pool_deals_and_draws_from_it():
     with make_client() as client:
-        pool_id = client.post("/pools", json={"name": "Mine", "topics": topics()}).json()["id"]
+        pool_id = client.post(
+            "/pools", json={"name": "Mine", "topics": topics()}
+        ).json()["id"]
         game = client.post("/games", json={"pool_id": pool_id})
         assert game.status_code == 201
         shown = hosts_snapshot(client, game).pool.columns()
@@ -105,7 +117,9 @@ def test_a_game_with_an_unknown_pool_id_is_not_found_and_creates_nothing():
 
 def test_a_pool_name_of_eighty_characters_after_trimming_is_kept_trimmed():
     with make_client() as client:
-        saved = client.post("/pools", json={"name": "  " + "x" * 80 + "  ", "topics": topics()})
+        saved = client.post(
+            "/pools", json={"name": "  " + "x" * 80 + "  ", "topics": topics()}
+        )
 
     assert saved.status_code == 201
     assert saved.json()["name"] == "x" * 80
@@ -113,7 +127,9 @@ def test_a_pool_name_of_eighty_characters_after_trimming_is_kept_trimmed():
 
 def test_a_game_created_from_a_saved_pool_tells_the_host_the_pools_name():
     with make_client() as client:
-        pool_id = client.post("/pools", json={"name": "Mine", "topics": topics()}).json()["id"]
+        pool_id = client.post(
+            "/pools", json={"name": "Mine", "topics": topics()}
+        ).json()["id"]
         shown = hosts_snapshot(client, client.post("/games", json={"pool_id": pool_id}))
 
     assert shown.pool_name == "Mine"

@@ -32,7 +32,11 @@ def store():
 
 @pytest.fixture
 def client(store):
-    app = create_app(pool_library=InMemoryPoolLibrary(), history_store=store, settlement_window_seconds=0.0)
+    app = create_app(
+        pool_library=InMemoryPoolLibrary(),
+        history_store=store,
+        settlement_window_seconds=0.0,
+    )
     with TestClient(app) as c:
         yield c
 
@@ -43,7 +47,9 @@ def registry_of(client):
 
 def test_a_game_ended_by_the_host_has_its_draws_viewable_by_its_code(client):
     registry = registry_of(client)
-    game = registry.create_game(InMemoryPoolLibrary().load_default(), pool_name="Default")
+    game = registry.create_game(
+        InMemoryPoolLibrary().load_default(), pool_name="Default"
+    )
     registry.start(game)
     drawn = registry.draw(game).draw
     registry.end(game)
@@ -56,7 +62,11 @@ def test_a_game_ended_by_the_host_has_its_draws_viewable_by_its_code(client):
     assert body["end_reason"] == "host"
     assert body["pool_name"] == "Default"
     assert body["draws"] == [
-        {"position": 1, "name": drawn.topic.name, "explanation": drawn.topic.explanation}
+        {
+            "position": 1,
+            "name": drawn.topic.name,
+            "explanation": drawn.topic.explanation,
+        }
     ]
     assert body["claims"] == []
     assert [w["awarded_to"] for w in body["prizes"]] == [[] for _ in Prize]
@@ -70,6 +80,7 @@ def test_a_full_house_game_shows_claims_with_outcomes_and_winners(client):
     start_and_draw_everything(registry, game)
     for topic in names_on(ticket):
         registry.tick(ada, topic)
+
     # The app's registry schedules its windows on the running event loop, so the claim needs one:
     # the window has no length, so it closes as soon as the loop gets to it.
     async def claim_full_house():
@@ -100,13 +111,17 @@ def test_an_unknown_game_has_no_history(client):
 
 
 def test_history_reports_service_unavailable_when_the_store_is_down():
-    app = create_app(pool_library=InMemoryPoolLibrary(), history_store=UnavailableHistoryStore())
+    app = create_app(
+        pool_library=InMemoryPoolLibrary(), history_store=UnavailableHistoryStore()
+    )
     with TestClient(app) as client:
         assert client.get("/games/ABCDEF/history").status_code == 503
 
 
 def test_a_failing_store_does_not_stop_a_game_ending(caplog):
-    app = create_app(pool_library=InMemoryPoolLibrary(), history_store=UnavailableHistoryStore())
+    app = create_app(
+        pool_library=InMemoryPoolLibrary(), history_store=UnavailableHistoryStore()
+    )
     with TestClient(app) as client:
         registry = registry_of(client)
         game = registry.create_game(InMemoryPoolLibrary().load_default())
@@ -122,13 +137,22 @@ def end_game(client, link):
     registry_of(client).end(HostLink(**link))
 
 
-def test_a_game_created_from_a_saved_pool_records_that_pools_name_in_its_history(client):
-    topics = [{"name": f"T{n:02}", "explanation": f"T{n:02} explained"} for n in range(90)]
-    pool_id = client.post("/pools", json={"name": "Platform Team", "topics": topics}).json()["id"]
+def test_a_game_created_from_a_saved_pool_records_that_pools_name_in_its_history(
+    client,
+):
+    topics = [
+        {"name": f"T{n:02}", "explanation": f"T{n:02} explained"} for n in range(90)
+    ]
+    pool_id = client.post(
+        "/pools", json={"name": "Platform Team", "topics": topics}
+    ).json()["id"]
     link = client.post("/games", json={"pool_id": pool_id}).json()
     end_game(client, link)
 
-    assert client.get(f"/games/{link['code']}/history").json()["pool_name"] == "Platform Team"
+    assert (
+        client.get(f"/games/{link['code']}/history").json()["pool_name"]
+        == "Platform Team"
+    )
 
 
 def test_a_game_created_without_a_pool_records_the_default_pool_name(client):
@@ -138,11 +162,15 @@ def test_a_game_created_without_a_pool_records_the_default_pool_name(client):
     assert client.get(f"/games/{link['code']}/history").json()["pool_name"] == "Default"
 
 
-def test_a_code_that_already_has_history_is_never_given_to_a_new_game(store, monkeypatch):
+def test_a_code_that_already_has_history_is_never_given_to_a_new_game(
+    store, monkeypatch
+):
     taken = "TAKEN1"
     store.save(GameSummary(taken, "host", None, (), (), {prize: () for prize in Prize}))
     letters = iter(taken + taken + "FRESH1")
-    monkeypatch.setattr("devbingo_backend.game.secrets.choice", lambda _alphabet: next(letters))
+    monkeypatch.setattr(
+        "devbingo_backend.game.secrets.choice", lambda _alphabet: next(letters)
+    )
     app = create_app(pool_library=InMemoryPoolLibrary(), history_store=store)
 
     with TestClient(app) as c:
@@ -153,6 +181,8 @@ def test_a_code_that_already_has_history_is_never_given_to_a_new_game(store, mon
 
 
 def test_a_game_can_still_be_created_when_the_history_store_is_down():
-    app = create_app(pool_library=InMemoryPoolLibrary(), history_store=UnavailableHistoryStore())
+    app = create_app(
+        pool_library=InMemoryPoolLibrary(), history_store=UnavailableHistoryStore()
+    )
     with TestClient(app) as c:
         assert c.post("/games").status_code == 201

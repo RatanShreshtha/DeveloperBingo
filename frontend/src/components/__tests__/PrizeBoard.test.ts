@@ -13,7 +13,9 @@ describe('PrizeBoard', () => {
 
   it('shows every player a prize was awarded to', () => {
     const wrapper = mount(PrizeBoard, {
-      props: { prizes: [{ prize: 'early_five', awarded_to: ['Ada', 'Grace'] }] },
+      props: {
+        prizes: [{ prize: 'early_five', awarded_to: ['Ada', 'Grace'] }],
+      },
     })
 
     expect(wrapper.text()).toContain('Early five: awarded to Ada, Grace')
