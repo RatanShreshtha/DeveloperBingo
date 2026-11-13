@@ -77,6 +77,6 @@ def test_a_pool_cannot_be_edited_after_it_is_built():
     pool = build_pool(make_topics(POOL_SIZE))
 
     with pytest.raises(dataclasses.FrozenInstanceError):
-        pool.topics = ()  # type: ignore[misc]
+        pool.topics = ()  # ty: ignore[invalid-assignment]  # frozen: the write must fail
     with pytest.raises(dataclasses.FrozenInstanceError):
-        pool.topics[0].name = "Renamed"  # type: ignore[misc]
+        pool.topics[0].name = "Renamed"  # ty: ignore[invalid-assignment]  # frozen: the write must fail

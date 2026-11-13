@@ -29,6 +29,7 @@ The backend tests need Postgres running, as above.
 # Backend, from backend/
 uv run ruff check        # lint
 uv run ruff format       # format (use --check to only verify)
+uv run ty check          # type check
 uv run pytest
 
 # Frontend, from frontend/

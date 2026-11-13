@@ -1,13 +1,13 @@
 """The History Store: where ended games are kept, behind a port the app and the tests plug into."""
 
 import threading
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, Session, SQLModel, col, select
 
 from devbingo_backend.errors import ErrorCode
-from devbingo_backend.game import Draw, GameSummary
+from devbingo_backend.game import Draw, EndReason, GameSummary
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
@@ -98,11 +98,12 @@ class GameWinnerRecord(SQLModel, table=True):
     player: str
 
 
+# SQLModel classes expose __table__ at runtime; ty can't see it.
 _TABLES = [
-    GameHistoryRecord.__table__,
-    GameDrawRecord.__table__,
-    GameClaimRecord.__table__,
-    GameWinnerRecord.__table__,
+    GameHistoryRecord.__table__,  # ty: ignore[missing-attribute]
+    GameDrawRecord.__table__,  # ty: ignore[missing-attribute]
+    GameClaimRecord.__table__,  # ty: ignore[missing-attribute]
+    GameWinnerRecord.__table__,  # ty: ignore[missing-attribute]
 ]
 
 # One process holds the app's state (ADR 0001), so a process-wide lock is enough.
@@ -208,7 +209,9 @@ class PostgresHistoryStore:
         }
         return GameSummary(
             code=game.code,
-            end_reason=game.reason,  # type: ignore[arg-type]
+            end_reason=cast(
+                EndReason, game.reason
+            ),  # written only from EndReason values
             pool_name=game.pool_name,
             draws=tuple(
                 Draw(row.position, Topic(row.name, row.explanation)) for row in draws

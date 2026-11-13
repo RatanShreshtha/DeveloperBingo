@@ -156,7 +156,8 @@ class PoolTopicRecord(SQLModel, table=True):
     explanation: str
 
 
-_TABLES = [PoolRecord.__table__, PoolTopicRecord.__table__]
+# SQLModel classes expose __table__ at runtime; ty can't see it.
+_TABLES = [PoolRecord.__table__, PoolTopicRecord.__table__]  # ty: ignore[missing-attribute]
 
 # One process holds the app's state (ADR 0001), so a process-wide lock is enough to stop two
 # first requests from seeding the default pool twice.
@@ -199,7 +200,7 @@ class PostgresPoolLibrary:
         for position, topic in enumerate(pool.topics):
             session.add(
                 PoolTopicRecord(
-                    pool_id=record.id,
+                    pool_id=record.id,  # ty: ignore[invalid-argument-type]  # set by the flush in _add
                     position=position,
                     name=topic.name,
                     explanation=topic.explanation,
@@ -212,7 +213,7 @@ class PostgresPoolLibrary:
         rows = session.exec(
             select(PoolTopicRecord)
             .where(PoolTopicRecord.pool_id == record.id)
-            .order_by(PoolTopicRecord.position)
+            .order_by(PoolTopicRecord.position)  # ty: ignore[invalid-argument-type]  # SQLModel column
         ).all()
         return SavedPool(
             record.name, build_pool([Topic(row.name, row.explanation) for row in rows])
@@ -238,7 +239,7 @@ class PostgresPoolLibrary:
             with Session(self._engine) as session:
                 record = self._add(session, name, pool)
                 session.commit()
-                return PoolSummary(record.id, name, is_default=False)
+                return PoolSummary(record.id, name, is_default=False)  # ty: ignore[invalid-argument-type]  # set by the flush in _add
         except SQLAlchemyError:
             raise PoolLibraryUnavailable from None
 
@@ -246,8 +247,8 @@ class PostgresPoolLibrary:
         try:
             self._ensure_ready()
             with Session(self._engine) as session:
-                records = session.exec(select(PoolRecord).order_by(PoolRecord.id)).all()
-                return [PoolSummary(r.id, r.name, r.is_default) for r in records]
+                records = session.exec(select(PoolRecord).order_by(PoolRecord.id)).all()  # ty: ignore[invalid-argument-type]  # SQLModel column
+                return [PoolSummary(r.id, r.name, r.is_default) for r in records]  # ty: ignore[invalid-argument-type]  # set by the flush in _add
         except SQLAlchemyError:
             raise PoolLibraryUnavailable from None
 

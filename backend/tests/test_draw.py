@@ -84,4 +84,4 @@ def test_the_draw_history_cannot_be_edited_from_outside(started):
 
     assert isinstance(history, tuple)
     with pytest.raises(AttributeError):
-        history.append(None)  # type: ignore[attr-defined]
+        history.append(None)

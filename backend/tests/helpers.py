@@ -4,7 +4,13 @@ import asyncio
 import random
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import GameRegistry, HostLink, Outcome, PlayerRef
+from devbingo_backend.game import (
+    DEFAULT_WINDOW_SECONDS,
+    GameRegistry,
+    HostLink,
+    Outcome,
+    PlayerRef,
+)
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.realtime import RealtimeAdapter
@@ -176,9 +182,9 @@ class RealtimeTable:
         self, seed: int = 5, scheduler=None, window_seconds: float | None = None
     ) -> None:
         self.scheduler = scheduler or ManualScheduler()
-        options = {} if window_seconds is None else {"window_seconds": window_seconds}
+        window = DEFAULT_WINDOW_SECONDS if window_seconds is None else window_seconds
         self.registry = GameRegistry(
-            rng=random.Random(seed), scheduler=self.scheduler, **options
+            rng=random.Random(seed), scheduler=self.scheduler, window_seconds=window
         )
         self.game = self.registry.create_game(DEFAULT_POOL, pool_name="Default")
         self.broadcaster = RecordingBroadcaster()
