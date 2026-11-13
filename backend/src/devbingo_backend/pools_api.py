@@ -13,13 +13,7 @@ from devbingo_backend.pool import (
 )
 from devbingo_backend.pool_library import PoolLibrary, PoolNotFound
 from devbingo_backend.pool_store import DEFAULT_POOL_NAME
-from devbingo_backend.wire import PoolResponse, TopicResponse
-
-
-class PoolSummaryResponse(BaseModel):
-    id: int
-    name: str
-    is_default: bool
+from devbingo_backend.wire import PoolRefused, PoolResponse, PoolSummaryResponse, TopicResponse
 
 
 MAX_POOL_NAME = 80
@@ -54,15 +48,6 @@ class NewPool(BaseModel):
                     "explanation_too_long", f"an explanation has at most {MAX_EXPLANATION} characters"
                 )
         return None
-
-
-class PoolRefusal(BaseModel):
-    rule: str
-    message: str
-
-
-class PoolRefused(BaseModel):
-    detail: PoolRefusal
 
 
 _RULES: dict[type[PoolError], str] = {

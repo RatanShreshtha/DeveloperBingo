@@ -7,11 +7,11 @@ from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
     ClaimNotValid,
     GameAlreadyEnded,
+    HostLink,
     NotHost,
     PlayerRef,
 )
 from devbingo_backend.prizes import Prize
-from devbingo_backend.wire import HostLink
 
 
 @pytest.fixture

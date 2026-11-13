@@ -1,8 +1,31 @@
 """The rule violations the engine reports. Each declares the wire code that tells a client why."""
 
+from enum import StrEnum
 from typing import ClassVar
 
-from devbingo_backend.wire import ErrorCode
+
+class ErrorCode(StrEnum):
+    """Why a request was refused. Each engine error declares the code it maps to."""
+
+    NOT_FOUND = "not_found"
+    NOT_HOST = "not_host"
+    NAME_TAKEN = "name_taken"
+    GAME_FULL = "game_full"
+    ALREADY_STARTED = "already_started"
+    GAME_ENDED = "game_ended"
+    NOT_STARTED = "not_started"
+    NO_TOPICS_LEFT = "no_topics_left"
+    NOT_A_PLAYER = "not_a_player"
+    NOT_DRAWN = "not_drawn"
+    NOT_ON_TICKET = "not_on_ticket"
+    CLAIM_NOT_VALID = "claim_not_valid"
+    PRIZE_TAKEN = "prize_taken"
+    ALREADY_JOINED = "already_joined"
+    NOT_JOINED = "not_joined"
+    UNKNOWN_PRIZE = "unknown_prize"
+    INVALID_MESSAGE = "invalid_message"
+    SETTLEMENT_OPEN = "settlement_open"
+    CLAIM_PENDING = "claim_pending"
 
 
 class GameError(Exception):

@@ -3,12 +3,13 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Protocol, TypeVar
 
 import socketio
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from devbingo_backend.game import (
     AlreadyJoined,
     GameError,
     GameRegistry,
+    HostLink,
     InvalidMessage,
     NotJoined,
     Outcome,
@@ -28,7 +29,6 @@ from devbingo_backend.wire import (
     DrawAnnouncement,
     GameEnded,
     GameStarted,
-    HostLink,
     JoinAck,
     JoinPayload,
     LobbyUpdated,
@@ -61,7 +61,7 @@ class Broadcaster(Protocol):
 logger = logging.getLogger(__name__)
 
 Ack = dict[str, Any]
-M = TypeVar("M", bound=BaseModel)
+M = TypeVar("M")
 
 
 def _refusal(err: GameError) -> Ack:
@@ -72,7 +72,7 @@ def _refusal(err: GameError) -> Ack:
 def _parse(model: type[M], payload: object) -> M:
     """Reads a payload into its model. A bad or missing field refuses the whole message."""
     try:
-        return model.model_validate(payload)
+        return TypeAdapter(model).validate_python(payload)
     except ValidationError:
         raise InvalidMessage from None
 

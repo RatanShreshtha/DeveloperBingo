@@ -3,11 +3,10 @@
 import asyncio
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import GameRegistry, Outcome, PlayerRef
+from devbingo_backend.game import GameRegistry, HostLink, Outcome, PlayerRef
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.ticket import Ticket
-from devbingo_backend.wire import HostLink
 
 
 def ticket_of(grid: list[list[str | None]]) -> Ticket:

@@ -8,11 +8,10 @@ from fastapi.testclient import TestClient
 from helpers import names_on, start_and_draw_everything
 
 from devbingo_backend.app import create_app
-from devbingo_backend.game import GameAlreadyEnded, GameSummary, PlayerRef
+from devbingo_backend.game import GameAlreadyEnded, GameSummary, HostLink, PlayerRef
 from devbingo_backend.history import HistoryUnavailable, InMemoryHistoryStore
 from devbingo_backend.pool_library import InMemoryPoolLibrary
 from devbingo_backend.prizes import Prize
-from devbingo_backend.wire import HostLink
 
 
 class UnavailableHistoryStore:
@@ -120,7 +119,7 @@ def test_a_failing_store_does_not_stop_a_game_ending(caplog):
 
 
 def end_game(client, link):
-    registry_of(client).end(HostLink.model_validate(link))
+    registry_of(client).end(HostLink(**link))
 
 
 def test_a_game_created_from_a_saved_pool_records_that_pools_name_in_its_history(client):

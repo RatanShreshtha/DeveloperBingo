@@ -6,7 +6,7 @@ import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal, TypeAlias
 
 from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
     AlreadyJoined,
@@ -36,7 +36,6 @@ from devbingo_backend.prizes import Prize
 from devbingo_backend.scheduler import AsyncioScheduler, Scheduler
 from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Evidence, Refused, Settled
 from devbingo_backend.ticket import Ticket, build_ticket
-from devbingo_backend.wire import EndReason, GameStatus, HostLink
 
 MAX_PLAYERS = 200
 
@@ -47,6 +46,23 @@ logger = logging.getLogger(__name__)
 
 _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _CODE_LENGTH = 6
+
+
+# Where a game stands.
+GameStatus: TypeAlias = Literal["lobby", "started", "ended"]
+# Why a game ended: the full house was awarded, or the host ended it.
+EndReason: TypeAlias = Literal["full_house", "host"]
+
+
+@dataclass(frozen=True)
+class HostLink:
+    """The private handle on one game: whoever holds it controls that game.
+
+    It is what creating a game returns, and what every host command sends.
+    """
+
+    code: str
+    host_token: str
 
 
 @dataclass(frozen=True)

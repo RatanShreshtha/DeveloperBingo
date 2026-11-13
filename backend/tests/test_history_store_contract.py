@@ -12,7 +12,7 @@ from devbingo_backend.history import AlreadyStored, InMemoryHistoryStore, Postgr
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
-from devbingo_backend.wire import ErrorCode
+from devbingo_backend.errors import ErrorCode
 
 
 @pytest.fixture(params=["memory", "postgres"])

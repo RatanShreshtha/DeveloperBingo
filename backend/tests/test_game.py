@@ -4,16 +4,16 @@ import pytest
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
-    PlayerRef,
-    MAX_PLAYERS,
     GameAlreadyStarted,
     GameFull,
     GameNotFound,
     GameRegistry,
+    HostLink,
+    MAX_PLAYERS,
     NameTaken,
     NotHost,
+    PlayerRef,
 )
-from devbingo_backend.wire import HostLink
 from helpers import ManualScheduler
 
 

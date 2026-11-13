@@ -1,16 +1,14 @@
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Literal
 
 import socketio
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
-from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry
+from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry, HostLink
 from devbingo_backend.history import HistoryStore, HistoryUnavailable, PostgresHistoryStore
 from devbingo_backend.history_api import history_router
 from devbingo_backend.pool_library import (
@@ -22,18 +20,9 @@ from devbingo_backend.pool_library import (
 from devbingo_backend.pool_store import DEFAULT_POOL_NAME
 from devbingo_backend.pools_api import PoolResponse, build_pools_router
 from devbingo_backend.realtime import build_socket_server
-from devbingo_backend.wire import SOCKET_MODELS, HostLink
+from devbingo_backend.wire import SOCKET_MODELS, CreateGameRequest, HealthResponse
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
-
-
-class HealthResponse(BaseModel):
-    status: Literal["ok", "degraded"]
-    database: Literal["up", "down"]
-
-
-class CreateGameRequest(BaseModel):
-    pool_id: int | None = None
 
 
 def create_app(

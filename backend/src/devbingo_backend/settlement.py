@@ -1,10 +1,9 @@
 from collections.abc import Callable, Set
 from dataclasses import dataclass, field
 
-from devbingo_backend.errors import ClaimNotValid, GameError, PrizeAlreadyAwarded
+from devbingo_backend.errors import ClaimNotValid, ErrorCode, GameError, PrizeAlreadyAwarded
 from devbingo_backend.prizes import Prize, prizes_earned
 from devbingo_backend.ticket import Ticket
-from devbingo_backend.wire import ErrorCode
 
 
 @dataclass(frozen=True)

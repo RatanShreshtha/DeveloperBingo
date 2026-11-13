@@ -9,7 +9,7 @@ from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import ClaimNotValid, Outcome, PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
-from devbingo_backend.wire import ErrorCode
+from devbingo_backend.errors import ErrorCode
 
 
 @pytest.fixture

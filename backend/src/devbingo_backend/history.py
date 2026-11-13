@@ -6,11 +6,11 @@ from typing import Any, Protocol
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, Session, SQLModel, col, select
 
+from devbingo_backend.errors import ErrorCode
 from devbingo_backend.game import Draw, GameSummary
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
-from devbingo_backend.wire import ErrorCode
 
 
 class AlreadyStored(Exception):
