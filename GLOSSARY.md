@@ -29,7 +29,7 @@ A participant who holds a ticket and ticks off drawn topics.
 _Avoid_: User, contestant
 
 **Connected player**:
-A player whose socket is live in the game. A player who drops keeps their place and ticks, and can rejoin by name.
+A player whose socket is live in the game. A player who drops keeps their place and ticks, and can rejoin by name. A player holds at most one live connection: a rejoin with their token replaces the old one, and the old one's later drop changes nothing.
 _Avoid_: Online player, live player, dropped player (use "dropped" only for a player who is not connected)
 
 **Rejoin token**:
