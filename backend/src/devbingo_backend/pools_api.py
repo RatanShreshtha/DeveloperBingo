@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from devbingo_backend.pool import PoolError, Topic
-from devbingo_backend.pool_library import PoolLibrary, PoolNotFound
+from devbingo_backend.pool_library import PoolLibrary
 from devbingo_backend.wire import PoolRefused, PoolResponse, PoolSummaryResponse, TopicResponse
 
 
@@ -27,17 +27,11 @@ def build_pools_router(library: PoolLibrary) -> APIRouter:
 
     @router.get("/pools", response_model=list[PoolSummaryResponse])
     def list_pools() -> list[PoolSummaryResponse]:
-        return [
-            PoolSummaryResponse(id=item.id, name=item.name, is_default=item.is_default)
-            for item in library.list_pools()
-        ]
+        return [PoolSummaryResponse.from_summary(item) for item in library.list_pools()]
 
     @router.get("/pools/{pool_id}", response_model=PoolResponse)
     def read_pool(pool_id: int) -> PoolResponse:
-        try:
-            return PoolResponse.from_pool(library.get(pool_id).pool)
-        except PoolNotFound:
-            raise HTTPException(status_code=404, detail="pool not found") from None
+        return PoolResponse.from_pool(library.get(pool_id).pool)
 
     @router.post(
         "/pools",
@@ -51,6 +45,6 @@ def build_pools_router(library: PoolLibrary) -> APIRouter:
             saved = library.save(body.name, [Topic(topic.name, topic.explanation) for topic in body.topics])
         except PoolError as error:
             raise _refusal(error) from None
-        return PoolSummaryResponse(id=saved.id, name=saved.name, is_default=saved.is_default)
+        return PoolSummaryResponse.from_summary(saved)
 
     return router

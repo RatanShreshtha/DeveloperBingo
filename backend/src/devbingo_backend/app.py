@@ -3,24 +3,19 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import socketio
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
-from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry, HostLink
+from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry
+from devbingo_backend.games_api import build_games_router
 from devbingo_backend.history import HistoryStore, HistoryUnavailable, PostgresHistoryStore
 from devbingo_backend.history_api import history_router
-from devbingo_backend.pool_library import (
-    DEFAULT_POOL_NAME,
-    PoolLibrary,
-    PoolLibraryUnavailable,
-    PoolNotFound,
-    PostgresPoolLibrary,
-)
+from devbingo_backend.http_errors import register_error_handlers
+from devbingo_backend.pool_library import PoolLibrary, PostgresPoolLibrary
 from devbingo_backend.pools_api import build_pools_router
 from devbingo_backend.realtime import build_socket_server
-from devbingo_backend.wire import SOCKET_MODELS, CreateGameRequest, HealthResponse
+from devbingo_backend.wire import SOCKET_MODELS, HealthResponse
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
 
@@ -72,11 +67,7 @@ def create_app(
 
     app = FastAPI(title="DeveloperBingo API", lifespan=lifespan)
 
-    @app.exception_handler(PoolLibraryUnavailable)
-    def pool_library_unavailable(_request: Request, _error: PoolLibraryUnavailable) -> JSONResponse:
-        """Whatever needed a pool gets a 503 when the library can't be read, with no fallback."""
-        return JSONResponse(status_code=503, content={"detail": "pool library unavailable"})
-
+    register_error_handlers(app)
     app.include_router(history_router(history))
     app.state.registry = registry
 
@@ -88,17 +79,7 @@ def create_app(
             database="up" if up else "down",
         )
 
-    @app.post("/games", status_code=201, response_model=HostLink)
-    def create_game(body: CreateGameRequest | None = None) -> HostLink:
-        """Create a game on the default pool, or on the saved pool named by `pool_id`."""
-        if body is None or body.pool_id is None:
-            return registry.create_game(library.load_default(), pool_name=DEFAULT_POOL_NAME)
-        try:
-            saved = library.get(body.pool_id)
-        except PoolNotFound:
-            raise HTTPException(status_code=404, detail="pool not found") from None
-        return registry.create_game(saved.pool, pool_name=saved.name)
-
+    app.include_router(build_games_router(registry, library))
     app.include_router(build_pools_router(library))
 
     rest_openapi = app.openapi

@@ -5,6 +5,11 @@ import {
   type RouteRecordRaw,
 } from 'vue-router'
 
+/** The host's private address for a game. The `/host/:code` route reads the token back from it. */
+export function hostPath(link: { code: string; host_token: string }): string {
+  return `/host/${encodeURIComponent(link.code)}?token=${encodeURIComponent(link.host_token)}`
+}
+
 export const routes: RouteRecordRaw[] = [
   { path: '/', component: () => import('../views/HomePage.vue') },
   { path: '/about', component: () => import('../views/AboutView.vue') },
