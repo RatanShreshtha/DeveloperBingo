@@ -41,6 +41,7 @@ def test_a_repeat_claim_by_the_same_player_is_the_same_pending_result():
 
     assert again.prize == first.prize
     assert again.opened_window is False
+    assert settled is not None
     assert settled.awarded_to == ("Ada",)
     assert len(settlement.log()) == 1
 

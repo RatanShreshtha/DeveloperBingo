@@ -1,5 +1,5 @@
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import socketio
@@ -67,7 +67,7 @@ def create_app(
         return True
 
     @asynccontextmanager
-    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         yield
         engine.dispose()
 
@@ -100,7 +100,7 @@ def create_app(
         schema["components"]["schemas"].update(socket_schemas["$defs"])
         return schema
 
-    app.openapi = openapi_with_socket_messages  # type: ignore[method-assign]
+    app.openapi = openapi_with_socket_messages
 
     socket_server = build_socket_server(registry)
     app.mount("/socket.io", socketio.ASGIApp(socket_server))
