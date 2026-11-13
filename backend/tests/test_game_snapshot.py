@@ -7,10 +7,9 @@ import pytest
 from helpers import ManualScheduler, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import GameRegistry, NotAPlayer, NotHost, PlayerRef
+from devbingo_backend.game import GameRegistry, HostLink, NotAPlayer, NotHost, PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
-from devbingo_backend.wire import HostLink
 
 OPEN_BOARD = {prize: () for prize in Prize}
 

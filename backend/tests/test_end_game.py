@@ -1,23 +1,22 @@
 import random
 
 import pytest
-from helpers import ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
+from helpers import ManualRegistry, claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
     ClaimNotValid,
     GameAlreadyEnded,
-    GameRegistry,
+    HostLink,
     NotHost,
     PlayerRef,
 )
 from devbingo_backend.prizes import Prize
-from devbingo_backend.wire import HostLink
 
 
 @pytest.fixture
 def lobby():
-    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(41))
+    registry = ManualRegistry(rng=random.Random(41))
     game = registry.create_game(DEFAULT_POOL)
     ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     return registry, game, ticket
@@ -61,8 +60,9 @@ def test_a_refused_full_house_claim_does_not_end_the_game(started_with_every_top
     for topic in names_on(ticket)[:14]:
         registry.tick(PlayerRef(game.code, "Ada"), topic)
 
-    with pytest.raises(ClaimNotValid):
-        registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+    result = registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+
+    assert isinstance(result.refusal, ClaimNotValid)
 
     claim_and_settle(registry, PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
 
@@ -109,8 +109,9 @@ def test_claims_are_refused_after_the_game_ends(started_with_every_topic_drawn):
         registry.tick(PlayerRef(game.code, "Ada"), topic)
     registry.end(game)
 
-    with pytest.raises(GameAlreadyEnded):
-        registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+    result = registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+
+    assert isinstance(result.refusal, GameAlreadyEnded)
 
     assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 

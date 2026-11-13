@@ -2,13 +2,12 @@ import random
 
 import pytest
 
-from helpers import ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
+from helpers import ManualRegistry, claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
     GameAlreadyEnded,
     GameNotStarted,
-    GameRegistry,
     NotAPlayer,
     PlayerRef,
     PrizeAlreadyAwarded,
@@ -19,7 +18,7 @@ from devbingo_backend.prizes import Prize
 
 @pytest.fixture
 def started_with_every_topic_drawn():
-    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(31))
+    registry = ManualRegistry(rng=random.Random(31))
     game = registry.create_game(DEFAULT_POOL)
     ada_ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     grace_ticket = registry.join(PlayerRef(game.code, "Grace")).snapshot.ticket
@@ -62,9 +61,9 @@ def test_an_incomplete_pattern_is_refused_and_changes_nothing(started_with_every
     board_before = registry.host_snapshot(game).prizes
     ticks_before = registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks
 
-    with pytest.raises(ClaimNotValid):
-        registry.claim(PlayerRef(game.code, "Ada"), prize)
+    result = registry.claim(PlayerRef(game.code, "Ada"), prize)
 
+    assert isinstance(result.refusal, ClaimNotValid)
     assert registry.host_snapshot(game).prizes == board_before
     assert registry.player_snapshot(PlayerRef(game.code, "Ada")).ticks == ticks_before
 
@@ -78,8 +77,9 @@ def test_each_prize_is_awarded_once_per_game(started_with_every_topic_drawn, pri
 
     # Awarding the full house also ends the game, so a second claim meets that first.
     refusal = GameAlreadyEnded if prize is Prize.FULL_HOUSE else PrizeAlreadyAwarded
-    with pytest.raises(refusal):
-        registry.claim(PlayerRef(game.code, "Grace"), prize)
+    result = registry.claim(PlayerRef(game.code, "Grace"), prize)
+
+    assert isinstance(result.refusal, refusal)
 
     assert registry.host_snapshot(game).prizes[prize] == ("Ada",)
 
@@ -103,12 +103,13 @@ def test_a_prize_remains_open_until_someone_claims_it(started_with_every_topic_d
 
 
 def test_claims_are_refused_before_the_game_starts():
-    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(31))
+    registry = ManualRegistry(rng=random.Random(31))
     game = registry.create_game(DEFAULT_POOL)
     registry.join(PlayerRef(game.code, "Ada"))
 
-    with pytest.raises(GameNotStarted):
-        registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+    result = registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+
+    assert isinstance(result.refusal, GameNotStarted)
 
 
 def test_only_players_in_the_game_can_claim(started_with_every_topic_drawn):

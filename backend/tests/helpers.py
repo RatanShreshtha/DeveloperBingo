@@ -3,11 +3,10 @@
 import asyncio
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import GameRegistry, PlayerRef
+from devbingo_backend.game import GameRegistry, HostLink, Outcome, PlayerRef
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.ticket import Ticket
-from devbingo_backend.wire import HostLink
 
 
 def ticket_of(grid: list[list[str | None]]) -> Ticket:
@@ -50,10 +49,12 @@ def wire_board_of(**awarded_to: list[str]) -> list[dict]:
     return [{"prize": prize.value, "awarded_to": awarded_to.get(prize.value, [])} for prize in Prize]
 
 
-def claim_and_settle(registry: GameRegistry, player: PlayerRef, prize: Prize):
-    """Claim a prize and close its settlement window at once, as if no one else claimed in it."""
+def claim_and_settle(registry: "ManualRegistry", player: PlayerRef, prize: Prize) -> Outcome:
+    """Claim a prize and let its settlement window close, as if no one else claimed in it.
+    Returns what the close reported."""
     registry.claim(player, prize)
-    return registry.close_window(player.code, prize)
+    (outcome,) = registry.settle()
+    return outcome
 
 
 class ManualScheduler:
@@ -77,3 +78,24 @@ class ManualScheduler:
         """Fire every pending close, outside an event loop."""
         asyncio.run(self.fire_all())
 
+
+
+class ManualRegistry(GameRegistry):
+    """A registry whose settlement windows close when the test says so, by firing the closes its
+    scheduler holds: the same path the clock runs in production."""
+
+    def __init__(self, **kwargs) -> None:
+        self.scheduler = ManualScheduler()
+        super().__init__(scheduler=self.scheduler, **kwargs)
+
+    def settle(self) -> list[Outcome]:
+        """Fire every pending close. Returns what each reported, in the order they fired; a close
+        with nothing to settle reports nothing."""
+        heard: list[Outcome] = []
+
+        async def hear(code: str, outcome: Outcome) -> None:
+            heard.append(outcome)
+
+        self.listen(hear)
+        self.scheduler.close_all()
+        return heard

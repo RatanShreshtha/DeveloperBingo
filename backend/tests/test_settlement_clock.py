@@ -91,20 +91,6 @@ def test_nothing_is_heard_or_awarded_before_the_window_closes(table):
     assert table.registry.host_snapshot(table.game).prizes[Prize.EARLY_FIVE] == ()
 
 
-def test_a_full_house_window_closing_on_time_ends_the_game_once_for_every_winner(table):
-    table.tick_everything("Ada")
-    table.tick_everything("Grace")
-    table.registry.claim(table.player("Ada"), Prize.FULL_HOUSE)
-    table.registry.claim(table.player("Grace"), Prize.FULL_HOUSE)
-
-    table.scheduler.close_all()
-
-    [(_, outcome)] = table.heard
-    assert outcome.settled[0].awarded_to == ("Ada", "Grace")
-    assert outcome.ended == "full_house"
-    assert table.registry.host_snapshot(table.game).status == "ended"
-
-
 def test_the_close_scheduled_before_the_host_ended_the_game_changes_nothing(table):
     table.registry.claim(table.player("Ada"), Prize.EARLY_FIVE)
     table.registry.end(table.game)
@@ -128,7 +114,7 @@ def test_windows_for_two_prizes_open_together_and_close_independently(table):
     asyncio.run(close_top_line())
 
     # Only the first claim opened the game's first window; the second opened another beside it.
-    assert (first.window_open, second.window_open) == (True, None)
+    assert (first.outcome.window_open, second.outcome.window_open) == (True, None)
     [(_, five), (_, top)] = table.heard
     assert (five.settled[0].prize, five.window_open) == (Prize.EARLY_FIVE, None)
     assert (top.settled[0].prize, top.window_open) == (Prize.TOP_LINE, False)

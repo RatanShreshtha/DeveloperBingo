@@ -6,49 +6,27 @@ types from them rather than writing them by hand.
 """
 
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from devbingo_backend.errors import ErrorCode
+from devbingo_backend.game import (
+    Draw,
+    EndReason,
+    GameStatus,
+    GameSummary,
+    HostSnapshot,
+    PlayerSnapshot,
+)
+from devbingo_backend.game import GameSnapshot as EngineSnapshot
 from devbingo_backend.prizes import Prize
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from devbingo_backend.game import Draw, HostSnapshot, PlayerSnapshot
-    from devbingo_backend.game import GameSnapshot as EngineSnapshot
     from devbingo_backend.pool import Pool
     from devbingo_backend.settlement import ClaimRecord
-
-
-# Where a game stands.
-GameStatus: TypeAlias = Literal["lobby", "started", "ended"]
-# Why a game ended: the full house was awarded, or the host ended it.
-EndReason: TypeAlias = Literal["full_house", "host"]
-
-
-class ErrorCode(StrEnum):
-    """Why a request was refused. Each engine error declares the code it maps to."""
-
-    NOT_FOUND = "not_found"
-    NOT_HOST = "not_host"
-    NAME_TAKEN = "name_taken"
-    GAME_FULL = "game_full"
-    ALREADY_STARTED = "already_started"
-    GAME_ENDED = "game_ended"
-    NOT_STARTED = "not_started"
-    NO_TOPICS_LEFT = "no_topics_left"
-    NOT_A_PLAYER = "not_a_player"
-    NOT_DRAWN = "not_drawn"
-    NOT_ON_TICKET = "not_on_ticket"
-    CLAIM_NOT_VALID = "claim_not_valid"
-    PRIZE_TAKEN = "prize_taken"
-    ALREADY_JOINED = "already_joined"
-    NOT_JOINED = "not_joined"
-    UNKNOWN_PRIZE = "unknown_prize"
-    INVALID_MESSAGE = "invalid_message"
-    SETTLEMENT_OPEN = "settlement_open"
-    CLAIM_PENDING = "claim_pending"
 
 
 class ClientEvent(StrEnum):
@@ -85,18 +63,6 @@ class ServerEvent(StrEnum):
 class _Message(BaseModel):
     # Fields with a default (like `ok`) are always sent, so the schema marks them required.
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
-
-
-class HostLink(_Message):
-    """The private handle on one game: whoever holds it controls that game.
-
-    It is what creating a game returns, and what every host command sends.
-    """
-
-    model_config = ConfigDict(frozen=True, json_schema_serialization_defaults_required=True)
-
-    code: str
-    host_token: str
 
 
 class DrawAnnouncement(_Message):
@@ -325,6 +291,56 @@ class WindowChanged(_Message):
 
 class Replaced(_Message):
     """Another socket took over this socket's player, which has left the game."""
+
+
+# REST-only shapes: what the HTTP routes take and return that no socket event carries.
+
+
+class HealthResponse(BaseModel):
+    status: Literal["ok", "degraded"]
+    database: Literal["up", "down"]
+
+
+class CreateGameRequest(BaseModel):
+    pool_id: int | None = None
+
+
+class PoolSummaryResponse(BaseModel):
+    id: int
+    name: str
+    is_default: bool
+
+
+class PoolRefusal(BaseModel):
+    rule: str
+    message: str
+
+
+class PoolRefused(BaseModel):
+    detail: PoolRefusal
+
+
+class GameHistoryResponse(_Message):
+    """An ended game: its draws in order, every claim with its outcome, and who won each prize."""
+
+    code: str
+    # Why it ended: the full house was awarded, or the host ended it.
+    reason: EndReason
+    pool_name: str | None
+    draws: list[DrawAnnouncement]
+    claims: list[ClaimLogEntry]
+    winners: list[PrizeBoardEntry]
+
+    @classmethod
+    def from_summary(cls, summary: GameSummary) -> "GameHistoryResponse":
+        return cls(
+            code=summary.code,
+            reason=summary.reason,
+            pool_name=summary.pool_name,
+            draws=[DrawAnnouncement.from_draw(draw) for draw in summary.draws],
+            claims=[ClaimLogEntry.from_record(record) for record in summary.claims],
+            winners=PrizeBoardEntry.board_of(summary.winners),
+        )
 
 
 # Models the OpenAPI schema carries that no REST route returns.

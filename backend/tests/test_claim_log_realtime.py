@@ -19,7 +19,11 @@ def test_the_host_is_told_of_a_refused_claim_and_the_players_are_not():
     adapter, _, game = started_game_with_five_ticks_for_ada(broadcaster)
     watch_as_host(adapter, game)
     in_the_room_before = to_room(broadcaster, game.code)
-    run(adapter.claim_prize("sid-ada", claim_message(game, prize="full_house")))
+    ack = run(adapter.claim_prize("sid-ada", claim_message(game, prize="full_house")))
+
+    # The claimant is told by the acknowledgement alone: a refusal never becomes `claim_settled`.
+    assert ack["error"] == "claim_not_valid"
+    assert [e for e in broadcaster.emitted if e[0] == "claim_settled"] == []
 
     host_events = [event for event in broadcaster.emitted if event[0] == "claim_logged"]
     # A refused claim is private: no event of any kind reaches the room the players are in.

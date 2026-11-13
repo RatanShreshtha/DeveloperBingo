@@ -3,7 +3,8 @@ from fastapi.testclient import TestClient
 
 from devbingo_backend.app import create_app
 from devbingo_backend.pool_library import InMemoryPoolLibrary
-from devbingo_backend.wire import HostLink, PoolResponse
+from devbingo_backend.game import HostLink
+from devbingo_backend.wire import PoolResponse
 from unavailable import UnavailablePoolLibrary
 
 

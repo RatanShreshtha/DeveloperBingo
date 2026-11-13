@@ -2,38 +2,8 @@
 
 from fastapi import APIRouter, HTTPException
 
-from devbingo_backend.game import GameSummary
 from devbingo_backend.history import HistoryStore, HistoryUnavailable
-from devbingo_backend.wire import (
-    ClaimLogEntry,
-    DrawAnnouncement,
-    EndReason,
-    PrizeBoardEntry,
-    _Message,
-)
-
-
-class GameHistoryResponse(_Message):
-    """An ended game: its draws in order, every claim with its outcome, and who won each prize."""
-
-    code: str
-    # Why it ended: the full house was awarded, or the host ended it.
-    reason: EndReason
-    pool_name: str | None
-    draws: list[DrawAnnouncement]
-    claims: list[ClaimLogEntry]
-    winners: list[PrizeBoardEntry]
-
-    @classmethod
-    def from_summary(cls, summary: GameSummary) -> "GameHistoryResponse":
-        return cls(
-            code=summary.code,
-            reason=summary.reason,
-            pool_name=summary.pool_name,
-            draws=[DrawAnnouncement.from_draw(draw) for draw in summary.draws],
-            claims=[ClaimLogEntry.from_record(record) for record in summary.claims],
-            winners=PrizeBoardEntry.board_of(summary.winners),
-        )
+from devbingo_backend.wire import GameHistoryResponse
 
 
 def history_router(store: HistoryStore) -> APIRouter:

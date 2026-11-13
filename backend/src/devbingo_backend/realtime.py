@@ -3,12 +3,13 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Protocol, TypeVar
 
 import socketio
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from devbingo_backend.game import (
     AlreadyJoined,
     GameError,
     GameRegistry,
+    HostLink,
     InvalidMessage,
     NotJoined,
     Outcome,
@@ -28,7 +29,6 @@ from devbingo_backend.wire import (
     DrawAnnouncement,
     GameEnded,
     GameStarted,
-    HostLink,
     JoinAck,
     JoinPayload,
     LobbyUpdated,
@@ -61,7 +61,7 @@ class Broadcaster(Protocol):
 logger = logging.getLogger(__name__)
 
 Ack = dict[str, Any]
-M = TypeVar("M", bound=BaseModel)
+M = TypeVar("M")
 
 
 def _refusal(err: GameError) -> Ack:
@@ -72,7 +72,7 @@ def _refusal(err: GameError) -> Ack:
 def _parse(model: type[M], payload: object) -> M:
     """Reads a payload into its model. A bad or missing field refuses the whole message."""
     try:
-        return model.model_validate(payload)
+        return TypeAdapter(model).validate_python(payload)
     except ValidationError:
         raise InvalidMessage from None
 
@@ -208,23 +208,23 @@ class RealtimeAdapter:
                 prize = Prize(message.prize)
             except ValueError:
                 raise UnknownPrize from None
-            try:
-                outcome = self._registry.claim(player, prize)
-            except GameError as err:
-                if err.record is not None:
-                    await self._tell_host(player.code, err.record)
-                raise
+            result = self._registry.claim(player, prize)
         except GameError as err:
             return _refusal(err)
 
-        await self.publish(player.code, outcome)
+        await self.publish(player.code, result.outcome)
+        if result.refusal is not None:
+            return _refusal(result.refusal)
         return ClaimWaiting().model_dump(mode="json")
 
     async def publish(self, code: str, outcome: Outcome) -> None:
-        """Announces what an outcome changed: the host hears each decided claim, the room hears the
+        """Announces what an outcome changed: the host hears each decided claim (those refused on
+        arrival and those a closed window settled), the room hears the
         winners and the game's end, each claimant hears their own result, and the host hears when
         the window state changed. Each emit is tried on its own, so one that fails is logged and
         the rest still go out."""
+        for record in outcome.decided:
+            await self._tell_host(code, record)
         for settled in outcome.settled:
             for record in settled.records:
                 await self._tell_host(code, record)

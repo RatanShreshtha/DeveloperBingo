@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from devbingo_backend import game as game_module
 from devbingo_backend.app import create_app
-from devbingo_backend.wire import ErrorCode
+from devbingo_backend.errors import ErrorCode
 
 UNUSED_DATABASE = "postgresql+psycopg://x@127.0.0.1:1/x"
 
