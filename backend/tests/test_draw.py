@@ -49,8 +49,8 @@ def test_only_the_host_token_can_draw(started):
 def test_each_draw_is_recorded_in_order_with_its_position(started):
     registry, game = started
 
-    first = registry.draw(game)
-    second = registry.draw(game)
+    first = registry.draw(game).draw
+    second = registry.draw(game).draw
 
     assert [first.position, second.position] == [1, 2]
     assert registry.host_snapshot(game).draws == (first, second)
@@ -59,7 +59,7 @@ def test_each_draw_is_recorded_in_order_with_its_position(started):
 def test_a_drawn_topic_carries_its_explanation(started):
     registry, game = started
 
-    draw = registry.draw(game)
+    draw = registry.draw(game).draw
 
     assert draw.topic in DEFAULT_POOL.topics
     assert draw.topic.explanation.strip()
@@ -68,7 +68,7 @@ def test_a_drawn_topic_carries_its_explanation(started):
 def test_every_topic_is_drawn_once_and_then_none_are_left(started):
     registry, game = started
 
-    draws = [registry.draw(game) for _ in range(len(DEFAULT_POOL.topics))]
+    draws = [registry.draw(game).draw for _ in range(len(DEFAULT_POOL.topics))]
 
     assert {draw.topic for draw in draws} == set(DEFAULT_POOL.topics)
     assert len({draw.topic for draw in draws}) == 90

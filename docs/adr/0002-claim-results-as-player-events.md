@@ -17,3 +17,4 @@
 - Going back to held acknowledgements would bring back the client-side retry and its race. Don't, even though held acknowledgements look simpler.
 - A `claim_settled` emit can fail where an acknowledgement could not, so each emit is tried on its own and the snapshot is the fallback.
 - The engine now depends on a `Scheduler` port, with an asyncio adapter in production and a manual one in tests.
+- Every other command that announces something (join, start, draw) reports it the same way, in the `Outcome` it returns, and the adapter publishes it through the same path. A failed announcement is logged and the caller still gets their acknowledgement.

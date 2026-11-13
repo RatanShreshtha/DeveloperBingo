@@ -123,14 +123,9 @@ class RealtimeAdapter:
         if joined.took_over:
             await self._replace_sockets_of(player, keep=sid)
         self._sessions[sid] = player
+        # In the room first, so the joiner hears the lobby change they caused.
         await self._broadcaster.enter_room(sid, player.code)
-        # Only a new player changes the lobby. A rejoin changes nothing for the others.
-        if joined.is_new_player:
-            await self._broadcaster.emit(
-                ServerEvent.LOBBY_UPDATED,
-                LobbyUpdated(players=list(snapshot.players)).model_dump(mode="json"),
-                room=player.code,
-            )
+        await self.publish(player.code, joined.outcome)
         # A rejoin restores the ticks the player already had, so they come back here.
         return JoinAck.from_snapshot(snapshot, joined.rejoin_token).model_dump(mode="json")
 
@@ -140,9 +135,7 @@ class RealtimeAdapter:
             if old != keep and held == player:
                 del self._sessions[old]
                 await self._broadcaster.leave_room(old, player.code)
-                await self._broadcaster.emit(
-                    ServerEvent.REPLACED, Replaced().model_dump(mode="json"), to=old
-                )
+                await self._emit(player.code, ServerEvent.REPLACED, Replaced(), to=old)
 
     async def disconnect(self, sid: str) -> None:
         """A socket has dropped. The player keeps their place and can rejoin by name."""
@@ -164,27 +157,22 @@ class RealtimeAdapter:
     async def start_game(self, sid: str, payload: object) -> Ack:
         try:
             host = _parse(HostLink, payload)
-            self._registry.start(host)
+            outcome = self._registry.start(host)
         except GameError as err:
             return _refusal(err)
 
-        await self._broadcaster.emit(
-            ServerEvent.GAME_STARTED, GameStarted().model_dump(mode="json"), room=host.code
-        )
+        await self.publish(host.code, outcome)
         return Accepted().model_dump(mode="json")
 
     async def draw_topic(self, sid: str, payload: object) -> Ack:
         try:
             host = _parse(HostLink, payload)
-            draw = self._registry.draw(host)
+            drawn = self._registry.draw(host)
         except GameError as err:
             return _refusal(err)
 
-        announcement = DrawAnnouncement.from_draw(draw)
-        await self._broadcaster.emit(
-            ServerEvent.TOPIC_DRAWN, announcement.model_dump(mode="json"), room=host.code
-        )
-        return DrawAck(draw=announcement).model_dump(mode="json")
+        await self.publish(host.code, drawn.outcome)
+        return DrawAck(draw=DrawAnnouncement.from_draw(drawn.draw)).model_dump(mode="json")
 
     async def end_game(self, sid: str, payload: object) -> Ack:
         """The host ends the game. Windows still open settle at once, refused; everyone in the room is told."""
@@ -218,11 +206,19 @@ class RealtimeAdapter:
         return ClaimWaiting().model_dump(mode="json")
 
     async def publish(self, code: str, outcome: Outcome) -> None:
-        """Announces what an outcome changed: the host hears each decided claim (those refused on
-        arrival and those a closed window settled), the room hears the
-        winners and the game's end, each claimant hears their own result, and the host hears when
-        the window state changed. Each emit is tried on its own, so one that fails is logged and
-        the rest still go out."""
+        """Announces what an outcome changed. The room hears a lobby change, the game's start, each
+        topic drawn, the winners and the game's end. The host hears each decided claim (those refused
+        on arrival and those a closed window settled) and when the window state changed. Each
+        claimant hears their own result. Each emit is tried on its own, so one that fails is logged
+        and the rest still go out."""
+        if outcome.lobby is not None:
+            lobby = LobbyUpdated(players=list(outcome.lobby))
+            await self._emit(code, ServerEvent.LOBBY_UPDATED, lobby, room=code)
+        if outcome.started:
+            await self._emit(code, ServerEvent.GAME_STARTED, GameStarted(), room=code)
+        if outcome.drawn is not None:
+            announcement = DrawAnnouncement.from_draw(outcome.drawn)
+            await self._emit(code, ServerEvent.TOPIC_DRAWN, announcement, room=code)
         for record in outcome.decided:
             await self._tell_host(code, record)
         for settled in outcome.settled:

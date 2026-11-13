@@ -30,7 +30,7 @@ def test_nothing_is_handed_over_while_the_game_is_running(setup):
 def test_a_game_ended_by_the_host_is_summarised_with_its_draws_in_order(setup):
     registry, game, _, summaries = setup
     registry.start(game)
-    first, second = registry.draw(game), registry.draw(game)
+    first, second = registry.draw(game).draw, registry.draw(game).draw
 
     registry.end(game)
 
