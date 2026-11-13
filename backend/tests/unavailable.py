@@ -1,4 +1,6 @@
-from devbingo_backend.pool import Pool
+from collections.abc import Sequence
+
+from devbingo_backend.pool import Pool, Topic
 from devbingo_backend.pool_library import PoolLibraryUnavailable
 
 
@@ -8,13 +10,10 @@ class UnavailablePoolLibrary:
     def load_default(self) -> Pool:
         raise PoolLibraryUnavailable
 
-    def save(self, name: str, pool: Pool) -> int:
+    def save(self, name: str, topics: Sequence[Topic]):
         raise PoolLibraryUnavailable
 
     def list_pools(self):
-        raise PoolLibraryUnavailable
-
-    def load(self, pool_id: int) -> Pool:
         raise PoolLibraryUnavailable
 
     def get(self, pool_id: int):
