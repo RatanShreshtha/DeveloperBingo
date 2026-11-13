@@ -128,7 +128,7 @@ def test_windows_for_two_prizes_open_together_and_close_independently(table):
     asyncio.run(close_top_line())
 
     # Only the first claim opened the game's first window; the second opened another beside it.
-    assert (first.window_open, second.window_open) == (True, None)
+    assert (first.outcome.window_open, second.outcome.window_open) == (True, None)
     [(_, five), (_, top)] = table.heard
     assert (five.settled[0].prize, five.window_open) == (Prize.EARLY_FIVE, None)
     assert (top.settled[0].prize, top.window_open) == (Prize.TOP_LINE, False)

@@ -81,10 +81,11 @@ def test_ending_a_game_with_no_open_window_settles_nothing(table):
     assert registry.end(game) == Outcome(ended="host")
 
 
-def test_a_claim_refused_outright_carries_its_logged_record(table):
+def test_a_claim_refused_outright_reports_its_logged_record_in_the_outcome(table):
     registry, game = table
 
-    with pytest.raises(ClaimNotValid) as refused:
-        registry.claim(player(game, "Ada"), Prize.FULL_HOUSE)
+    result = registry.claim(player(game, "Ada"), Prize.FULL_HOUSE)
 
-    assert refused.value.record == registry.host_snapshot(game).claims[0]
+    assert isinstance(result.refusal, ClaimNotValid)
+    assert result.outcome.decided == tuple(registry.host_snapshot(game).claims)
+    assert result.outcome.settled == ()

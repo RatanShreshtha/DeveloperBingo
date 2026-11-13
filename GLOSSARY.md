@@ -44,6 +44,14 @@ _Avoid_: Game state dump, sync
 A player's assertion that they have won a prize, checked against the draws.
 _Avoid_: Bingo, call, shout
 
+**Decided claim**:
+A claim that has been judged, accepted or refused, and written to the Claim log. A claim the game cannot take is decided on arrival; a valid one is decided when its Settlement window closes.
+_Avoid_: Resolved claim, processed claim
+
+**Claim log**:
+Every decided claim in a game, in the order decided. The host sees it; players see only their own decided claims.
+_Avoid_: Claim history, audit log
+
 **Prize**:
 An award a claim can win. Each prize is awarded at most once per game.
 _Avoid_: Reward, win

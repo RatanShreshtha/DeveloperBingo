@@ -61,8 +61,9 @@ def test_a_refused_full_house_claim_does_not_end_the_game(started_with_every_top
     for topic in names_on(ticket)[:14]:
         registry.tick(PlayerRef(game.code, "Ada"), topic)
 
-    with pytest.raises(ClaimNotValid):
-        registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+    result = registry.claim(PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+
+    assert isinstance(result.refusal, ClaimNotValid)
 
     claim_and_settle(registry, PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
 
@@ -109,8 +110,9 @@ def test_claims_are_refused_after_the_game_ends(started_with_every_topic_drawn):
         registry.tick(PlayerRef(game.code, "Ada"), topic)
     registry.end(game)
 
-    with pytest.raises(GameAlreadyEnded):
-        registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+    result = registry.claim(PlayerRef(game.code, "Ada"), Prize.EARLY_FIVE)
+
+    assert isinstance(result.refusal, GameAlreadyEnded)
 
     assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 

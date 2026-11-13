@@ -208,23 +208,23 @@ class RealtimeAdapter:
                 prize = Prize(message.prize)
             except ValueError:
                 raise UnknownPrize from None
-            try:
-                outcome = self._registry.claim(player, prize)
-            except GameError as err:
-                if err.record is not None:
-                    await self._tell_host(player.code, err.record)
-                raise
+            result = self._registry.claim(player, prize)
         except GameError as err:
             return _refusal(err)
 
-        await self.publish(player.code, outcome)
+        await self.publish(player.code, result.outcome)
+        if result.refusal is not None:
+            return _refusal(result.refusal)
         return ClaimWaiting().model_dump(mode="json")
 
     async def publish(self, code: str, outcome: Outcome) -> None:
-        """Announces what an outcome changed: the host hears each decided claim, the room hears the
+        """Announces what an outcome changed: the host hears each decided claim (those refused on
+        arrival and those a closed window settled), the room hears the
         winners and the game's end, each claimant hears their own result, and the host hears when
         the window state changed. Each emit is tried on its own, so one that fails is logged and
         the rest still go out."""
+        for record in outcome.decided:
+            await self._tell_host(code, record)
         for settled in outcome.settled:
             for record in settled.records:
                 await self._tell_host(code, record)

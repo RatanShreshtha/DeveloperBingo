@@ -17,6 +17,15 @@ class Pending:
 
 
 @dataclass(frozen=True)
+class Refused:
+    """A claim refused at once. It is already in the claim log: `record` is its entry, and `error`
+    is why, for the claimant."""
+
+    record: "ClaimRecord"
+    error: GameError
+
+
+@dataclass(frozen=True)
 class Settled:
     """A closed window: every player the prize is now awarded to, and the claimants refused at close."""
 
@@ -63,10 +72,11 @@ class ClaimSettlement:
         ticket: Ticket,
         ticked_and_drawn: Set[str],
         refusal: GameError | None = None,
-    ) -> Pending:
-        """Take a claim. It is refused at once if the game broke a rule (`refusal`), the prize is
-        already awarded, or no window is open and the ticket does not earn it. Otherwise it waits in
-        the prize's window, opening it if none is. A repeat by the same player is the same result."""
+    ) -> Pending | Refused:
+        """Take a claim. It is refused at once, and logged, if the game broke a rule (`refusal`),
+        the prize is already awarded, or no window is open and the ticket does not earn it.
+        Otherwise it waits in the prize's window, opening it if none is. A repeat by the same
+        player is the same result."""
         waiting = self._windows.get(prize)
         try:
             if refusal is not None:
@@ -76,8 +86,7 @@ class ClaimSettlement:
             if waiting is None and prize not in prizes_earned(ticket, ticked_and_drawn):
                 raise ClaimNotValid(prize)
         except GameError as err:
-            err.record = self._decide(claimant, prize, err)
-            raise
+            return Refused(self._decide(claimant, prize, err), err)
         if waiting is None:
             self._windows[prize] = [claimant]
             return Pending(prize, opened_window=True)

@@ -50,9 +50,10 @@ def test_a_valid_claim_opens_a_window_and_the_prize_stays_open_until_it_closes(t
     registry, game, tickets = table
     draw_all_and_tick_five(registry, game, tickets)
 
-    outcome = registry.claim(ada(game), Prize.EARLY_FIVE)
+    result = registry.claim(ada(game), Prize.EARLY_FIVE)
 
-    assert outcome.window_open is True
+    assert result.refusal is None
+    assert result.outcome.window_open is True
     assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ()
 
 
@@ -65,7 +66,7 @@ def test_two_claims_in_one_window_win_the_prize_together(table):
     (settled,) = registry.close_window(game.code, Prize.EARLY_FIVE).settled
 
     # The window was already open, so nothing about it changed.
-    assert second.window_open is None
+    assert second.outcome.window_open is None
     assert settled.awarded_to == ("Ada", "Grace")
     assert registry.host_snapshot(game).prizes[Prize.EARLY_FIVE] == ("Ada", "Grace")
 
@@ -74,8 +75,10 @@ def test_an_invalid_claim_is_refused_and_opens_no_window(table):
     registry, game, tickets = table
     registry.draw(game)
 
-    with pytest.raises(ClaimNotValid):
-        registry.claim(ada(game), Prize.EARLY_FIVE)
+    result = registry.claim(ada(game), Prize.EARLY_FIVE)
+
+    assert isinstance(result.refusal, ClaimNotValid)
+    assert result.outcome.window_open is None
 
     registry.draw(game)
 

@@ -34,7 +34,7 @@ from devbingo_backend.names import name_key
 from devbingo_backend.pool import Pool, Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.scheduler import AsyncioScheduler, Scheduler
-from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Evidence, Settled
+from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Evidence, Refused, Settled
 from devbingo_backend.ticket import Ticket, build_ticket
 from devbingo_backend.wire import EndReason, GameStatus, HostLink
 
@@ -68,6 +68,19 @@ class Outcome:
     ended: EndReason | None = None
     # Whether any settlement window is open now. None when that did not change.
     window_open: bool | None = None
+    # Claims decided the moment they arrived: refused outright. The host hears each; the claimant
+    # is told by the claim's acknowledgement, so these never become `claim_settled`.
+    decided: tuple[ClaimRecord, ...] = ()
+
+
+@dataclass(frozen=True)
+class ClaimResult:
+    """What a claim did. `refusal` is why the claimant was refused at once, or None when the claim
+    is waiting in a settlement window. Every refusal the host sees in the claim log is here, in
+    `outcome.decided`; a claim from someone not in the game raises instead, since it is never logged."""
+
+    outcome: Outcome
+    refusal: GameError | None = None
 
 
 # Hears the outcome of each window that closes on time, as no command is there to return it.
@@ -349,22 +362,24 @@ class GameRegistry:
             raise TopicNotOnTicket(topic_name)
         member.ticks.discard(topic_name)
 
-    def claim(self, player: PlayerRef, prize: Prize) -> Outcome:
-        """Claim a prize. A claim the ticket does not earn is refused at once: the error raised
-        carries its record for the host. A valid one waits in the prize's settlement window,
+    def claim(self, player: PlayerRef, prize: Prize) -> ClaimResult:
+        """Claim a prize. A claim the game cannot take is refused at once: the result carries the
+        refusal, and the claim is logged for the host. A valid one waits in the prize's settlement window,
         opening it if none is; the window closes on its own after the window length, and its
         outcome goes to the listener. A repeat while the window is open changes nothing."""
         game, member = self._player_game(player)
         was_open = game.settlement.window_open()
         ticked_and_drawn = member.ticks & game.drawn_names()
-        pending = game.settlement.claim(
+        decision = game.settlement.claim(
             prize, member.name, member.ticket, ticked_and_drawn, self._game_refusal(game, player.code)
         )
-        if pending.opened_window:
+        if isinstance(decision, Refused):
+            return ClaimResult(Outcome(decided=(decision.record,)), decision.error)
+        if decision.opened_window:
             self._scheduler.call_later(
                 self._window_seconds, lambda: self._close_on_time(player.code, prize)
             )
-        return Outcome(window_open=True if not was_open else None)
+        return ClaimResult(Outcome(window_open=True if not was_open else None))
 
     async def _close_on_time(self, code: str, prize: Prize) -> None:
         outcome = self.close_window(code, prize)
