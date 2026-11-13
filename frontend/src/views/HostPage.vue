@@ -34,7 +34,7 @@ onMounted(() => {
           class="btn btn-primary dark:btn-neutral"
           type="button"
           data-test="start-game"
-          @click="store.start(hostLink())"
+          @click="store.start()"
         >
           Start game
         </button>
@@ -43,11 +43,11 @@ onMounted(() => {
           class="btn btn-primary dark:btn-neutral"
           type="button"
           data-test="draw-topic"
-          @click="store.drawNext(hostLink())"
+          @click="store.drawNext()"
         >
           Draw topic
         </button>
-        <button class="btn btn-outline" type="button" data-test="end-game" @click="store.end(hostLink())">
+        <button class="btn btn-outline" type="button" data-test="end-game" @click="store.end()">
           End game
         </button>
       </div>

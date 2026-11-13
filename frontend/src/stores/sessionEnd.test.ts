@@ -34,9 +34,11 @@ describe('session store when the game ends', () => {
 
   it('ends the game when the host ends it', async () => {
     fake.answer('end_game', { ok: true })
+    fake.answer('watch_lobby', hostSnapshot())
     const store = useHostSession()
+    await store.watchAsHost(link)
 
-    await store.end(link)
+    await store.end()
 
     expect(fake.payloads('end_game')).toEqual([link])
     expect(store.ended).toBe(true)
@@ -50,7 +52,7 @@ describe('session store when the game ends', () => {
     await store.watchAsHost(link)
 
     fake.emit('game_ended', { reason: 'full_house' })
-    await store.end(link)
+    await store.end()
     expect(store.windowOpen).toBe(true)
 
     fake.emit('window_changed', { open: false })
@@ -59,9 +61,11 @@ describe('session store when the game ends', () => {
 
   it('stays running and says why when ending the game is refused', async () => {
     fake.answer('end_game', { ok: false, error: 'not_host' })
+    fake.answer('watch_lobby', hostSnapshot())
     const store = useHostSession()
+    await store.watchAsHost(link)
 
-    await store.end(link)
+    await store.end()
 
     expect(store.ended).toBe(false)
     expect(store.actionError).toBe('This host link is not valid for this game')

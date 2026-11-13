@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { messageFor } from '../utils/errors'
+import { messageFor, UNREACHABLE } from '../utils/errors'
 import type {
   DrawnTopic,
   GameEnd,
@@ -44,9 +44,19 @@ export function createGameSession() {
     prizes.value = snapshot.prizes
   }
 
+  /**
+   * Sends one action and says why it failed. Null means it did not happen: the server refused it,
+   * or could not be reached, and `actionError` holds the message either way.
+   */
   async function attempt<T extends Refusable>(call: () => Promise<T>): Promise<T | null> {
     actionError.value = null
-    const result = await call()
+    let result: T
+    try {
+      result = await call()
+    } catch {
+      actionError.value = UNREACHABLE
+      return null
+    }
     if (!result.ok) {
       actionError.value = messageFor(result.error)
       return null

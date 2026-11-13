@@ -126,26 +126,15 @@ export function createPlayerSession(game: GameSession) {
     }
   }
 
-  // Mark the claim pending before sending: settlement may precede the acknowledgement.
+  // Mark the claim pending before sending: settlement may precede the acknowledgement. If the
+  // claim did not reach the server, or its reply was lost, the next snapshot says which.
   async function claimPrize(prize: Prize) {
     if (!player.value || isPending(prize)) {
       return
     }
     pendingClaims.value = [...pendingClaims.value, prize]
-    actionError.value = null
-    const dropPending = () => {
+    if (!(await game.attempt(() => net.send('claim_prize', { prize })))) {
       pendingClaims.value = pendingClaims.value.filter((known) => known !== prize)
-    }
-    try {
-      const result = await net.send('claim_prize', { prize })
-      if (!result.ok) {
-        dropPending()
-        actionError.value = messageFor(result.error)
-      }
-    } catch {
-      // The next snapshot determines whether the claim reached the server.
-      dropPending()
-      actionError.value = UNREACHABLE
     }
   }
 

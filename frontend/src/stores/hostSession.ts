@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { messageFor } from '../utils/errors'
+import { messageFor, UNREACHABLE } from '../utils/errors'
 import type { ClaimLogEntry, HostLink, HostSnapshot } from '../realtime/protocol'
 import type { GameSession } from './gameSession'
 
@@ -11,12 +11,20 @@ export function createHostSession(game: GameSession) {
   const poolName = ref<string | null>(null)
   const windowOpen = ref(false)
 
-  async function watchAsHost(link: HostLink) {
+  // Opening the dashboard cannot show anything without the server, so its failure takes the page.
+  // Winning the connection back is different: the page stays up and the failure is an action error.
+  async function watch(link: HostLink, failure: 'error' | 'actionError') {
     error.value = null
     hostLink.value = link
-    const result = await net.send('watch_lobby', link)
+    let result
+    try {
+      result = await net.send('watch_lobby', link)
+    } catch {
+      game[failure].value = UNREACHABLE
+      return
+    }
     if (!result.ok) {
-      error.value = messageFor(result.error)
+      game[failure].value = messageFor(result.error)
       return
     }
     game.applySnapshot(result)
@@ -26,25 +34,36 @@ export function createHostSession(game: GameSession) {
     windowOpen.value = result.window_open
   }
 
+  function watchAsHost(link: HostLink) {
+    return watch(link, 'error')
+  }
+
   async function reconnect() {
     if (hostLink.value) {
-      await watchAsHost(hostLink.value)
+      await watch(hostLink.value, 'actionError')
     }
   }
 
-  async function start(link: HostLink) {
-    if (await game.attempt(() => net.send('start_game', link))) {
+  // The host acts through the link it is watching with; before watching there is nothing to act on.
+  async function start() {
+    const link = hostLink.value
+    if (link && (await game.attempt(() => net.send('start_game', link)))) {
       game.status.value = 'started'
     }
   }
 
-  async function end(link: HostLink) {
-    if (await game.attempt(() => net.send('end_game', link))) {
+  async function end() {
+    const link = hostLink.value
+    if (link && (await game.attempt(() => net.send('end_game', link)))) {
       game.recordEnd('host')
     }
   }
 
-  async function drawNext(link: HostLink) {
+  async function drawNext() {
+    const link = hostLink.value
+    if (!link) {
+      return
+    }
     const result = await game.attempt(() => net.send('draw_topic', link))
     if (result?.ok) {
       game.recordDraw(result.draw)

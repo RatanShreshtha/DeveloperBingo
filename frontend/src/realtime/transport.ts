@@ -12,12 +12,19 @@ export interface Transport {
   onReconnect(handler: () => void): void
 }
 
+/**
+ * How long a command waits for the server's reply. Without a limit socket.io waits forever while
+ * the server is down. When it runs out, socket.io drops the command from its send buffer, so it
+ * is not replayed on reconnect, and `send` rejects.
+ */
+export const SEND_TIMEOUT_MS = 10_000
+
 /** The socket.io adapter the app uses. It connects when first needed. */
 export function socketIoTransport(): Transport {
   let socket: Socket | null = null
   const connection = (): Socket => (socket ??= io({ path: '/socket.io' }))
   return {
-    send: (event, payload) => connection().emitWithAck(event, payload),
+    send: (event, payload) => connection().timeout(SEND_TIMEOUT_MS).emitWithAck(event, payload),
     listen: (event, handler) => {
       connection().on(event as string, handler as (data: unknown) => void)
     },
