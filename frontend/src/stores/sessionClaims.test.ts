@@ -1,10 +1,8 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { hostSnapshot } from '../testing/snapshots'
 import { useHostSession } from './session'
-
-vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
 const link = { code: 'ABC123', host_token: 'secret' }
 const refused = { player: 'Ada', prize: 'early_five', accepted: false, error: 'claim_not_valid' } as const

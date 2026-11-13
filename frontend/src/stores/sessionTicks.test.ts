@@ -1,10 +1,8 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
 import { usePlayerSession } from './session'
-
-vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
 const ada = { code: 'ABC123', name: 'Ada' }
 

@@ -1,11 +1,9 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { savedSessionFor } from '../realtime/savedSession'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
 import { usePlayerSession } from './session'
-
-vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
 const UNREACHABLE = 'Could not reach the server. Check your connection and try again.'
 const GONE = 'No game found with that code'
