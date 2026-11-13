@@ -1,10 +1,8 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
 import { hostSnapshot, playerSnapshot } from '../testing/snapshots'
 import { useHostSession, usePlayerSession } from './session'
-
-vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
 
 const firstDraw = { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }
 const link = { code: 'ABC123', host_token: 'secret-token' }

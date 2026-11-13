@@ -1,11 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { hostSnapshot } from '../../testing/snapshots'
 import { makePlugins } from '../../testing/testRouter'
 import { startFresh } from '../../testing/testSetup'
 import HostView from '../../views/HostPage.vue'
-
-vi.mock('../../api/games', async () => (await import('../../testing/apiMock')).apiGamesMock())
 
 let fake: ReturnType<typeof startFresh>
 
