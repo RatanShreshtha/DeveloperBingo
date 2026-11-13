@@ -6,12 +6,10 @@ import socketio
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from devbingo_backend.game import (
-    AlreadyJoined,
     GameError,
     GameRegistry,
     HostLink,
     InvalidMessage,
-    NotJoined,
     Outcome,
     PlayerRef,
     UnknownPrize,
@@ -92,26 +90,13 @@ class RealtimeAdapter:
     def __init__(self, registry: GameRegistry, broadcaster: Broadcaster) -> None:
         self._registry = registry
         self._broadcaster = broadcaster
-        # Which player each live socket belongs to, so a dropped socket frees its name.
-        self._sessions: dict[str, PlayerRef] = {}
         registry.listen(self.publish)
-
-    def _player_on(self, sid: str) -> PlayerRef:
-        """Whoever joined on this socket. A command never names its own player."""
-        player = self._sessions.get(sid)
-        if player is None:
-            raise NotJoined
-        return player
 
     async def join_game(self, sid: str, payload: object) -> Ack:
         try:
             message = _parse(JoinPayload, payload)
-            # One socket is one player. Joining again on the same socket would leave the
-            # first player connected for ever, so it is refused.
-            if sid in self._sessions:
-                raise AlreadyJoined
             joined = self._registry.join(
-                PlayerRef(code=message.code, name=message.name), message.rejoin_token
+                PlayerRef(code=message.code, name=message.name), message.rejoin_token, sid
             )
         except GameError as err:
             return _refusal(err)
@@ -120,28 +105,18 @@ class RealtimeAdapter:
         snapshot = joined.snapshot
         player = snapshot.player
 
-        if joined.took_over:
-            await self._replace_sockets_of(player, keep=sid)
-        self._sessions[sid] = player
+        for old in joined.replaced:
+            await self._broadcaster.leave_room(old, player.code)
+            await self._emit(player.code, ServerEvent.REPLACED, Replaced(), to=old)
         # In the room first, so the joiner hears the lobby change they caused.
         await self._broadcaster.enter_room(sid, player.code)
         await self.publish(player.code, joined.outcome)
         # A rejoin restores the ticks the player already had, so they come back here.
         return JoinAck.from_snapshot(snapshot, joined.rejoin_token).model_dump(mode="json")
 
-    async def _replace_sockets_of(self, player: PlayerRef, keep: str) -> None:
-        """Tells every other socket holding this player that it was replaced, and takes it out of the game."""
-        for old, held in list(self._sessions.items()):
-            if old != keep and held == player:
-                del self._sessions[old]
-                await self._broadcaster.leave_room(old, player.code)
-                await self._emit(player.code, ServerEvent.REPLACED, Replaced(), to=old)
-
     async def disconnect(self, sid: str) -> None:
         """A socket has dropped. The player keeps their place and can rejoin by name."""
-        player = self._sessions.pop(sid, None)
-        if player is not None:
-            self._registry.disconnect(player)
+        self._registry.drop(sid)
 
     async def watch_lobby(self, sid: str, payload: object) -> Ack:
         try:
@@ -191,7 +166,7 @@ class RealtimeAdapter:
         the claimant as `claim_settled` when the window closes, on whichever socket holds them then."""
         try:
             message = _parse(ClaimPayload, payload)
-            player = self._player_on(sid)
+            player = self._registry.player_on(sid)
             try:
                 prize = Prize(message.prize)
             except ValueError:
@@ -232,7 +207,7 @@ class RealtimeAdapter:
             await self._emit(code, ServerEvent.GAME_ENDED, GameEnded(reason=outcome.ended), room=code)
         for settled in outcome.settled:
             for record in settled.records:
-                for sid in self._sockets_of(PlayerRef(code, record.player)):
+                for sid in self._registry.connections_of(PlayerRef(code, record.player)):
                     result = ClaimSettled.from_record(record)
                     await self._emit(code, ServerEvent.CLAIM_SETTLED, result, to=sid)
         if outcome.window_open is not None:
@@ -242,9 +217,6 @@ class RealtimeAdapter:
                 WindowChanged(open=outcome.window_open),
                 room=_host_room(code),
             )
-
-    def _sockets_of(self, player: PlayerRef) -> list[str]:
-        return [sid for sid, held in self._sessions.items() if held == player]
 
     async def _emit(
         self,
@@ -280,7 +252,7 @@ class RealtimeAdapter:
     ) -> Ack:
         try:
             message = _parse(TickPayload, payload)
-            change(self._player_on(sid), message.topic)
+            change(self._registry.player_on(sid), message.topic)
         except GameError as err:
             return _refusal(err)
         return Accepted().model_dump(mode="json")

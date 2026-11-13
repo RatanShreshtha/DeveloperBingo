@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Literal, TypeAlias
 
+from devbingo_backend.connections import Connections
 from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
     AlreadyJoined,
     ClaimNotValid,
@@ -175,8 +176,8 @@ class Joined:
     is_new_player: bool
     # Private to the player. Showing it later proves they are the one who joined.
     rejoin_token: str
-    # True when the player's name was still held by a live socket and this join took it over.
-    took_over: bool = False
+    # The connections this join took the name from: the player's name was still held by live ones.
+    replaced: tuple[str, ...] = ()
     # Announces the new player to the lobby. A rejoin changes nothing for the others, so it is empty.
     outcome: Outcome = Outcome()
 
@@ -203,12 +204,10 @@ def _hash_token(token: str) -> str:
 
 @dataclass
 class _Player:
-    """One player in a game: how the lobby shows them, their ticket, their ticks, and whether
-    their socket is live."""
+    """One player in a game: how the lobby shows them, their ticket and their ticks."""
 
     name: str
     ticket: Ticket
-    connected: bool = True
     ticks: set[str] = field(default_factory=set)
     # Hash of the token the player last joined with. Replaced by every join.
     token_hash: str = ""
@@ -260,6 +259,7 @@ class GameRegistry:
         self._code_taken = code_taken
         self._scheduler = scheduler or AsyncioScheduler()
         self._window_seconds = window_seconds
+        self._connections = Connections()
         self._on_outcome: OutcomeListener | None = None
 
     def listen(self, on_outcome: OutcomeListener) -> None:
@@ -275,12 +275,21 @@ class GameRegistry:
         )
         return HostLink(code=code, host_token=host_token)
 
-    def join(self, player: PlayerRef, rejoin_token: str | None = None) -> Joined:
-        """Join a game. A name held by a dropped player restores that player, also after the game
+    def join(
+        self, player: PlayerRef, rejoin_token: str | None = None, connection: str | None = None
+    ) -> Joined:
+        """Join a game over a connection: an opaque id the caller chooses, such as a socket's, that
+        holds the player until it is dropped. One connection joins one player, or AlreadyJoined.
+        Without one the engine mints its own, which only `disconnect` can drop. A name held by a dropped player restores that player, also after the game
         has ended so they can read its result; a name held by a connected player is refused unless
         the join shows that player's rejoin token, which takes the name over; any other name is a
         new join while the lobby is open. Names match without regard to case, so "Ada" and "ada"
-        are the same player. Every join issues a fresh rejoin token."""
+        are the same player. Every join issues a fresh rejoin token. A takeover replaces the
+        player's old connection, and `Joined.replaced` names it."""
+        if connection is None:
+            connection = f"engine-{secrets.token_hex(8)}"
+        elif self._connections.holds(connection):
+            raise AlreadyJoined
         game = self._find(player.code)
         key = name_key(player.name)
         member = game.players.get(key)
@@ -290,15 +299,15 @@ class GameRegistry:
                 and bool(member.token_hash)
                 and hmac.compare_digest(member.token_hash, _hash_token(rejoin_token))
             )
-            if member.connected and not holds_token:
+            known = PlayerRef(player.code, member.name)
+            if self._connections.is_connected(known) and not holds_token:
                 raise NameTaken(player.name)
-            took_over = member.connected
-            member.connected = True
+            replaced = self._connections.attach(connection, known)
             return Joined(
                 self._player_snapshot(game, member),
                 is_new_player=False,
                 rejoin_token=self._issue_token(member),
-                took_over=took_over,
+                replaced=replaced,
             )
         self._refuse_if_ended(game, player.code)
         if game.status != "lobby":
@@ -308,6 +317,7 @@ class GameRegistry:
         ticket = self._deal_unique_ticket(game)
         member = _Player(name=player.name.strip(), ticket=ticket)
         game.players[key] = member
+        self._connections.attach(connection, PlayerRef(player.code, member.name))
         snapshot = self._player_snapshot(game, member)
         return Joined(
             snapshot,
@@ -328,7 +338,22 @@ class GameRegistry:
         member = game.players.get(name_key(player.name))
         if member is None:
             raise NotAPlayer(player.name)
-        member.connected = False
+        self._connections.drop_player(PlayerRef(player.code, member.name))
+
+    def drop(self, connection: str) -> None:
+        """A connection has dropped. Its player, if it still held one, keeps their place and ticks
+        and can rejoin by name. A connection a newer one replaced, or that never joined, changes
+        nothing."""
+        self._connections.detach(connection)
+
+    def player_on(self, connection: str) -> PlayerRef:
+        """Whoever joined over this connection. A command never names its own player. Raises
+        NotJoined for a connection that joined no one, or was replaced."""
+        return self._connections.player_on(connection)
+
+    def connections_of(self, player: PlayerRef) -> tuple[str, ...]:
+        """The connections this player holds now, to address them: none while dropped."""
+        return self._connections.held_by(player)
 
     def _deal_unique_ticket(self, game: _Game) -> Ticket:
         while True:
