@@ -4,6 +4,7 @@ import { fetchGameHistory, type GameHistoryResponse } from '../api/games'
 import { HttpError } from '../api/request'
 import { useAsyncState } from '../composables/useAsyncState'
 import { newestDrawsFirst } from '../utils/draws'
+import { END_MESSAGES } from '../utils/endMessages'
 import BoardCard from '../components/BoardCard.vue'
 import ClaimItem from '../components/ClaimItem.vue'
 import DrawItem from '../components/DrawItem.vue'
@@ -23,11 +24,6 @@ const errorMessage = computed(() => {
   return 'Could not load the game history'
 })
 
-const REASONS: Record<GameHistoryResponse['reason'], string> = {
-  full_house: 'The full house was claimed.',
-  host: 'The host ended the game.',
-}
-
 onMounted(() => {
   void run(() => fetchGameHistory(props.code))
 })
@@ -39,13 +35,13 @@ onMounted(() => {
     <p v-if="errorMessage" class="alert alert-error" role="alert">{{ errorMessage }}</p>
     <template v-else-if="history">
       <p class="alert">
-        {{ REASONS[history.reason] }}
+        {{ END_MESSAGES.history[history.end_reason] }}
         <span v-if="history.pool_name">Pool: {{ history.pool_name }}</span>
       </p>
       <BoardCard title="Winners" heading="h3">
         <ul class="space-y-2">
           <PrizeRow
-            v-for="entry in history.winners"
+            v-for="entry in history.prizes"
             :key="entry.prize"
             :prize="entry.prize"
             :outcome="entry.awarded_to.length ? entry.awarded_to.join(', ') : 'nobody'"

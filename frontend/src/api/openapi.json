@@ -335,13 +335,13 @@
             "type": "string",
             "title": "Code"
           },
-          "reason": {
+          "end_reason": {
             "type": "string",
             "enum": [
               "full_house",
               "host"
             ],
-            "title": "Reason"
+            "title": "End Reason"
           },
           "pool_name": {
             "anyOf": [
@@ -368,22 +368,22 @@
             "type": "array",
             "title": "Claims"
           },
-          "winners": {
+          "prizes": {
             "items": {
               "$ref": "#/components/schemas/PrizeBoardEntry"
             },
             "type": "array",
-            "title": "Winners"
+            "title": "Prizes"
           }
         },
         "type": "object",
         "required": [
           "code",
-          "reason",
+          "end_reason",
           "pool_name",
           "draws",
           "claims",
-          "winners"
+          "prizes"
         ],
         "title": "GameHistoryResponse",
         "description": "An ended game: its draws in order, every claim with its outcome, and who won each prize."

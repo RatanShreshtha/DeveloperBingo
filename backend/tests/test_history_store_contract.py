@@ -31,7 +31,7 @@ def summary(code: str = "CONTRACT1", reason="full_house", pool_name="Backend bas
     awarded = {Prize.EARLY_FIVE: ("Ada",), Prize.FULL_HOUSE: ("Ada", "Linus")}
     return GameSummary(
         code=code,
-        reason=reason,
+        end_reason=reason,
         pool_name=pool_name,
         draws=(Draw(1, Topic("Cache", "Keeps results close")), Draw(2, Topic("Index", "Speeds lookups"))),
         claims=(
@@ -40,7 +40,7 @@ def summary(code: str = "CONTRACT1", reason="full_house", pool_name="Backend bas
             ClaimRecord("Ada", Prize.FULL_HOUSE, accepted=True),
             ClaimRecord("Linus", Prize.FULL_HOUSE, accepted=True),
         ),
-        winners={prize: awarded.get(prize, ()) for prize in Prize},
+        prizes={prize: awarded.get(prize, ()) for prize in Prize},
     )
 
 

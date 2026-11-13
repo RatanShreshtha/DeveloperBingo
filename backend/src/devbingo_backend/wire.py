@@ -325,21 +325,21 @@ class GameHistoryResponse(_Message):
 
     code: str
     # Why it ended: the full house was awarded, or the host ended it.
-    reason: EndReason
+    end_reason: EndReason
     pool_name: str | None
     draws: list[DrawAnnouncement]
     claims: list[ClaimLogEntry]
-    winners: list[PrizeBoardEntry]
+    prizes: list[PrizeBoardEntry]
 
     @classmethod
     def from_summary(cls, summary: GameSummary) -> "GameHistoryResponse":
         return cls(
             code=summary.code,
-            reason=summary.reason,
+            end_reason=summary.end_reason,
             pool_name=summary.pool_name,
             draws=[DrawAnnouncement.from_draw(draw) for draw in summary.draws],
             claims=[ClaimLogEntry.from_record(record) for record in summary.claims],
-            winners=PrizeBoardEntry.board_of(summary.winners),
+            prizes=PrizeBoardEntry.board_of(summary.prizes),
         )
 
 

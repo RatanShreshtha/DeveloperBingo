@@ -36,7 +36,7 @@ def test_a_game_ended_by_the_host_is_summarised_with_its_draws_in_order(setup):
 
     (summary,) = summaries
     assert summary.code == game.code
-    assert summary.reason == "host"
+    assert summary.end_reason == "host"
     assert summary.pool_name == "Default"
     assert summary.draws == (first, second)
 
@@ -51,15 +51,15 @@ def test_a_game_won_by_full_house_is_summarised_with_claims_and_winners(setup):
     claim_and_settle(registry, ada, Prize.FULL_HOUSE)
 
     (summary,) = summaries
-    assert summary.reason == "full_house"
+    assert summary.end_reason == "full_house"
     assert len(summary.draws) == 90
     assert [(c.player, c.prize, c.accepted) for c in summary.claims] == [
         ("Ada", Prize.EARLY_FIVE, True),
         ("Ada", Prize.FULL_HOUSE, True),
     ]
-    assert summary.winners[Prize.EARLY_FIVE] == ("Ada",)
-    assert summary.winners[Prize.FULL_HOUSE] == ("Ada",)
-    assert summary.winners[Prize.TOP_LINE] == ()
+    assert summary.prizes[Prize.EARLY_FIVE] == ("Ada",)
+    assert summary.prizes[Prize.FULL_HOUSE] == ("Ada",)
+    assert summary.prizes[Prize.TOP_LINE] == ()
 
 
 def test_claims_refused_when_the_host_ends_the_game_are_in_the_summary(setup):
