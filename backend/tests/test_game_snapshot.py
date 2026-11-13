@@ -71,7 +71,7 @@ def test_a_rejoin_between_the_start_and_the_first_draw_knows_the_game_started(re
 def test_a_snapshot_carries_every_draw_in_order(registry, game):
     registry.join(ada(game))
     registry.start(game)
-    first, second = registry.draw(game), registry.draw(game)
+    first, second = registry.draw(game).draw, registry.draw(game).draw
 
     assert registry.player_snapshot(ada(game)).draws == (first, second)
 

@@ -45,7 +45,7 @@ def test_a_game_ended_by_the_host_has_its_draws_viewable_by_its_code(client):
     registry = registry_of(client)
     game = registry.create_game(InMemoryPoolLibrary().load_default(), pool_name="Default")
     registry.start(game)
-    drawn = registry.draw(game)
+    drawn = registry.draw(game).draw
     registry.end(game)
 
     response = client.get(f"/games/{game.code}/history")

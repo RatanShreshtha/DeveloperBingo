@@ -75,8 +75,9 @@ class PlayerRef:
 
 @dataclass(frozen=True)
 class Outcome:
-    """What a claim, the end of a game or a window's close changed, for the caller to announce.
-    All three report in this one shape."""
+    """What a command or a window's close changed, for the caller to announce. Every command that
+    announces anything reports in this one shape; one that changes nothing for others (a tick, a
+    look at the lobby) reports nothing."""
 
     # Each window that closed: its prize, who it was awarded to, and every claim decided in it.
     settled: tuple[Settled, ...] = ()
@@ -87,6 +88,12 @@ class Outcome:
     # Claims decided the moment they arrived: refused outright. The host hears each; the claimant
     # is told by the claim's acknowledgement, so these never become `claim_settled`.
     decided: tuple[ClaimRecord, ...] = ()
+    # True when this is what started the game.
+    started: bool = False
+    # The topic this drew, when it drew one.
+    drawn: "Draw | None" = None
+    # Who is in the lobby now, in the order they joined. None when the lobby did not change.
+    lobby: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -107,6 +114,14 @@ OutcomeListener = Callable[[str, Outcome], Awaitable[None]]
 class Draw:
     position: int
     topic: Topic
+
+
+@dataclass(frozen=True)
+class Drawn:
+    """What a draw did: the topic drawn, and the outcome for the caller to announce."""
+
+    draw: Draw
+    outcome: Outcome
 
 
 @dataclass(frozen=True)
@@ -162,6 +177,8 @@ class Joined:
     rejoin_token: str
     # True when the player's name was still held by a live socket and this join took it over.
     took_over: bool = False
+    # Announces the new player to the lobby. A rejoin changes nothing for the others, so it is empty.
+    outcome: Outcome = Outcome()
 
 
 @dataclass(frozen=True)
@@ -291,10 +308,12 @@ class GameRegistry:
         ticket = self._deal_unique_ticket(game)
         member = _Player(name=player.name.strip(), ticket=ticket)
         game.players[key] = member
+        snapshot = self._player_snapshot(game, member)
         return Joined(
-            self._player_snapshot(game, member),
+            snapshot,
             is_new_player=True,
             rejoin_token=self._issue_token(member),
+            outcome=Outcome(lobby=snapshot.players),
         )
 
     @staticmethod
@@ -317,7 +336,7 @@ class GameRegistry:
             if game.is_new_ticket(ticket):
                 return ticket
 
-    def start(self, host: HostLink) -> None:
+    def start(self, host: HostLink) -> Outcome:
         """Start the game: joining closes and the pool locks."""
         game = self._host_game(host)
         self._refuse_if_ended(game, host.code)
@@ -325,6 +344,7 @@ class GameRegistry:
             raise GameAlreadyStarted(host.code)
         game.status = "started"
         game.undrawn = list(game.pool.topics)
+        return Outcome(started=True)
 
     def end(self, host: HostLink) -> Outcome:
         """The host ends the game, at any time. No draws or claims are accepted after it ends.
@@ -342,7 +362,7 @@ class GameRegistry:
         self._end(game, "host")
         return Outcome(settled, ended="host", window_open=False if was_open else None)
 
-    def draw(self, host: HostLink) -> Draw:
+    def draw(self, host: HostLink) -> Drawn:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final.
         Draws are held while any settlement window is open."""
         game = self._host_game(host)
@@ -356,7 +376,7 @@ class GameRegistry:
         topic = game.undrawn.pop(self._rng.randrange(len(game.undrawn)))
         draw = Draw(position=len(game.draws) + 1, topic=topic)
         game.draws.append(draw)
-        return draw
+        return Drawn(draw, Outcome(drawn=draw))
 
     def tick(self, player: PlayerRef, topic_name: str) -> None:
         """Tick a topic on the player's ticket. It must be on the ticket and already drawn.
