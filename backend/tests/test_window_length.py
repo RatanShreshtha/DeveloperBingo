@@ -6,8 +6,8 @@ import pytest
 
 from devbingo_backend import app as app_module
 from devbingo_backend.app import create_app
-from devbingo_backend.pool_library import InMemoryPoolLibrary
 from devbingo_backend.game import GameRegistry
+from devbingo_backend.pool_library import InMemoryPoolLibrary
 from devbingo_backend.scheduler import AsyncioScheduler
 
 
@@ -23,7 +23,9 @@ def window_given_to_the_registry(monkeypatch):
     return seen
 
 
-def test_the_window_length_can_be_passed_to_create_app(window_given_to_the_registry, monkeypatch):
+def test_the_window_length_can_be_passed_to_create_app(
+    window_given_to_the_registry, monkeypatch
+):
     monkeypatch.setenv("SETTLEMENT_WINDOW_SECONDS", "9")
 
     create_app(pool_library=InMemoryPoolLibrary(), settlement_window_seconds=0.25)
@@ -31,7 +33,9 @@ def test_the_window_length_can_be_passed_to_create_app(window_given_to_the_regis
     assert window_given_to_the_registry == [0.25]
 
 
-def test_the_window_length_comes_from_the_environment(window_given_to_the_registry, monkeypatch):
+def test_the_window_length_comes_from_the_environment(
+    window_given_to_the_registry, monkeypatch
+):
     monkeypatch.setenv("SETTLEMENT_WINDOW_SECONDS", "2.5")
 
     create_app(pool_library=InMemoryPoolLibrary())
@@ -39,7 +43,9 @@ def test_the_window_length_comes_from_the_environment(window_given_to_the_regist
     assert window_given_to_the_registry == [2.5]
 
 
-def test_the_window_length_defaults_to_one_second(window_given_to_the_registry, monkeypatch):
+def test_the_window_length_defaults_to_one_second(
+    window_given_to_the_registry, monkeypatch
+):
     monkeypatch.delenv("SETTLEMENT_WINDOW_SECONDS", raising=False)
 
     create_app(pool_library=InMemoryPoolLibrary())

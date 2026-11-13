@@ -1,12 +1,10 @@
+import pytest
+from database_urls import TEST_DATABASE_URL as DATABASE_URL
+from database_urls import database_is_reachable, unused_database_url
 from fastapi.testclient import TestClient
 
 from devbingo_backend import app as app_module
 from devbingo_backend.app import create_app
-import pytest
-from database_urls import TEST_DATABASE_URL as DATABASE_URL
-from database_urls import TEST_DATABASE_URL as DATABASE_URL
-from database_urls import database_is_reachable, unused_database_url
-
 
 
 class BrokenEngine:

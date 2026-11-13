@@ -4,7 +4,9 @@ import { fetchDefaultPool, PoolRefusedError, savePool } from '../../api/pools'
 import { makePlugins } from '../../testing/testRouter'
 import PoolEditorView from '../PoolEditorPage.vue'
 
-vi.mock('../../api/pools', async () => (await import('../../testing/apiMock')).apiPoolsMock())
+vi.mock('../../api/pools', async () =>
+  (await import('../../testing/apiMock')).apiPoolsMock(),
+)
 
 const SIZES = [9, 10, 10, 10, 10, 10, 10, 10, 11]
 
@@ -39,13 +41,21 @@ describe('PoolEditorView', () => {
     expect(names).toHaveLength(90)
     expect(explanations).toHaveLength(90)
     expect((names[0].element as HTMLInputElement).value).toBe('Topic 1')
-    expect((explanations[89].element as HTMLInputElement).value).toBe('Topic 90 explained')
+    expect((explanations[89].element as HTMLInputElement).value).toBe(
+      'Topic 90 explained',
+    )
     expect(names[0].attributes('aria-label')).toBe('Topic 1 name')
-    expect(explanations[89].attributes('aria-label')).toBe('Topic 90 explanation')
+    expect(explanations[89].attributes('aria-label')).toBe(
+      'Topic 90 explanation',
+    )
   })
 
   it('saves the edited pool under its name, topics in list order', async () => {
-    vi.mocked(savePool).mockResolvedValue({ id: 2, name: 'Mine', is_default: false })
+    vi.mocked(savePool).mockResolvedValue({
+      id: 2,
+      name: 'Mine',
+      is_default: false,
+    })
     const wrapper = await mountEditor()
 
     await wrapper.get('input[data-test="pool-name"]').setValue('Mine')
@@ -56,14 +66,23 @@ describe('PoolEditorView', () => {
     const [name, topics] = vi.mocked(savePool).mock.calls[0]
     expect(name).toBe('Mine')
     expect(topics).toHaveLength(90)
-    expect(topics[0]).toEqual({ name: 'Topic 1', explanation: 'Topic 1 explained' })
-    expect(topics[1]).toEqual({ name: 'Edited', explanation: 'Topic 2 explained' })
+    expect(topics[0]).toEqual({
+      name: 'Topic 1',
+      explanation: 'Topic 1 explained',
+    })
+    expect(topics[1]).toEqual({
+      name: 'Edited',
+      explanation: 'Topic 2 explained',
+    })
     expect(wrapper.text()).toContain('Saved')
   })
 
   it('shows the rule that broke when the pool is refused', async () => {
     vi.mocked(savePool).mockRejectedValue(
-      new PoolRefusedError('duplicate_topic', "topic 'Topic 1' appears more than once"),
+      new PoolRefusedError(
+        'duplicate_topic',
+        "topic 'Topic 1' appears more than once",
+      ),
     )
     const wrapper = await mountEditor()
 
@@ -71,7 +90,9 @@ describe('PoolEditorView', () => {
     await wrapper.get('button[data-test="save-pool"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.get('[role="alert"]').text()).toContain("topic 'Topic 1' appears more than once")
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      "topic 'Topic 1' appears more than once",
+    )
     expect(wrapper.text()).not.toContain('Saved')
   })
 
@@ -85,12 +106,18 @@ describe('PoolEditorView', () => {
 
   it('reports other save failures and clears the error after a successful retry', async () => {
     vi.mocked(savePool).mockRejectedValueOnce(new Error('unavailable'))
-    vi.mocked(savePool).mockResolvedValueOnce({ id: 2, name: 'Mine', is_default: false })
+    vi.mocked(savePool).mockResolvedValueOnce({
+      id: 2,
+      name: 'Mine',
+      is_default: false,
+    })
     const wrapper = await mountEditor()
 
     await wrapper.get('button[data-test="save-pool"]').trigger('click')
     await flushPromises()
-    expect(wrapper.get('[role="alert"]').text()).toContain('Could not save the pool')
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'Could not save the pool',
+    )
 
     await wrapper.get('button[data-test="save-pool"]').trigger('click')
     await flushPromises()

@@ -32,16 +32,33 @@ watch(
 <template>
   <section class="space-y-5">
     <GameHeader title="Your game" :code="code" />
-    <p v-if="store.replaced" class="alert alert-warning" role="alert" data-test="replaced">
+    <p
+      v-if="store.replaced"
+      class="alert alert-warning"
+      role="alert"
+      data-test="replaced"
+    >
       This game was opened in another window, so this one has left it.
     </p>
     <p v-else-if="resuming && !inGame">Rejoining the game…</p>
     <template v-else-if="!inGame">
-      <p v-if="store.error" class="alert alert-error" role="alert">{{ store.error }}</p>
-      <RouterLink class="btn btn-primary dark:btn-neutral" to="/join" data-test="join-link">Join this game</RouterLink>
+      <p v-if="store.error" class="alert alert-error" role="alert">
+        {{ store.error }}
+      </p>
+      <RouterLink
+        class="btn btn-primary dark:btn-neutral"
+        to="/join"
+        data-test="join-link"
+        >Join this game</RouterLink
+      >
     </template>
     <template v-else>
-      <EndBanner v-if="store.endReason" role="player" :reason="store.endReason" :code="code" />
+      <EndBanner
+        v-if="store.endReason"
+        role="player"
+        :reason="store.endReason"
+        :code="code"
+      />
       <p v-else-if="store.started" class="alert">The game has started.</p>
       <p v-else class="alert">Waiting for the host to start the game.</p>
       <TicketGrid
@@ -52,7 +69,9 @@ watch(
         :ended="store.ended"
         @toggle="store.toggleTick"
       />
-      <p v-if="store.actionError" class="alert alert-error" role="alert">{{ store.actionError }}</p>
+      <p v-if="store.actionError" class="alert alert-error" role="alert">
+        {{ store.actionError }}
+      </p>
       <DrawHistory :draws="store.draws" />
       <div class="grid gap-5 md:grid-cols-2">
         <PrizeBoard :prizes="store.prizes" />

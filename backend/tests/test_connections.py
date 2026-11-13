@@ -3,9 +3,9 @@
 import pytest
 
 from devbingo_backend.connections import Connections
+from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.errors import AlreadyJoined, NotJoined
 from devbingo_backend.game import GameRegistry, PlayerRef
-from devbingo_backend.default_pool import DEFAULT_POOL
 
 ADA = PlayerRef("ABC123", "Ada")
 GRACE = PlayerRef("ABC123", "Grace")

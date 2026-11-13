@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
+from unavailable import UnavailablePoolLibrary
 
 from devbingo_backend.app import create_app
 from devbingo_backend.pool_library import InMemoryPoolLibrary
-from unavailable import UnavailablePoolLibrary
 
 
 def test_the_default_pool_is_served_as_nine_columns():

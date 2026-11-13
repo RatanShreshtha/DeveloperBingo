@@ -1,9 +1,13 @@
 import type { HostSnapshot, PlayerSnapshot } from '../realtime/protocol'
 
-const OPEN_BOARD: PlayerSnapshot['prizes'] = [{ prize: 'early_five', awarded_to: [] }]
+const OPEN_BOARD: PlayerSnapshot['prizes'] = [
+  { prize: 'early_five', awarded_to: [] },
+]
 
 /** A successful join as the server acknowledges it. Override only what a test is about. */
-export function playerSnapshot(overrides: Partial<PlayerSnapshot> = {}): PlayerSnapshot {
+export function playerSnapshot(
+  overrides: Partial<PlayerSnapshot> = {},
+): PlayerSnapshot {
   return {
     ok: true,
     status: 'lobby',
@@ -22,7 +26,9 @@ export function playerSnapshot(overrides: Partial<PlayerSnapshot> = {}): PlayerS
 }
 
 /** A successful watch as the server acknowledges it. */
-export function hostSnapshot(overrides: Partial<HostSnapshot> = {}): HostSnapshot {
+export function hostSnapshot(
+  overrides: Partial<HostSnapshot> = {},
+): HostSnapshot {
   return {
     ok: true,
     status: 'lobby',

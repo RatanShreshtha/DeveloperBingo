@@ -6,10 +6,10 @@ import pytest
 from helpers import ManualRegistry, draw_everything, names_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
+from devbingo_backend.errors import ErrorCode
 from devbingo_backend.game import ClaimNotValid, Outcome, PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
-from devbingo_backend.errors import ErrorCode
 
 
 @pytest.fixture
@@ -17,7 +17,8 @@ def table():
     registry = ManualRegistry(rng=random.Random(7))
     game = registry.create_game(DEFAULT_POOL)
     tickets = {
-        name: registry.join(PlayerRef(game.code, name)).snapshot.ticket for name in ("Ada", "Grace")
+        name: registry.join(PlayerRef(game.code, name)).snapshot.ticket
+        for name in ("Ada", "Grace")
     }
     registry.start(game)
     draw_everything(registry, game)

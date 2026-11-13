@@ -6,7 +6,6 @@ from helpers import RealtimeTable, host_message, run, topics_on, wire_board_of
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.prizes import Prize
 
-
 # --- the snapshot, as the wire carries it (its content is tested in test_game_snapshot.py) ---
 
 
@@ -32,7 +31,9 @@ def test_a_join_acknowledgement_carries_the_players_whole_snapshot():
     assert ack["ticket"] == ada["ticket"]
     assert ack["ticks"] == sorted(topics_on(ada["ticket"]))
     assert ack["pending_claims"] == ["top_line"]
-    assert ack["decided_claims"] == [{"prize": "early_five", "accepted": True, "error": None}]
+    assert ack["decided_claims"] == [
+        {"prize": "early_five", "accepted": True, "error": None}
+    ]
     assert ack["rejoin_token"] not in ("", ada["rejoin_token"])
 
 
@@ -50,7 +51,9 @@ def test_a_watch_acknowledgement_carries_the_hosts_whole_snapshot():
     assert ack["claims"] == []
     assert ack["window_open"] is True
     assert ack["pool_name"] == "Default"
-    assert sum(len(column) for column in ack["pool"]["columns"]) == len(DEFAULT_POOL.topics)
+    assert sum(len(column) for column in ack["pool"]["columns"]) == len(
+        DEFAULT_POOL.topics
+    )
 
 
 # --- the rejoin token ---
@@ -98,7 +101,9 @@ def test_the_replaced_sockets_late_disconnect_does_not_drop_the_new_one():
     t.join("sid-ada-2", rejoin_token=first["rejoin_token"])
 
     run(t.adapter.disconnect("sid-ada"))
-    ack = run(t.adapter.tick_topic("sid-ada-2", {"topic": topics_on(first["ticket"])[0]}))
+    ack = run(
+        t.adapter.tick_topic("sid-ada-2", {"topic": topics_on(first["ticket"])[0]})
+    )
 
     assert ack == {"ok": True}
     assert t.join("sid-ada-3")["error"] == "name_taken"
@@ -152,7 +157,11 @@ def test_a_takeover_does_not_announce_a_change_to_the_lobby():
 
 
 def settled_to(broadcaster):
-    return [(target, data) for event, target, data in broadcaster.emitted if event == "claim_settled"]
+    return [
+        (target, data)
+        for event, target, data in broadcaster.emitted
+        if event == "claim_settled"
+    ]
 
 
 def test_a_takeover_during_a_pending_claim_sends_the_result_to_the_new_socket_only():
@@ -187,7 +196,9 @@ def test_the_host_is_told_when_a_window_opens_and_when_the_last_one_closes():
 
     assert opened == [{"open": True}]
     assert window_events(t.broadcaster) == [{"open": True}, {"open": False}]
-    assert {room for _, room, _ in t.broadcaster.window_changes} == {f"{t.game.code}:host"}
+    assert {room for _, room, _ in t.broadcaster.window_changes} == {
+        f"{t.game.code}:host"
+    }
 
 
 # --- one handle per player: the name the engine stored, whatever the client typed ---
@@ -214,7 +225,9 @@ def test_a_claim_by_a_player_who_joined_with_spaces_is_answered():
     t.claim()
     t.scheduler.close_all()
 
-    assert settled_to(t.broadcaster) == [("sid-ada", {"prize": "early_five", "accepted": True, "error": None})]
+    assert settled_to(t.broadcaster) == [
+        ("sid-ada", {"prize": "early_five", "accepted": True, "error": None})
+    ]
     assert t.registry.host_snapshot(t.game).prizes[Prize.EARLY_FIVE] == ("Ada",)
 
 
@@ -226,7 +239,9 @@ def test_a_claim_waiting_through_a_takeover_by_another_case_is_answered():
     t.join("sid-ada-2", name="ada", rejoin_token=ada["rejoin_token"])
     t.scheduler.close_all()
 
-    assert settled_to(t.broadcaster) == [("sid-ada-2", {"prize": "early_five", "accepted": True, "error": None})]
+    assert settled_to(t.broadcaster) == [
+        ("sid-ada-2", {"prize": "early_five", "accepted": True, "error": None})
+    ]
 
 
 def test_a_takeover_by_another_case_replaces_the_old_socket():
@@ -235,5 +250,7 @@ def test_a_takeover_by_another_case_replaces_the_old_socket():
 
     t.join("sid-ada-2", name="ADA", rejoin_token=ada["rejoin_token"])
 
-    assert [target for event, target, _ in t.broadcaster.emitted if event == "replaced"] == ["sid-ada"]
+    assert [
+        target for event, target, _ in t.broadcaster.emitted if event == "replaced"
+    ] == ["sid-ada"]
     assert t.broadcaster.left == [("sid-ada", t.game.code)]

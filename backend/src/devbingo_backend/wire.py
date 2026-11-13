@@ -96,7 +96,10 @@ class PoolResponse(_Message):
     def from_pool(cls, pool: "Pool") -> "PoolResponse":
         return cls(
             columns=[
-                [TopicResponse(name=topic.name, explanation=topic.explanation) for topic in column]
+                [
+                    TopicResponse(name=topic.name, explanation=topic.explanation)
+                    for topic in column
+                ]
                 for column in pool.columns()
             ]
         )
@@ -132,9 +135,13 @@ class PrizeBoardEntry(_Message):
     awarded_to: list[str]
 
     @classmethod
-    def board_of(cls, prizes: "Mapping[Prize, tuple[str, ...]]") -> "list[PrizeBoardEntry]":
+    def board_of(
+        cls, prizes: "Mapping[Prize, tuple[str, ...]]"
+    ) -> "list[PrizeBoardEntry]":
         """The prize board in the order the engine keeps it."""
-        return [cls(prize=prize, awarded_to=list(names)) for prize, names in prizes.items()]
+        return [
+            cls(prize=prize, awarded_to=list(names)) for prize, names in prizes.items()
+        ]
 
 
 class ClaimLogEntry(_Message):
@@ -148,7 +155,10 @@ class ClaimLogEntry(_Message):
     @classmethod
     def from_record(cls, record: "ClaimRecord") -> "ClaimLogEntry":
         return cls(
-            player=record.player, prize=record.prize, accepted=record.accepted, error=record.error
+            player=record.player,
+            prize=record.prize,
+            accepted=record.accepted,
+            error=record.error,
         )
 
 
@@ -230,7 +240,9 @@ class JoinAck(GameSnapshot):
             ticket=snapshot.ticket.to_cells(),
             ticks=sorted(snapshot.ticks),
             pending_claims=list(snapshot.pending_claims),
-            decided_claims=[ClaimSettled.from_record(record) for record in snapshot.decided_claims],
+            decided_claims=[
+                ClaimSettled.from_record(record) for record in snapshot.decided_claims
+            ],
             rejoin_token=rejoin_token,
         )
 

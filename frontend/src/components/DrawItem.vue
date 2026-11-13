@@ -6,6 +6,7 @@ defineProps<{ draw: DrawnTopic }>()
 
 <template>
   <li class="rounded-box bg-base-200 p-3 break-words">
-    {{ draw.position }}. <strong>{{ draw.name }}</strong>: {{ draw.explanation }}
+    {{ draw.position }}. <strong>{{ draw.name }}</strong>:
+    {{ draw.explanation }}
   </li>
 </template>

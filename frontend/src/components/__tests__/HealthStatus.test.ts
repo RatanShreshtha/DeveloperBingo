@@ -59,7 +59,9 @@ describe('HealthView', () => {
 
     const wrapper = await renderHealthView()
 
-    expect(wrapper.text()).toContain('Backend health check failed with status 500')
+    expect(wrapper.text()).toContain(
+      'Backend health check failed with status 500',
+    )
     expect(wrapper.text()).not.toContain('Could not reach the backend')
   })
 })

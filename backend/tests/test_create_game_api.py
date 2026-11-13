@@ -1,8 +1,9 @@
 from fastapi.testclient import TestClient
+from unavailable import UnavailablePoolLibrary
 
 from devbingo_backend.app import create_app
 from devbingo_backend.pool_library import InMemoryPoolLibrary
-from unavailable import UnavailablePoolLibrary
+
 
 def create_game(client: TestClient) -> dict:
     response = client.post("/games")

@@ -26,15 +26,28 @@ describe('application routes', () => {
         return new Response(JSON.stringify({ status: 'ok', database: 'up' }))
       }
       if (url === '/pools') {
-        return new Response(JSON.stringify([{ id: 1, name: 'Default', is_default: true }]))
+        return new Response(
+          JSON.stringify([{ id: 1, name: 'Default', is_default: true }]),
+        )
       }
       if (url === '/pools/default') {
-        return new Response(JSON.stringify({ columns: [[{ name: 'Cache', explanation: 'A store' }]] }))
+        return new Response(
+          JSON.stringify({
+            columns: [[{ name: 'Cache', explanation: 'A store' }]],
+          }),
+        )
       }
       if (url === '/games/ABC123/history') {
-        return new Response(JSON.stringify({
-          code: 'ABC123', end_reason: 'host', pool_name: null, draws: [], claims: [], prizes: [],
-        }))
+        return new Response(
+          JSON.stringify({
+            code: 'ABC123',
+            end_reason: 'host',
+            pool_name: null,
+            draws: [],
+            claims: [],
+            prizes: [],
+          }),
+        )
       }
       throw new Error(`Unexpected request: ${url}`)
     })
@@ -62,12 +75,16 @@ describe('application routes', () => {
     await router.push('/pools/new')
     await flushPromises()
     expect(element.textContent).toContain('New custom pool')
-    expect(element.querySelector('input[data-test="topic-name"]')).not.toBeNull()
+    expect(
+      element.querySelector('input[data-test="topic-name"]'),
+    ).not.toBeNull()
 
     await router.push('/host/ABC123?token=host-token')
     await flushPromises()
     expect(element.textContent).toContain('Host dashboard')
-    expect(fake.payloads('watch_lobby')).toEqual([{ code: 'ABC123', host_token: 'host-token' }])
+    expect(fake.payloads('watch_lobby')).toEqual([
+      { code: 'ABC123', host_token: 'host-token' },
+    ])
 
     await router.push('/games/ABC123')
     await flushPromises()

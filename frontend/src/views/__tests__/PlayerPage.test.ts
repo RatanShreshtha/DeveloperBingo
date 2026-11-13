@@ -36,11 +36,22 @@ describe('PlayerLobbyView', () => {
       end_reason: 'host',
       ticket: [['Algorithm', null, 'JSON']],
       ticks: ['Algorithm'],
-      draws: [{ position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+      draws: [
+        {
+          position: 1,
+          name: 'Algorithm',
+          explanation: 'A finite sequence of steps.',
+        },
+      ],
     })
 
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: [makeRouter()] } })
-    const region = wrapper.get('[role="region"][aria-label="Your ticket, scroll horizontally"]')
+    const wrapper = mount(PlayerLobbyView, {
+      props: { code: 'ABC123' },
+      global: { plugins: [makeRouter()] },
+    })
+    const region = wrapper.get(
+      '[role="region"][aria-label="Your ticket, scroll horizontally"]',
+    )
     const ticked = region.get('[data-test="tick-cell"]')
 
     expect(region.attributes('tabindex')).toBe('0')
@@ -54,12 +65,17 @@ describe('PlayerLobbyView', () => {
     saveSession({ code: 'XYZ789', name: 'Ada', token: 'token-x' })
     fake.answer('join_game', playerSnapshot({ status: 'started' }))
 
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+    const wrapper = mount(PlayerLobbyView, {
+      props: { code: 'ABC123' },
+      global: { plugins: makePlugins() },
+    })
     await flushPromises()
     await wrapper.setProps({ code: 'XYZ789' })
     await flushPromises()
 
-    expect(fake.payloads('join_game')).toEqual([{ code: 'XYZ789', name: 'Ada', rejoin_token: 'token-x' }])
+    expect(fake.payloads('join_game')).toEqual([
+      { code: 'XYZ789', name: 'Ada', rejoin_token: 'token-x' },
+    ])
     expect(wrapper.text()).toContain('The game has started.')
   })
 
@@ -72,11 +88,20 @@ describe('PlayerLobbyView', () => {
           status: 'started',
           ticket: [['Algorithm', null, 'JSON']],
           ticks: ['Algorithm'],
-          draws: [{ position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+          draws: [
+            {
+              position: 1,
+              name: 'Algorithm',
+              explanation: 'A finite sequence of steps.',
+            },
+          ],
         }),
       )
 
-      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+      const wrapper = mount(PlayerLobbyView, {
+        props: { code: 'ABC123' },
+        global: { plugins: makePlugins() },
+      })
       await flushPromises()
 
       expect(fake.payloads('join_game')).toEqual([
@@ -84,15 +109,22 @@ describe('PlayerLobbyView', () => {
       ])
       expect(wrapper.text()).toContain('The game has started.')
       expect(wrapper.find('[data-test="join-link"]').exists()).toBe(false)
-      expect(wrapper.get('[data-test="tick-cell"]').attributes('aria-pressed')).toBe('true')
+      expect(
+        wrapper.get('[data-test="tick-cell"]').attributes('aria-pressed'),
+      ).toBe('true')
       expect(wrapper.findAll('[data-test="draw-history"] li')).toHaveLength(1)
     })
 
     it('asks the player to join when nothing was saved', async () => {
-      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+      const wrapper = mount(PlayerLobbyView, {
+        props: { code: 'ABC123' },
+        global: { plugins: makePlugins() },
+      })
       await flushPromises()
 
-      expect(wrapper.get('[data-test="join-link"]').text()).toContain('Join this game')
+      expect(wrapper.get('[data-test="join-link"]').text()).toContain(
+        'Join this game',
+      )
       expect(fake.sent).toEqual([])
     })
 
@@ -109,23 +141,35 @@ describe('PlayerLobbyView', () => {
         }),
       )
 
-      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+      const wrapper = mount(PlayerLobbyView, {
+        props: { code: 'ABC123' },
+        global: { plugins: makePlugins() },
+      })
       await flushPromises()
 
-      expect(wrapper.text()).toContain('The game is over: the full house was claimed')
+      expect(wrapper.text()).toContain(
+        'The game is over: the full house was claimed',
+      )
       expect(wrapper.text()).toContain('Full house: awarded to Grace')
-      expect(wrapper.get('[data-test="tick-cell"]').attributes('disabled')).toBeDefined()
+      expect(
+        wrapper.get('[data-test="tick-cell"]').attributes('disabled'),
+      ).toBeDefined()
     })
 
     it('asks the player to join when the server refuses the saved session', async () => {
       saveSession({ code: 'ABC123', name: 'Ada', token: 'old-token' })
       fake.answer('join_game', { ok: false, error: 'name_taken' })
 
-      const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+      const wrapper = mount(PlayerLobbyView, {
+        props: { code: 'ABC123' },
+        global: { plugins: makePlugins() },
+      })
       await flushPromises()
 
       expect(wrapper.find('[data-test="join-link"]').exists()).toBe(true)
-      expect(wrapper.text()).toContain('That name is already taken in this game')
+      expect(wrapper.text()).toContain(
+        'That name is already taken in this game',
+      )
     })
   })
 
@@ -133,7 +177,10 @@ describe('PlayerLobbyView', () => {
     saveSession({ code: 'ABC123', name: 'Ada', token: 'old-token' })
     fake.answer('join_game', () => new Promise(() => {}))
 
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+    const wrapper = mount(PlayerLobbyView, {
+      props: { code: 'ABC123' },
+      global: { plugins: makePlugins() },
+    })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Rejoining the game…')
@@ -142,7 +189,10 @@ describe('PlayerLobbyView', () => {
 
   it('leaves the game and asks the player to join when a reconnect is refused', async () => {
     await joinedAda(fake, { status: 'started' })
-    const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+    const wrapper = mount(PlayerLobbyView, {
+      props: { code: 'ABC123' },
+      global: { plugins: makePlugins() },
+    })
     await flushPromises()
     fake.answer('join_game', { ok: false, error: 'not_found' })
 
@@ -150,7 +200,9 @@ describe('PlayerLobbyView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('No game found with that code')
-    expect(wrapper.get('[data-test="join-link"]').text()).toContain('Join this game')
+    expect(wrapper.get('[data-test="join-link"]').text()).toContain(
+      'Join this game',
+    )
     expect(wrapper.find('[data-test="tick-cell"]').exists()).toBe(false)
   })
 
@@ -161,7 +213,9 @@ describe('PlayerLobbyView', () => {
     fake.emit('replaced', {})
     await flushPromises()
 
-    expect(wrapper.get('[data-test="replaced"]').text()).toContain('opened in another window')
+    expect(wrapper.get('[data-test="replaced"]').text()).toContain(
+      'opened in another window',
+    )
     expect(wrapper.find('[data-test="tick-cell"]').exists()).toBe(false)
   })
 })

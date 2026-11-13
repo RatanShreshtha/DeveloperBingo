@@ -1,6 +1,7 @@
 import random
 
 import pytest
+from helpers import ManualScheduler
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
@@ -12,7 +13,6 @@ from devbingo_backend.game import (
     NoTopicsLeft,
     PlayerRef,
 )
-from helpers import ManualScheduler
 
 
 @pytest.fixture

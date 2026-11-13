@@ -9,8 +9,12 @@ import PlayerLobbyView from '../PlayerPage.vue'
 import { makePlugins } from '../../testing/testRouter'
 import { joinedAda, startFresh } from '../../testing/testSetup'
 
-vi.mock('../../api/games', async () => (await import('../../testing/apiMock')).apiGamesMock())
-vi.mock('../../api/pools', () => ({ fetchDefaultPool: vi.fn(async () => ({ columns: [] })) }))
+vi.mock('../../api/games', async () =>
+  (await import('../../testing/apiMock')).apiGamesMock(),
+)
+vi.mock('../../api/pools', () => ({
+  fetchDefaultPool: vi.fn(async () => ({ columns: [] })),
+}))
 
 const history = {
   code: 'ABC123',
@@ -21,8 +25,18 @@ const history = {
     { position: 2, name: 'Index', explanation: 'Speeds lookups' },
   ],
   claims: [
-    { player: 'Grace', prize: 'early_five' as const, accepted: false, error: 'claim_not_valid' as const },
-    { player: 'Ada', prize: 'full_house' as const, accepted: true, error: null },
+    {
+      player: 'Grace',
+      prize: 'early_five' as const,
+      accepted: false,
+      error: 'claim_not_valid' as const,
+    },
+    {
+      player: 'Ada',
+      prize: 'full_house' as const,
+      accepted: true,
+      error: null,
+    },
   ],
   prizes: [
     { prize: 'early_five' as const, awarded_to: [] },
@@ -36,7 +50,10 @@ beforeEach(() => {
 })
 
 function mountHistory() {
-  return mount(GameHistoryView, { props: { code: 'ABC123' }, global: { plugins: makePlugins() } })
+  return mount(GameHistoryView, {
+    props: { code: 'ABC123' },
+    global: { plugins: makePlugins() },
+  })
 }
 
 describe('GameHistoryView', () => {
@@ -47,7 +64,10 @@ describe('GameHistoryView', () => {
 
     expect(fetchGameHistory).toHaveBeenCalledWith('ABC123')
     const draws = wrapper.findAll('[data-test="draw"]').map((d) => d.text())
-    expect(draws).toEqual(['2. Index: Speeds lookups', '1. Cache: Keeps results close'])
+    expect(draws).toEqual([
+      '2. Index: Speeds lookups',
+      '1. Cache: Keeps results close',
+    ])
     expect(history.draws.map((draw) => draw.position)).toEqual([1, 2])
   })
 
@@ -80,7 +100,9 @@ describe('GameHistoryView', () => {
     const wrapper = mountHistory()
     await flushPromises()
 
-    expect(wrapper.get('[role="alert"]').text()).toBe('There is no stored history for this game')
+    expect(wrapper.get('[role="alert"]').text()).toBe(
+      'There is no stored history for this game',
+    )
   })
 
   it('says when history is unavailable', async () => {
@@ -88,7 +110,9 @@ describe('GameHistoryView', () => {
     const wrapper = mountHistory()
     await flushPromises()
 
-    expect(wrapper.get('[role="alert"]').text()).toBe('Game history is unavailable right now. Try again shortly.')
+    expect(wrapper.get('[role="alert"]').text()).toBe(
+      'Game history is unavailable right now. Try again shortly.',
+    )
   })
 
   it('reports a network failure', async () => {
@@ -96,7 +120,9 @@ describe('GameHistoryView', () => {
     const wrapper = mountHistory()
     await flushPromises()
 
-    expect(wrapper.get('[role="alert"]').text()).toBe('Could not load the game history')
+    expect(wrapper.get('[role="alert"]').text()).toBe(
+      'Could not load the game history',
+    )
   })
 })
 
@@ -119,7 +145,9 @@ describe('linking to the history from the ended game', () => {
     fake.emit('game_ended', { reason: 'host' })
     await flushPromises()
 
-    expect(wrapper.get('[data-test="history-link"]').attributes('href')).toBe('/games/ABC123/history')
+    expect(wrapper.get('[data-test="history-link"]').attributes('href')).toBe(
+      '/games/ABC123/history',
+    )
   })
 
   it('links a player to the history once the game has ended', async () => {
@@ -134,6 +162,8 @@ describe('linking to the history from the ended game', () => {
     fake.emit('game_ended', { reason: 'full_house' })
     await flushPromises()
 
-    expect(wrapper.get('[data-test="history-link"]').attributes('href')).toBe('/games/ABC123/history')
+    expect(wrapper.get('[data-test="history-link"]').attributes('href')).toBe(
+      '/games/ABC123/history',
+    )
   })
 })

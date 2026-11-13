@@ -17,7 +17,10 @@ export function useAsyncState<T>() {
       }
     } catch (cause) {
       if (request === latest) {
-        error.value = cause instanceof Error ? cause : new Error('Request failed', { cause })
+        error.value =
+          cause instanceof Error
+            ? cause
+            : new Error('Request failed', { cause })
       }
     } finally {
       if (request === latest) {

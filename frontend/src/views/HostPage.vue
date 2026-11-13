@@ -25,9 +25,16 @@ onMounted(() => {
 <template>
   <section class="space-y-5">
     <GameHeader title="Host dashboard" :code="code" />
-    <p v-if="store.error" class="alert alert-error" role="alert">{{ store.error }}</p>
+    <p v-if="store.error" class="alert alert-error" role="alert">
+      {{ store.error }}
+    </p>
     <template v-else>
-      <EndBanner v-if="store.endReason" role="host" :reason="store.endReason" :code="code" />
+      <EndBanner
+        v-if="store.endReason"
+        role="host"
+        :reason="store.endReason"
+        :code="code"
+      />
       <div v-else class="flex flex-wrap gap-3">
         <button
           v-if="!store.started"
@@ -47,14 +54,25 @@ onMounted(() => {
         >
           Draw topic
         </button>
-        <button class="btn btn-outline" type="button" data-test="end-game" @click="store.end()">
+        <button
+          class="btn btn-outline"
+          type="button"
+          data-test="end-game"
+          @click="store.end()"
+        >
           End game
         </button>
       </div>
-      <p v-if="store.windowOpen" class="alert alert-info" data-test="window-open">
+      <p
+        v-if="store.windowOpen"
+        class="alert alert-info"
+        data-test="window-open"
+      >
         A claim is being settled. Draws resume in a moment.
       </p>
-      <p v-if="store.actionError" class="alert alert-error" role="alert">{{ store.actionError }}</p>
+      <p v-if="store.actionError" class="alert alert-error" role="alert">
+        {{ store.actionError }}
+      </p>
       <DrawHistory :draws="store.draws" />
       <div class="grid gap-5 md:grid-cols-2">
         <PrizeBoard :prizes="store.prizes" />
@@ -62,7 +80,9 @@ onMounted(() => {
       </div>
       <LobbyList :players="store.players" />
     </template>
-    <p v-if="store.poolName" class="text-base-content/70" data-test="pool-name">Pool: {{ store.poolName }}</p>
+    <p v-if="store.poolName" class="text-base-content/70" data-test="pool-name">
+      Pool: {{ store.poolName }}
+    </p>
     <PoolColumns v-if="store.pool" :columns="store.pool" />
   </section>
 </template>

@@ -8,7 +8,9 @@ defineProps<{ claims: ClaimLogEntry[] }>()
 
 <template>
   <BoardCard title="Claims">
-    <p v-if="claims.length === 0" class="text-base-content/70">No claims yet.</p>
+    <p v-if="claims.length === 0" class="text-base-content/70">
+      No claims yet.
+    </p>
     <ol v-else class="space-y-2">
       <ClaimItem v-for="(claim, index) in claims" :key="index" :claim="claim" />
     </ol>

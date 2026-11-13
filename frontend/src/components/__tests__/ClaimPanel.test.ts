@@ -19,11 +19,15 @@ describe('ClaimPanel', () => {
   it('disables a prize that is awarded', () => {
     const wrapper = mount(ClaimPanel, { props: { prizes, pending: [] } })
 
-    expect(wrapper.get('[data-test="claim-top_line"]').attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.get('[data-test="claim-top_line"]').attributes('disabled'),
+    ).toBeDefined()
   })
 
   it('shows a pending claim as claiming and disabled', () => {
-    const wrapper = mount(ClaimPanel, { props: { prizes, pending: ['early_five'] } })
+    const wrapper = mount(ClaimPanel, {
+      props: { prizes, pending: ['early_five'] },
+    })
     const button = wrapper.get('[data-test="claim-early_five"]')
 
     expect(button.text()).toBe('Claiming Early five…')

@@ -1,6 +1,9 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import {
+  installFakeTransport,
+  type FakeTransport,
+} from '../testing/fakeTransport'
 import { hostSnapshot } from '../testing/snapshots'
 import { useHostSession } from './session'
 

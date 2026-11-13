@@ -9,6 +9,10 @@ defineProps<{ claim: ClaimLogEntry }>()
 <template>
   <li class="rounded-box bg-base-200 p-3 break-words" data-test="claim">
     {{ claim.player }} claimed {{ PRIZE_LABELS[claim.prize] }}:
-    {{ claim.accepted ? 'accepted' : `refused. ${claim.error ? messageFor(claim.error) : ''}` }}
+    {{
+      claim.accepted
+        ? 'accepted'
+        : `refused. ${claim.error ? messageFor(claim.error) : ''}`
+    }}
   </li>
 </template>

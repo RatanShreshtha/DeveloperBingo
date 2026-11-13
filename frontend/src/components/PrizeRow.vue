@@ -5,5 +5,7 @@ defineProps<{ prize: Prize; outcome: string }>()
 </script>
 
 <template>
-  <li class="rounded-box bg-base-200 p-3 break-words">{{ PRIZE_LABELS[prize] }}: {{ outcome }}</li>
+  <li class="rounded-box bg-base-200 p-3 break-words">
+    {{ PRIZE_LABELS[prize] }}: {{ outcome }}
+  </li>
 </template>

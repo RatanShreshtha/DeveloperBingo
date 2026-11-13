@@ -55,7 +55,9 @@ def build_pool(topics: Sequence[Topic]) -> Pool:
     seen: set[str] = set()
     for topic in topics:
         if not topic.name.strip() or not topic.explanation.strip():
-            raise EmptyTopicError(f"topic {topic.name!r} needs a name and an explanation")
+            raise EmptyTopicError(
+                f"topic {topic.name!r} needs a name and an explanation"
+            )
         key = name_key(topic.name)
         if key in seen:
             raise DuplicateTopicError(f"topic {topic.name!r} appears more than once")

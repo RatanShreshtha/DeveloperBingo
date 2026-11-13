@@ -12,14 +12,24 @@ def test_the_host_is_told_of_a_refused_claim_and_the_players_are_not():
     assert ack["error"] == "claim_not_valid"
     assert [e for e in t.broadcaster.emitted if e[0] == "claim_settled"] == []
 
-    host_events = [event for event in t.broadcaster.emitted if event[0] == "claim_logged"]
+    host_events = [
+        event for event in t.broadcaster.emitted if event[0] == "claim_logged"
+    ]
     # A refused claim is private: no event of any kind reaches the room the players are in.
     assert t.to_room() == in_the_room_before
 
-    assert host_events == [(
-        "claim_logged", t.host,
-        {"player": "Ada", "prize": "full_house", "accepted": False, "error": "claim_not_valid"},
-    )]
+    assert host_events == [
+        (
+            "claim_logged",
+            t.host,
+            {
+                "player": "Ada",
+                "prize": "full_house",
+                "accepted": False,
+                "error": "claim_not_valid",
+            },
+        )
+    ]
     assert ("sid-host", t.host) in t.broadcaster.entered
     assert ("sid-ada", t.host) not in t.broadcaster.entered
 
@@ -31,8 +41,11 @@ def test_the_host_is_told_of_an_accepted_claim_as_well_as_the_room():
     t.claim_and_close()
 
     assert [e for e in t.broadcaster.emitted if e[1] == t.host] == [
-        ("claim_logged", t.host,
-         {"player": "Ada", "prize": "early_five", "accepted": True, "error": None})
+        (
+            "claim_logged",
+            t.host,
+            {"player": "Ada", "prize": "early_five", "accepted": True, "error": None},
+        )
     ]
     assert [e for e in t.to_room() if e[0] == "claim_logged"] == []
 
@@ -58,6 +71,11 @@ def test_a_host_who_reconnects_gets_the_claims_so_far_in_the_watch_acknowledgeme
     ack = t.watch(sid="sid-host-after-reconnect")
 
     assert ack["claims"] == [
-        {"player": "Ada", "prize": "full_house", "accepted": False, "error": "claim_not_valid"},
+        {
+            "player": "Ada",
+            "prize": "full_house",
+            "accepted": False,
+            "error": "claim_not_valid",
+        },
         {"player": "Ada", "prize": "early_five", "accepted": True, "error": None},
     ]

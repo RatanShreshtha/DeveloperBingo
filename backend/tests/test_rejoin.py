@@ -28,7 +28,6 @@ def test_a_name_is_refused_while_its_player_is_connected(lobby):
         registry.join(PlayerRef(game.code, "Ada"))
 
 
-
 def test_a_rejoin_is_reported_as_not_a_new_player(lobby):
     registry, game, _ = lobby
     ada = PlayerRef(game.code, "Ada")

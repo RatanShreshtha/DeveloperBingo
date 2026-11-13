@@ -13,7 +13,11 @@ defineProps<{ prizes: PrizeBoardEntry[] }>()
         v-for="entry in prizes"
         :key="entry.prize"
         :prize="entry.prize"
-        :outcome="entry.awarded_to.length ? `awarded to ${entry.awarded_to.join(', ')}` : 'still open'"
+        :outcome="
+          entry.awarded_to.length
+            ? `awarded to ${entry.awarded_to.join(', ')}`
+            : 'still open'
+        "
       />
     </ul>
   </BoardCard>

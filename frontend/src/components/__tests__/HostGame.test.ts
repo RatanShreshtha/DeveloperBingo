@@ -32,7 +32,9 @@ describe('HostView game flow', () => {
 
     await startTheGame(wrapper)
 
-    expect(fake.payloads('start_game')).toEqual([{ code: 'ABC123', host_token: 'secret-token' }])
+    expect(fake.payloads('start_game')).toEqual([
+      { code: 'ABC123', host_token: 'secret-token' },
+    ])
     expect(wrapper.find('[data-test="start-game"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="draw-topic"]').exists()).toBe(true)
   })
@@ -49,7 +51,11 @@ describe('HostView game flow', () => {
   it('shows the drawn topic and its explanation after a draw', async () => {
     fake.answer('draw_topic', {
       ok: true,
-      draw: { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' },
+      draw: {
+        position: 1,
+        name: 'Algorithm',
+        explanation: 'A finite sequence of steps.',
+      },
     })
     const wrapper = mountHost()
     await flushPromises()
@@ -58,16 +64,21 @@ describe('HostView game flow', () => {
     await wrapper.get('[data-test="draw-topic"]').trigger('click')
     await flushPromises()
 
-    expect(fake.payloads('draw_topic')).toEqual([{ code: 'ABC123', host_token: 'secret-token' }])
+    expect(fake.payloads('draw_topic')).toEqual([
+      { code: 'ABC123', host_token: 'secret-token' },
+    ])
     expect(wrapper.text()).toContain('Algorithm')
     expect(wrapper.text()).toContain('A finite sequence of steps.')
   })
 
   it('shows the newest draw first after the host draws', async () => {
-    fake.answer('watch_lobby', hostSnapshot({
-      status: 'started',
-      draws: [{ position: 1, name: 'Algorithm', explanation: 'First draw.' }],
-    }))
+    fake.answer(
+      'watch_lobby',
+      hostSnapshot({
+        status: 'started',
+        draws: [{ position: 1, name: 'Algorithm', explanation: 'First draw.' }],
+      }),
+    )
     fake.answer('draw_topic', {
       ok: true,
       draw: { position: 2, name: 'JSON', explanation: 'Second draw.' },
@@ -78,8 +89,13 @@ describe('HostView game flow', () => {
     await wrapper.get('[data-test="draw-topic"]').trigger('click')
     await flushPromises()
 
-    const draws = wrapper.findAll('[data-test="draw-history"] li').map((li) => li.text())
-    expect(draws).toEqual(['2. JSON: Second draw.', '1. Algorithm: First draw.'])
+    const draws = wrapper
+      .findAll('[data-test="draw-history"] li')
+      .map((li) => li.text())
+    expect(draws).toEqual([
+      '2. JSON: Second draw.',
+      '1. Algorithm: First draw.',
+    ])
   })
 
   it('keeps the Draw control and explains a refused draw', async () => {
@@ -102,19 +118,29 @@ describe('HostView game flow', () => {
 
     expect(wrapper.find('[data-test="start-game"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="draw-topic"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('This host link is not valid for this game')
+    expect(wrapper.text()).toContain(
+      'This host link is not valid for this game',
+    )
   })
 
   it('says a claim is being settled while the snapshot reports an open window', async () => {
-    fake.answer('watch_lobby', hostSnapshot({ status: 'started', window_open: true }))
+    fake.answer(
+      'watch_lobby',
+      hostSnapshot({ status: 'started', window_open: true }),
+    )
     const wrapper = mountHost()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="window-open"]').text()).toContain('A claim is being settled')
+    expect(wrapper.get('[data-test="window-open"]').text()).toContain(
+      'A claim is being settled',
+    )
   })
 
   it('stops saying so once the server says no window is open', async () => {
-    fake.answer('watch_lobby', hostSnapshot({ status: 'started', window_open: true }))
+    fake.answer(
+      'watch_lobby',
+      hostSnapshot({ status: 'started', window_open: true }),
+    )
     const wrapper = mountHost()
     await flushPromises()
 

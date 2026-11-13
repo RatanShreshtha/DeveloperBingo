@@ -8,7 +8,12 @@ import pytest
 from helpers import ManualScheduler, draw_everything, names_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry, Outcome, PlayerRef
+from devbingo_backend.game import (
+    DEFAULT_WINDOW_SECONDS,
+    GameRegistry,
+    Outcome,
+    PlayerRef,
+)
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
 
@@ -20,7 +25,9 @@ class Table:
     def __init__(self, window_seconds: float = DEFAULT_WINDOW_SECONDS) -> None:
         self.scheduler = ManualScheduler()
         self.registry = GameRegistry(
-            rng=random.Random(7), scheduler=self.scheduler, window_seconds=window_seconds
+            rng=random.Random(7),
+            scheduler=self.scheduler,
+            window_seconds=window_seconds,
         )
         self.heard: list[tuple[str, Outcome]] = []
 
@@ -30,7 +37,8 @@ class Table:
         self.registry.listen(listen)
         self.game = self.registry.create_game(DEFAULT_POOL)
         self.tickets = {
-            name: self.registry.join(self.player(name)).snapshot.ticket for name in ("Ada", "Grace")
+            name: self.registry.join(self.player(name)).snapshot.ticket
+            for name in ("Ada", "Grace")
         }
         self.registry.start(self.game)
         draw_everything(self.registry, self.game)
@@ -65,7 +73,9 @@ def test_the_window_length_defaults_to_one_second():
     assert DEFAULT_WINDOW_SECONDS == 1.0
 
 
-def test_a_window_closing_on_time_tells_the_listener_who_won_and_that_no_window_is_open(table):
+def test_a_window_closing_on_time_tells_the_listener_who_won_and_that_no_window_is_open(
+    table,
+):
     table.registry.claim(table.player("Ada"), Prize.EARLY_FIVE)
     table.registry.claim(table.player("Grace"), Prize.EARLY_FIVE)
 
@@ -81,7 +91,10 @@ def test_a_window_closing_on_time_tells_the_listener_who_won_and_that_no_window_
     )
     assert outcome.ended is None
     assert outcome.window_open is False
-    assert table.registry.host_snapshot(table.game).prizes[Prize.EARLY_FIVE] == ("Ada", "Grace")
+    assert table.registry.host_snapshot(table.game).prizes[Prize.EARLY_FIVE] == (
+        "Ada",
+        "Grace",
+    )
 
 
 def test_nothing_is_heard_or_awarded_before_the_window_closes(table):
@@ -100,7 +113,10 @@ def test_the_close_scheduled_before_the_host_ended_the_game_changes_nothing(tabl
 
     assert table.heard == []
     assert table.registry.host_snapshot(table.game).claims == log_before
-    assert all(names == () for names in table.registry.host_snapshot(table.game).prizes.values())
+    assert all(
+        names == ()
+        for names in table.registry.host_snapshot(table.game).prizes.values()
+    )
 
 
 def test_windows_for_two_prizes_open_together_and_close_independently(table):
@@ -121,7 +137,9 @@ def test_windows_for_two_prizes_open_together_and_close_independently(table):
 
 
 def test_a_window_still_closes_with_no_listener():
-    registry = GameRegistry(rng=random.Random(7), scheduler=(scheduler := ManualScheduler()))
+    registry = GameRegistry(
+        rng=random.Random(7), scheduler=(scheduler := ManualScheduler())
+    )
     game = registry.create_game(DEFAULT_POOL)
     ada = PlayerRef(game.code, "Ada")
     ticket = registry.join(ada).snapshot.ticket

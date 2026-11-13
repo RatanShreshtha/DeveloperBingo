@@ -1,17 +1,21 @@
 import random
 
 import pytest
-
-from helpers import ManualRegistry, claim_and_settle, names_on, start_and_draw_everything
+from helpers import (
+    ManualRegistry,
+    claim_and_settle,
+    names_on,
+    start_and_draw_everything,
+)
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
+    ClaimNotValid,
     GameAlreadyEnded,
     GameNotStarted,
     NotAPlayer,
     PlayerRef,
     PrizeAlreadyAwarded,
-    ClaimNotValid,
 )
 from devbingo_backend.prizes import Prize
 
@@ -35,7 +39,10 @@ def tick(registry, game, name, topics):
 LINE_PRIZES = [(Prize.TOP_LINE, 0), (Prize.MIDDLE_LINE, 1), (Prize.BOTTOM_LINE, 2)]
 PRIZE_TOPICS = {
     Prize.EARLY_FIVE: lambda ticket: names_on(ticket)[:5],
-    **{prize: (lambda ticket, line=line: sorted(ticket.line(line))) for prize, line in LINE_PRIZES},
+    **{
+        prize: (lambda ticket, line=line: sorted(ticket.line(line)))
+        for prize, line in LINE_PRIZES
+    },
     Prize.FOUR_CORNERS: lambda ticket: sorted(ticket.four_corners()),
     Prize.FULL_HOUSE: lambda ticket: names_on(ticket),
 }
@@ -55,7 +62,9 @@ def test_a_complete_pattern_wins_its_prize(started_with_every_topic_drawn, prize
 
 
 @pytest.mark.parametrize("prize", ALL_PRIZES)
-def test_an_incomplete_pattern_is_refused_and_changes_nothing(started_with_every_topic_drawn, prize):
+def test_an_incomplete_pattern_is_refused_and_changes_nothing(
+    started_with_every_topic_drawn, prize
+):
     registry, game, ada_ticket, _ = started_with_every_topic_drawn
     tick(registry, game, "Ada", PRIZE_TOPICS[prize](ada_ticket)[:-1])
     board_before = registry.host_snapshot(game).prizes

@@ -10,7 +10,10 @@ export default defineConfig({
       '/health': 'http://localhost:8000',
       '/games': {
         target: 'http://localhost:8000',
-        bypass: (request) => request.headers.accept?.includes('text/html') ? '/index.html' : undefined,
+        bypass: (request) =>
+          request.headers.accept?.includes('text/html')
+            ? '/index.html'
+            : undefined,
       },
       '/pools': 'http://localhost:8000',
       '/socket.io': { target: 'http://localhost:8000', ws: true },

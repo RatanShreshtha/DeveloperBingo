@@ -7,12 +7,16 @@ from database_urls import TEST_DATABASE_URL as DATABASE_URL
 from database_urls import database_is_reachable
 from sqlmodel import create_engine
 
+from devbingo_backend.errors import ErrorCode
 from devbingo_backend.game import Draw, GameSummary
-from devbingo_backend.history import AlreadyStored, InMemoryHistoryStore, PostgresHistoryStore
+from devbingo_backend.history import (
+    AlreadyStored,
+    InMemoryHistoryStore,
+    PostgresHistoryStore,
+)
 from devbingo_backend.pool import Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
-from devbingo_backend.errors import ErrorCode
 
 
 @pytest.fixture(params=["memory", "postgres"])
@@ -27,15 +31,25 @@ def store(request):
     engine.dispose()
 
 
-def summary(code: str = "CONTRACT1", reason="full_house", pool_name="Backend basics") -> GameSummary:
+def summary(
+    code: str = "CONTRACT1", reason="full_house", pool_name="Backend basics"
+) -> GameSummary:
     awarded = {Prize.EARLY_FIVE: ("Ada",), Prize.FULL_HOUSE: ("Ada", "Linus")}
     return GameSummary(
         code=code,
         end_reason=reason,
         pool_name=pool_name,
-        draws=(Draw(1, Topic("Cache", "Keeps results close")), Draw(2, Topic("Index", "Speeds lookups"))),
+        draws=(
+            Draw(1, Topic("Cache", "Keeps results close")),
+            Draw(2, Topic("Index", "Speeds lookups")),
+        ),
         claims=(
-            ClaimRecord("Grace", Prize.EARLY_FIVE, accepted=False, error=ErrorCode.CLAIM_NOT_VALID),
+            ClaimRecord(
+                "Grace",
+                Prize.EARLY_FIVE,
+                accepted=False,
+                error=ErrorCode.CLAIM_NOT_VALID,
+            ),
             ClaimRecord("Ada", Prize.EARLY_FIVE, accepted=True),
             ClaimRecord("Ada", Prize.FULL_HOUSE, accepted=True),
             ClaimRecord("Linus", Prize.FULL_HOUSE, accepted=True),

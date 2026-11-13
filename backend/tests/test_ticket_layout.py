@@ -12,9 +12,21 @@ STAGGERED = ticket_of(
 
 def test_a_ticket_lists_the_names_of_all_its_topics():
     assert STAGGERED.topic_names() == {
-        "a0", "a2", "a4", "a6", "a8",
-        "b1", "b3", "b4", "b5", "b7",
-        "c0", "c1", "c3", "c5", "c8",
+        "a0",
+        "a2",
+        "a4",
+        "a6",
+        "a8",
+        "b1",
+        "b3",
+        "b4",
+        "b5",
+        "b7",
+        "c0",
+        "c1",
+        "c3",
+        "c5",
+        "c8",
     }
 
 

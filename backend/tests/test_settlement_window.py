@@ -20,7 +20,8 @@ def table():
     registry = ManualRegistry(rng=random.Random(7))
     game = registry.create_game(DEFAULT_POOL)
     tickets = {
-        name: registry.join(PlayerRef(game.code, name)).snapshot.ticket for name in ("Ada", "Grace")
+        name: registry.join(PlayerRef(game.code, name)).snapshot.ticket
+        for name in ("Ada", "Grace")
     }
     registry.start(game)
     return registry, game, tickets
@@ -152,7 +153,9 @@ def test_a_full_house_ends_the_game_when_its_window_closes_with_every_winner(tab
         registry.draw(game)
 
 
-def test_a_window_still_open_when_the_full_house_ends_the_game_refuses_its_claims(table):
+def test_a_window_still_open_when_the_full_house_ends_the_game_refuses_its_claims(
+    table,
+):
     registry, game, tickets = table
     draw_everything(registry, game)
     for name, who in (("Ada", ada(game)), ("Grace", grace(game))):
@@ -161,7 +164,9 @@ def test_a_window_still_open_when_the_full_house_ends_the_game_refuses_its_claim
     registry.claim(ada(game), Prize.EARLY_FIVE)
     registry.claim(grace(game), Prize.FULL_HOUSE)
     registry.scheduler.pending.reverse()  # the full house window's timer fires first
-    (outcome,) = registry.settle()  # the early five's own timer later finds nothing to settle
+    (outcome,) = (
+        registry.settle()
+    )  # the early five's own timer later finds nothing to settle
     full_house, early_five = outcome.settled
 
     assert full_house.awarded_to == ("Grace",)

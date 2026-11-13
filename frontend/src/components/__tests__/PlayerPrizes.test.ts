@@ -32,10 +32,20 @@ describe('PlayerLobbyView prizes', () => {
     const wrapper = await mountPlayer()
 
     const headings = wrapper.findAll('h2.card-title')
-    expect(headings.slice(0, 3).map((heading) => heading.text())).toEqual(['Draws', 'Prizes', 'Claim'])
+    expect(headings.slice(0, 3).map((heading) => heading.text())).toEqual([
+      'Draws',
+      'Prizes',
+      'Claim',
+    ])
     expect(headings[0].element.closest('.grid')).toBeNull()
-    expect(headings[1].element.closest('.grid')).toBe(headings[2].element.closest('.grid'))
-    expect(headings[1].element.closest('.grid')?.classList.contains('md:grid-cols-2')).toBe(true)
+    expect(headings[1].element.closest('.grid')).toBe(
+      headings[2].element.closest('.grid'),
+    )
+    expect(
+      headings[1].element
+        .closest('.grid')
+        ?.classList.contains('md:grid-cols-2'),
+    ).toBe(true)
   })
 
   it('lets the player claim early five', async () => {
@@ -64,7 +74,9 @@ describe('PlayerLobbyView prizes', () => {
   })
 
   it('shows who early five was awarded to', async () => {
-    await setUpPlayer({ prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }] })
+    await setUpPlayer({
+      prizes: [{ prize: 'early_five', awarded_to: ['Grace'] }],
+    })
     const wrapper = await mountPlayer()
 
     expect(wrapper.text()).toContain('Early five: awarded to Grace')
@@ -93,10 +105,16 @@ describe('PlayerLobbyView prizes', () => {
       expect(button.text()).toBe('Claiming Early five…')
       expect(button.attributes('disabled')).toBeDefined()
 
-      fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
+      fake.emit('claim_settled', {
+        prize: 'early_five',
+        accepted: true,
+        error: null,
+      })
       await flushPromises()
 
-      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe('Claim Early five')
+      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe(
+        'Claim Early five',
+      )
     })
 
     it('clears the pending state and shows why when the claim is refused', async () => {
@@ -107,8 +125,12 @@ describe('PlayerLobbyView prizes', () => {
       await wrapper.get('[data-test="claim-early_five"]').trigger('click')
       await flushPromises()
 
-      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe('Claim Early five')
-      expect(wrapper.text()).toContain('This claim does not complete the prize yet')
+      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe(
+        'Claim Early five',
+      )
+      expect(wrapper.text()).toContain(
+        'This claim does not complete the prize yet',
+      )
     })
 
     it('shows a claim the server still holds as pending after a reload', async () => {
@@ -119,10 +141,16 @@ describe('PlayerLobbyView prizes', () => {
       expect(button.text()).toBe('Claiming Early five…')
       expect(button.attributes('disabled')).toBeDefined()
 
-      fake.emit('claim_settled', { prize: 'early_five', accepted: true, error: null })
+      fake.emit('claim_settled', {
+        prize: 'early_five',
+        accepted: true,
+        error: null,
+      })
       await flushPromises()
 
-      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe('Claim Early five')
+      expect(wrapper.get('[data-test="claim-early_five"]').text()).toBe(
+        'Claim Early five',
+      )
     })
 
     it('explains a tick that cannot be taken back', async () => {
@@ -141,7 +169,9 @@ describe('PlayerLobbyView prizes', () => {
   })
 
   it('shows every player a prize was awarded to together', async () => {
-    await setUpPlayer({ prizes: [{ prize: 'early_five', awarded_to: ['Ada', 'Grace'] }] })
+    await setUpPlayer({
+      prizes: [{ prize: 'early_five', awarded_to: ['Ada', 'Grace'] }],
+    })
     const wrapper = await mountPlayer()
 
     expect(wrapper.text()).toContain('Early five: awarded to Ada, Grace')
@@ -158,8 +188,15 @@ describe('PlayerLobbyView prizes', () => {
     } as const
     const prizes = Object.keys(labels) as (keyof typeof labels)[]
 
-    async function mountWithFullBoard(awarded: Partial<Record<keyof typeof labels, string[]>> = {}) {
-      await setUpPlayer({ prizes: prizes.map((prize) => ({ prize, awarded_to: awarded[prize] ?? [] })) })
+    async function mountWithFullBoard(
+      awarded: Partial<Record<keyof typeof labels, string[]>> = {},
+    ) {
+      await setUpPlayer({
+        prizes: prizes.map((prize) => ({
+          prize,
+          awarded_to: awarded[prize] ?? [],
+        })),
+      })
       return mountPlayer()
     }
 
@@ -167,25 +204,34 @@ describe('PlayerLobbyView prizes', () => {
       const wrapper = await mountWithFullBoard()
 
       for (const prize of prizes) {
-        expect(wrapper.get(`[data-test="claim-${prize}"]`).text()).toBe(labels[prize])
+        expect(wrapper.get(`[data-test="claim-${prize}"]`).text()).toBe(
+          labels[prize],
+        )
       }
     })
 
-    it.each(prizes)('claims %s by its wire name when its button is clicked', async (prize) => {
-      fake.answer('claim_prize', { ok: true, waiting: true })
-      const wrapper = await mountWithFullBoard()
+    it.each(prizes)(
+      'claims %s by its wire name when its button is clicked',
+      async (prize) => {
+        fake.answer('claim_prize', { ok: true, waiting: true })
+        const wrapper = await mountWithFullBoard()
 
-      await wrapper.get(`[data-test="claim-${prize}"]`).trigger('click')
-      await flushPromises()
+        await wrapper.get(`[data-test="claim-${prize}"]`).trigger('click')
+        await flushPromises()
 
-      expect(fake.payloads('claim_prize')).toEqual([{ prize }])
-    })
+        expect(fake.payloads('claim_prize')).toEqual([{ prize }])
+      },
+    )
 
     it('disables the button of a prize already awarded', async () => {
       const wrapper = await mountWithFullBoard({ top_line: ['Grace'] })
 
-      expect(wrapper.get('[data-test="claim-top_line"]').attributes('disabled')).toBeDefined()
-      expect(wrapper.get('[data-test="claim-middle_line"]').attributes('disabled')).toBeUndefined()
+      expect(
+        wrapper.get('[data-test="claim-top_line"]').attributes('disabled'),
+      ).toBeDefined()
+      expect(
+        wrapper.get('[data-test="claim-middle_line"]').attributes('disabled'),
+      ).toBeUndefined()
     })
   })
 })

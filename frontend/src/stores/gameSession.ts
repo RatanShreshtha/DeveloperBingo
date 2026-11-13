@@ -48,7 +48,9 @@ export function createGameSession() {
    * Sends one action and says why it failed. Null means it did not happen: the server refused it,
    * or could not be reached, and `actionError` holds the message either way.
    */
-  async function attempt<T extends Refusable>(call: () => Promise<T>): Promise<T | null> {
+  async function attempt<T extends Refusable>(
+    call: () => Promise<T>,
+  ): Promise<T | null> {
     actionError.value = null
     let result: T
     try {
@@ -75,13 +77,28 @@ export function createGameSession() {
   net.listen('topic_drawn', recordDraw)
   net.listen('prize_awarded', (award) => {
     prizes.value = prizes.value.map((entry) =>
-      entry.prize === award.prize ? { ...entry, awarded_to: award.awarded_to } : entry,
+      entry.prize === award.prize
+        ? { ...entry, awarded_to: award.awarded_to }
+        : entry,
     )
   })
 
   return {
-    net, status, endReason, started, ended, players, draws, drawnNames, prizes,
-    error, actionError, recordEnd, recordDraw, applySnapshot, attempt,
+    net,
+    status,
+    endReason,
+    started,
+    ended,
+    players,
+    draws,
+    drawnNames,
+    prizes,
+    error,
+    actionError,
+    recordEnd,
+    recordDraw,
+    applySnapshot,
+    attempt,
   }
 }
 

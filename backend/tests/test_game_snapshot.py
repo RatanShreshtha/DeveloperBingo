@@ -41,7 +41,9 @@ def ready_to_claim(registry, game):
         registry.tick(ada(game), topic)
 
 
-def test_a_player_joining_a_game_in_the_lobby_sees_its_status_and_players(registry, game):
+def test_a_player_joining_a_game_in_the_lobby_sees_its_status_and_players(
+    registry, game
+):
     registry.join(PlayerRef(game.code, "Grace"))
 
     snapshot = registry.join(ada(game)).snapshot
@@ -57,7 +59,9 @@ def test_a_player_joining_a_game_in_the_lobby_sees_its_status_and_players(regist
     assert snapshot.decided_claims == ()
 
 
-def test_a_rejoin_between_the_start_and_the_first_draw_knows_the_game_started(registry, game):
+def test_a_rejoin_between_the_start_and_the_first_draw_knows_the_game_started(
+    registry, game
+):
     registry.join(ada(game))
     registry.start(game)
     registry.disconnect(ada(game))
@@ -76,7 +80,9 @@ def test_a_snapshot_carries_every_draw_in_order(registry, game):
     assert registry.player_snapshot(ada(game)).draws == (first, second)
 
 
-def test_the_hosts_snapshot_carries_status_players_draws_pool_and_claim_log(registry, game):
+def test_the_hosts_snapshot_carries_status_players_draws_pool_and_claim_log(
+    registry, game
+):
     registry.join(ada(game))
     registry.start(game)
     registry.draw(game)
@@ -92,7 +98,9 @@ def test_the_hosts_snapshot_carries_status_players_draws_pool_and_claim_log(regi
     assert snapshot.pool_name == "Default"
 
 
-def test_a_snapshot_after_the_game_ends_says_why_and_shows_the_final_prize_board(registry, game):
+def test_a_snapshot_after_the_game_ends_says_why_and_shows_the_final_prize_board(
+    registry, game
+):
     registry.join(ada(game))
     registry.start(game)
     registry.end(game)
@@ -104,7 +112,9 @@ def test_a_snapshot_after_the_game_ends_says_why_and_shows_the_final_prize_board
     assert dict(snapshot.prizes) == OPEN_BOARD
 
 
-def test_while_a_claim_waits_the_host_sees_the_window_and_the_player_sees_it_pending(registry, game):
+def test_while_a_claim_waits_the_host_sees_the_window_and_the_player_sees_it_pending(
+    registry, game
+):
     ready_to_claim(registry, game)
     registry.claim(ada(game), Prize.EARLY_FIVE)
 
@@ -114,7 +124,9 @@ def test_while_a_claim_waits_the_host_sees_the_window_and_the_player_sees_it_pen
     assert player.decided_claims == ()
 
 
-def test_once_the_window_closes_the_player_sees_their_decided_claim(registry, game, scheduler):
+def test_once_the_window_closes_the_player_sees_their_decided_claim(
+    registry, game, scheduler
+):
     ready_to_claim(registry, game)
     registry.claim(ada(game), Prize.EARLY_FIVE)
 
@@ -122,7 +134,9 @@ def test_once_the_window_closes_the_player_sees_their_decided_claim(registry, ga
 
     player = registry.player_snapshot(ada(game))
     assert player.pending_claims == ()
-    assert player.decided_claims == (ClaimRecord("Ada", Prize.EARLY_FIVE, accepted=True),)
+    assert player.decided_claims == (
+        ClaimRecord("Ada", Prize.EARLY_FIVE, accepted=True),
+    )
     assert player.prizes[Prize.EARLY_FIVE] == ("Ada",)
     assert registry.host_snapshot(game).claims == player.decided_claims
 
@@ -140,7 +154,9 @@ def test_a_snapshot_does_not_change_as_the_game_goes_on(registry, game):
 
 def test_only_the_host_gets_the_hosts_snapshot(registry, game):
     with pytest.raises(NotHost):
-        registry.host_snapshot(HostLink(code=game.code, host_token="not-the-host-token"))
+        registry.host_snapshot(
+            HostLink(code=game.code, host_token="not-the-host-token")
+        )
 
 
 def test_only_a_player_in_the_game_gets_a_players_snapshot(registry, game):

@@ -30,15 +30,31 @@ async function submit() {
         <form class="space-y-4" @submit.prevent="submit">
           <label class="block space-y-2">
             <span class="font-medium">Game code</span>
-            <input v-model="code" class="input input-bordered w-full" name="code" autocomplete="off" required />
+            <input
+              v-model="code"
+              class="input input-bordered w-full"
+              name="code"
+              autocomplete="off"
+              required
+            />
           </label>
           <label class="block space-y-2">
             <span class="font-medium">Your name</span>
-            <input v-model="name" class="input input-bordered w-full" name="name" autocomplete="off" required />
+            <input
+              v-model="name"
+              class="input input-bordered w-full"
+              name="name"
+              autocomplete="off"
+              required
+            />
           </label>
-          <button class="btn btn-primary dark:btn-neutral" type="submit">Join</button>
+          <button class="btn btn-primary dark:btn-neutral" type="submit">
+            Join
+          </button>
         </form>
-        <p v-if="store.error" class="alert alert-error" role="alert">{{ store.error }}</p>
+        <p v-if="store.error" class="alert alert-error" role="alert">
+          {{ store.error }}
+        </p>
       </div>
     </div>
   </section>

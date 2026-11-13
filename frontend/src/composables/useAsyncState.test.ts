@@ -5,7 +5,9 @@ describe('async state', () => {
   it('tracks pending, successful data, and an exposed failure', async () => {
     const state = useAsyncState<string>()
     let resolve!: (value: string) => void
-    const operation = new Promise<string>((done) => { resolve = done })
+    const operation = new Promise<string>((done) => {
+      resolve = done
+    })
 
     const running = state.run(() => operation)
     expect(state.pending.value).toBe(true)
@@ -28,7 +30,12 @@ describe('async state', () => {
   it('does not let an older request overwrite a newer result', async () => {
     const state = useAsyncState<string>()
     let rejectOld!: (reason: Error) => void
-    const old = state.run(() => new Promise<string>((_resolve, reject) => { rejectOld = reject }))
+    const old = state.run(
+      () =>
+        new Promise<string>((_resolve, reject) => {
+          rejectOld = reject
+        }),
+    )
 
     await state.run(() => Promise.resolve('new'))
     rejectOld(new Error('old failure'))

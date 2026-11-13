@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol
 
 import socketio
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -59,7 +59,6 @@ class Broadcaster(Protocol):
 logger = logging.getLogger(__name__)
 
 Ack = dict[str, Any]
-M = TypeVar("M")
 
 
 def _refusal(err: GameError) -> Ack:
@@ -67,7 +66,7 @@ def _refusal(err: GameError) -> Ack:
     return Refusal(error=err.code).model_dump(mode="json")
 
 
-def _parse(model: type[M], payload: object) -> M:
+def _parse[M](model: type[M], payload: object) -> M:
     """Reads a payload into its model. A bad or missing field refuses the whole message."""
     try:
         return TypeAdapter(model).validate_python(payload)
@@ -96,7 +95,9 @@ class RealtimeAdapter:
         try:
             message = _parse(JoinPayload, payload)
             joined = self._registry.join(
-                PlayerRef(code=message.code, name=message.name), message.rejoin_token, sid
+                PlayerRef(code=message.code, name=message.name),
+                message.rejoin_token,
+                sid,
             )
         except GameError as err:
             return _refusal(err)
@@ -112,7 +113,9 @@ class RealtimeAdapter:
         await self._broadcaster.enter_room(sid, player.code)
         await self.publish(player.code, joined.outcome)
         # A rejoin restores the ticks the player already had, so they come back here.
-        return JoinAck.from_snapshot(snapshot, joined.rejoin_token).model_dump(mode="json")
+        return JoinAck.from_snapshot(snapshot, joined.rejoin_token).model_dump(
+            mode="json"
+        )
 
     async def disconnect(self, sid: str) -> None:
         """A socket has dropped. The player keeps their place and can rejoin by name."""
@@ -147,7 +150,9 @@ class RealtimeAdapter:
             return _refusal(err)
 
         await self.publish(host.code, drawn.outcome)
-        return DrawAck(draw=DrawAnnouncement.from_draw(drawn.draw)).model_dump(mode="json")
+        return DrawAck(draw=DrawAnnouncement.from_draw(drawn.draw)).model_dump(
+            mode="json"
+        )
 
     async def end_game(self, sid: str, payload: object) -> Ack:
         """The host ends the game. Windows still open settle at once, refused; everyone in the room is told."""
@@ -201,13 +206,19 @@ class RealtimeAdapter:
                 await self._tell_host(code, record)
         for settled in outcome.settled:
             if settled.awarded_to:
-                award = PrizeAwarded(prize=settled.prize, awarded_to=list(settled.awarded_to))
+                award = PrizeAwarded(
+                    prize=settled.prize, awarded_to=list(settled.awarded_to)
+                )
                 await self._emit(code, ServerEvent.PRIZE_AWARDED, award, room=code)
         if outcome.ended is not None:
-            await self._emit(code, ServerEvent.GAME_ENDED, GameEnded(reason=outcome.ended), room=code)
+            await self._emit(
+                code, ServerEvent.GAME_ENDED, GameEnded(reason=outcome.ended), room=code
+            )
         for settled in outcome.settled:
             for record in settled.records:
-                for sid in self._registry.connections_of(PlayerRef(code, record.player)):
+                for sid in self._registry.connections_of(
+                    PlayerRef(code, record.player)
+                ):
                     result = ClaimSettled.from_record(record)
                     await self._emit(code, ServerEvent.CLAIM_SETTLED, result, to=sid)
         if outcome.window_open is not None:
@@ -228,7 +239,9 @@ class RealtimeAdapter:
     ) -> None:
         """Sends one message. A failure is logged and goes no further."""
         try:
-            await self._broadcaster.emit(event, message.model_dump(mode="json"), room=room, to=to)
+            await self._broadcaster.emit(
+                event, message.model_dump(mode="json"), room=room, to=to
+            )
         except Exception:
             logger.exception("could not send %s in game %s", event.value, code)
 

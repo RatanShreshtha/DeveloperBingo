@@ -1,10 +1,17 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import {
+  installFakeTransport,
+  type FakeTransport,
+} from '../testing/fakeTransport'
 import { hostSnapshot, playerSnapshot } from '../testing/snapshots'
 import { useHostSession, usePlayerSession } from './session'
 
-const firstDraw = { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }
+const firstDraw = {
+  position: 1,
+  name: 'Algorithm',
+  explanation: 'A finite sequence of steps.',
+}
 const link = { code: 'ABC123', host_token: 'secret-token' }
 
 let fake: FakeTransport
@@ -67,7 +74,11 @@ describe('session store game flow', () => {
     const store = useHostSession()
 
     fake.emit('topic_drawn', firstDraw)
-    fake.emit('topic_drawn', { position: 2, name: 'JSON', explanation: 'A text format.' })
+    fake.emit('topic_drawn', {
+      position: 2,
+      name: 'JSON',
+      explanation: 'A text format.',
+    })
 
     expect(store.draws.map((draw) => draw.name)).toEqual(['Algorithm', 'JSON'])
   })
@@ -91,7 +102,10 @@ describe('session store game flow', () => {
   })
 
   it('restores the draws made so far from a snapshot', async () => {
-    fake.answer('join_game', playerSnapshot({ status: 'started', draws: [firstDraw] }))
+    fake.answer(
+      'join_game',
+      playerSnapshot({ status: 'started', draws: [firstDraw] }),
+    )
     const store = usePlayerSession()
 
     await store.join('ABC123', 'Ada')

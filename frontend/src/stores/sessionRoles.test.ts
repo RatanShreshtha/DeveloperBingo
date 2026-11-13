@@ -1,11 +1,18 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import {
+  installFakeTransport,
+  type FakeTransport,
+} from '../testing/fakeTransport'
 import { hostSnapshot, playerSnapshot } from '../testing/snapshots'
 import { useHostSession, usePlayerSession } from './session'
 
 const link = { code: 'ABC123', host_token: 'secret' }
-const draw = { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }
+const draw = {
+  position: 1,
+  name: 'Algorithm',
+  explanation: 'A finite sequence of steps.',
+}
 
 let fake: FakeTransport
 beforeEach(() => {
@@ -20,11 +27,23 @@ describe('role-specific session modules', () => {
     const anotherHost = useHostSession()
     const player = usePlayerSession()
     const anotherPlayer = usePlayerSession()
-    fake.answer('join_game', playerSnapshot({ status: 'started', draws: [draw] }))
+    fake.answer(
+      'join_game',
+      playerSnapshot({ status: 'started', draws: [draw] }),
+    )
 
     await player.join('ABC123', 'Ada')
-    fake.emit('topic_drawn', { position: 2, name: 'Cache', explanation: 'A temporary store.' })
-    fake.emit('claim_logged', { player: 'Ada', prize: 'early_five', accepted: true, error: null })
+    fake.emit('topic_drawn', {
+      position: 2,
+      name: 'Cache',
+      explanation: 'A temporary store.',
+    })
+    fake.emit('claim_logged', {
+      player: 'Ada',
+      prize: 'early_five',
+      accepted: true,
+      error: null,
+    })
 
     expect(host.started).toBe(true)
     expect(anotherPlayer.draws).toEqual(player.draws)

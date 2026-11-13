@@ -1,11 +1,15 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { savedSessionFor } from '../realtime/savedSession'
-import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import {
+  installFakeTransport,
+  type FakeTransport,
+} from '../testing/fakeTransport'
 import { playerSnapshot } from '../testing/snapshots'
 import { usePlayerSession } from './session'
 
-const UNREACHABLE = 'Could not reach the server. Check your connection and try again.'
+const UNREACHABLE =
+  'Could not reach the server. Check your connection and try again.'
 const GONE = 'No game found with that code'
 
 type How = 'fresh' | 'reload' | 'reconnect'
@@ -35,7 +39,10 @@ async function enterBy(how: How, answer: Answer) {
     answerJoin(answer)
     await store.join('ABC123', 'Ada')
   } else if (how === 'reload') {
-    sessionStorage.setItem('devbingo:player', JSON.stringify({ code: 'ABC123', name: 'Ada', token: 'tok-1' }))
+    sessionStorage.setItem(
+      'devbingo:player',
+      JSON.stringify({ code: 'ABC123', name: 'Ada', token: 'tok-1' }),
+    )
     answerJoin(answer)
     await store.resume('ABC123')
   } else {
@@ -50,16 +57,61 @@ async function enterBy(how: How, answer: Answer) {
 const IN = { code: 'ABC123', name: 'Ada' }
 
 // How the join started × how the server answered → what the player is left with.
-const cases: [How, Answer, { player: typeof IN | null; error: string | null; actionError: string | null; saved: string | null }][] = [
-  ['fresh', 'snapshot', { player: IN, error: null, actionError: null, saved: 'tok-new' }],
-  ['fresh', 'refused', { player: null, error: GONE, actionError: null, saved: null }],
-  ['fresh', 'unreachable', { player: null, error: UNREACHABLE, actionError: null, saved: null }],
-  ['reload', 'snapshot', { player: IN, error: null, actionError: null, saved: 'tok-new' }],
-  ['reload', 'refused', { player: null, error: GONE, actionError: null, saved: null }],
-  ['reload', 'unreachable', { player: null, error: UNREACHABLE, actionError: null, saved: 'tok-1' }],
-  ['reconnect', 'snapshot', { player: IN, error: null, actionError: null, saved: 'tok-new' }],
-  ['reconnect', 'refused', { player: null, error: GONE, actionError: null, saved: null }],
-  ['reconnect', 'unreachable', { player: IN, error: null, actionError: UNREACHABLE, saved: 'tok-1' }],
+const cases: [
+  How,
+  Answer,
+  {
+    player: typeof IN | null
+    error: string | null
+    actionError: string | null
+    saved: string | null
+  },
+][] = [
+  [
+    'fresh',
+    'snapshot',
+    { player: IN, error: null, actionError: null, saved: 'tok-new' },
+  ],
+  [
+    'fresh',
+    'refused',
+    { player: null, error: GONE, actionError: null, saved: null },
+  ],
+  [
+    'fresh',
+    'unreachable',
+    { player: null, error: UNREACHABLE, actionError: null, saved: null },
+  ],
+  [
+    'reload',
+    'snapshot',
+    { player: IN, error: null, actionError: null, saved: 'tok-new' },
+  ],
+  [
+    'reload',
+    'refused',
+    { player: null, error: GONE, actionError: null, saved: null },
+  ],
+  [
+    'reload',
+    'unreachable',
+    { player: null, error: UNREACHABLE, actionError: null, saved: 'tok-1' },
+  ],
+  [
+    'reconnect',
+    'snapshot',
+    { player: IN, error: null, actionError: null, saved: 'tok-new' },
+  ],
+  [
+    'reconnect',
+    'refused',
+    { player: null, error: GONE, actionError: null, saved: null },
+  ],
+  [
+    'reconnect',
+    'unreachable',
+    { player: IN, error: null, actionError: UNREACHABLE, saved: 'tok-1' },
+  ],
 ]
 
 describe('joining, whichever way it starts', () => {

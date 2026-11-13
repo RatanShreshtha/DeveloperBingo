@@ -12,7 +12,10 @@ beforeEach(() => {
 })
 
 function mountHost(token = 'secret-token') {
-  return mount(HostView, { props: { code: 'ABC123', token }, global: { plugins: makePlugins() } })
+  return mount(HostView, {
+    props: { code: 'ABC123', token },
+    global: { plugins: makePlugins() },
+  })
 }
 
 describe('HostView', () => {
@@ -47,7 +50,9 @@ describe('HostView', () => {
     const wrapper = mountHost()
     await flushPromises()
 
-    expect(fake.payloads('watch_lobby')).toEqual([{ code: 'ABC123', host_token: 'secret-token' }])
+    expect(fake.payloads('watch_lobby')).toEqual([
+      { code: 'ABC123', host_token: 'secret-token' },
+    ])
     expect(wrapper.text()).toContain('Ada')
   })
 
@@ -68,6 +73,8 @@ describe('HostView', () => {
     const wrapper = mountHost()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('This host link is not valid for this game')
+    expect(wrapper.text()).toContain(
+      'This host link is not valid for this game',
+    )
   })
 })

@@ -27,7 +27,9 @@ def names_on(ticket: Ticket) -> list[str]:
     Read straight from the lines, deliberately not through the ticket's own
     `topic_names()`, so tests check the engine against the ticket's contents.
     """
-    return sorted({cell.name for line in ticket.lines for cell in line if cell is not None})
+    return sorted(
+        {cell.name for line in ticket.lines for cell in line if cell is not None}
+    )
 
 
 def draw_everything(registry: GameRegistry, game: HostLink) -> None:
@@ -48,10 +50,15 @@ def board_of(**awarded_to: list[str]) -> dict[Prize, list[str]]:
 
 def wire_board_of(**awarded_to: list[str]) -> list[dict]:
     """The prize board as the wire carries it: every prize in order, with who holds it."""
-    return [{"prize": prize.value, "awarded_to": awarded_to.get(prize.value, [])} for prize in Prize]
+    return [
+        {"prize": prize.value, "awarded_to": awarded_to.get(prize.value, [])}
+        for prize in Prize
+    ]
 
 
-def claim_and_settle(registry: "ManualRegistry", player: PlayerRef, prize: Prize) -> Outcome:
+def claim_and_settle(
+    registry: "ManualRegistry", player: PlayerRef, prize: Prize
+) -> Outcome:
     """Claim a prize and let its settlement window close, as if no one else claimed in it.
     Returns what the close reported."""
     registry.claim(player, prize)
@@ -79,7 +86,6 @@ class ManualScheduler:
     def close_all(self) -> None:
         """Fire every pending close, outside an event loop."""
         asyncio.run(self.fire_all())
-
 
 
 class ManualRegistry(GameRegistry):
@@ -166,10 +172,14 @@ class RealtimeTable:
     records every message and a scheduler that closes windows only when the test says so. Players
     are on sockets named "sid-<name>" unless a test says otherwise."""
 
-    def __init__(self, seed: int = 5, scheduler=None, window_seconds: float | None = None) -> None:
+    def __init__(
+        self, seed: int = 5, scheduler=None, window_seconds: float | None = None
+    ) -> None:
         self.scheduler = scheduler or ManualScheduler()
         options = {} if window_seconds is None else {"window_seconds": window_seconds}
-        self.registry = GameRegistry(rng=random.Random(seed), scheduler=self.scheduler, **options)
+        self.registry = GameRegistry(
+            rng=random.Random(seed), scheduler=self.scheduler, **options
+        )
         self.game = self.registry.create_game(DEFAULT_POOL, pool_name="Default")
         self.broadcaster = RecordingBroadcaster()
         self.adapter = RealtimeAdapter(self.registry, self.broadcaster)
@@ -185,7 +195,9 @@ class RealtimeTable:
         return f"{self.game.code}:host"
 
     def join(self, sid: str = "sid-ada", name: str = "Ada", **extra) -> dict:
-        ack = run(self.adapter.join_game(sid, {"code": self.game.code, "name": name, **extra}))
+        ack = run(
+            self.adapter.join_game(sid, {"code": self.game.code, "name": name, **extra})
+        )
         if ack.get("ok"):
             self.tickets[name] = ack["ticket"]
         return ack
@@ -202,8 +214,14 @@ class RealtimeTable:
 
     def tick(self, name: str = "Ada", topics=None) -> None:
         """The player ticks these topics, or the first five on their ticket when none are named."""
-        for topic in topics if topics is not None else topics_on(self.tickets[name])[:5]:
-            run(self.adapter.tick_topic(self.sid(name), tick_message(self.game, topic, name)))
+        for topic in (
+            topics if topics is not None else topics_on(self.tickets[name])[:5]
+        ):
+            run(
+                self.adapter.tick_topic(
+                    self.sid(name), tick_message(self.game, topic, name)
+                )
+            )
 
     def ready_to_claim(self, name: str = "Ada", whole_ticket: bool = False) -> dict:
         """The player has joined, the game has started, every topic is drawn and they have ticked
@@ -230,7 +248,11 @@ class RealtimeTable:
 
     def to_room(self) -> list[tuple[str, str, object]]:
         """What was announced to the game's room, where every player is. The host's room is left out."""
-        return [message for message in self.broadcaster.emitted if message[1] == self.game.code]
+        return [
+            message
+            for message in self.broadcaster.emitted
+            if message[1] == self.game.code
+        ]
 
     def settled_for(self, sid: str = "sid-ada") -> list[object]:
         return [

@@ -21,10 +21,10 @@ from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers impor
     GameNotStarted,
     InvalidMessage,
     NameTaken,
-    NoTopicsLeft,
     NotAPlayer,
     NotHost,
     NotJoined,
+    NoTopicsLeft,
     PrizeAlreadyAwarded,
     SettlementWindowOpen,
     TopicNotDrawn,
@@ -35,7 +35,13 @@ from devbingo_backend.names import name_key
 from devbingo_backend.pool import Pool, Topic
 from devbingo_backend.prizes import Prize
 from devbingo_backend.scheduler import AsyncioScheduler, Scheduler
-from devbingo_backend.settlement import ClaimRecord, ClaimSettlement, Evidence, Refused, Settled
+from devbingo_backend.settlement import (
+    ClaimRecord,
+    ClaimSettlement,
+    Evidence,
+    Refused,
+    Settled,
+)
 from devbingo_backend.ticket import Ticket, build_ticket
 
 MAX_PLAYERS = 200
@@ -50,9 +56,11 @@ _CODE_LENGTH = 6
 
 
 # Where a game stands.
-GameStatus: TypeAlias = Literal["lobby", "started", "ended"]
+# Kept as TypeAlias, not a `type` statement: Pydantic would then emit named $ref
+# schemas, changing the committed OpenAPI contract and the generated frontend types.
+GameStatus: TypeAlias = Literal["lobby", "started", "ended"]  # noqa: UP040
 # Why a game ended: the full house was awarded, or the host ended it.
-EndReason: TypeAlias = Literal["full_house", "host"]
+EndReason: TypeAlias = Literal["full_house", "host"]  # noqa: UP040
 
 
 @dataclass(frozen=True)
@@ -234,7 +242,9 @@ class _Game:
 
     def is_new_ticket(self, candidate: Ticket) -> bool:
         """True when no player in this game already holds an identical ticket."""
-        return all(candidate.lines != held.ticket.lines for held in self.players.values())
+        return all(
+            candidate.lines != held.ticket.lines for held in self.players.values()
+        )
 
 
 class GameRegistry:
@@ -271,12 +281,18 @@ class GameRegistry:
         code = self._new_code()
         host_token = secrets.token_urlsafe(24)
         self._games[code] = _Game(
-            code=code, host_token_hash=_hash_token(host_token), pool=pool, pool_name=pool_name
+            code=code,
+            host_token_hash=_hash_token(host_token),
+            pool=pool,
+            pool_name=pool_name,
         )
         return HostLink(code=code, host_token=host_token)
 
     def join(
-        self, player: PlayerRef, rejoin_token: str | None = None, connection: str | None = None
+        self,
+        player: PlayerRef,
+        rejoin_token: str | None = None,
+        connection: str | None = None,
     ) -> Joined:
         """Join a game over a connection: an opaque id the caller chooses, such as a socket's, that
         holds the player until it is dropped. One connection joins one player, or AlreadyJoined.
@@ -382,7 +398,8 @@ class GameRegistry:
         settled = tuple(
             outcome
             for prize in game.settlement.open_prizes()
-            if (outcome := game.settlement.close(prize, self._evidence(game), refusal)) is not None
+            if (outcome := game.settlement.close(prize, self._evidence(game), refusal))
+            is not None
         )
         self._end(game, "host")
         return Outcome(settled, ended="host", window_open=False if was_open else None)
@@ -434,7 +451,11 @@ class GameRegistry:
         was_open = game.settlement.window_open()
         ticked_and_drawn = member.ticks & game.drawn_names()
         decision = game.settlement.claim(
-            prize, member.name, member.ticket, ticked_and_drawn, self._game_refusal(game, player.code)
+            prize,
+            member.name,
+            member.ticket,
+            ticked_and_drawn,
+            self._game_refusal(game, player.code),
         )
         if isinstance(decision, Refused):
             return ClaimResult(Outcome(decided=(decision.record,)), decision.error)
@@ -469,7 +490,8 @@ class GameRegistry:
         rest = tuple(
             outcome
             for other in game.settlement.open_prizes()
-            if (outcome := game.settlement.close(other, self._evidence(game), refusal)) is not None
+            if (outcome := game.settlement.close(other, self._evidence(game), refusal))
+            is not None
         )
         self._end(game, "full_house")
         return Outcome((settled, *rest), ended="full_house", window_open=False)
@@ -519,7 +541,9 @@ class GameRegistry:
             ticks=frozenset(member.ticks),
             pending_claims=tuple(game.settlement.pending_prizes(member.name)),
             decided_claims=tuple(
-                record for record in game.settlement.log() if record.player == member.name
+                record
+                for record in game.settlement.log()
+                if record.player == member.name
             ),
         )
 
@@ -532,7 +556,10 @@ class GameRegistry:
             "players": tuple(member.name for member in game.players.values()),
             "draws": tuple(game.draws),
             "prizes": MappingProxyType(
-                {prize: tuple(names) for prize, names in game.settlement.board().items()}
+                {
+                    prize: tuple(names)
+                    for prize, names in game.settlement.board().items()
+                }
             ),
         }
 
@@ -585,8 +612,8 @@ class GameRegistry:
 
     def _new_code(self) -> str:
         while True:
-            code = "".join(
-                secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH)
-            )
-            if code not in self._games and not (self._code_taken and self._code_taken(code)):
+            code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))
+            if code not in self._games and not (
+                self._code_taken and self._code_taken(code)
+            ):
                 return code

@@ -1,20 +1,20 @@
 import random
 
 import pytest
+from helpers import ManualScheduler
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
+    MAX_PLAYERS,
     GameAlreadyStarted,
     GameFull,
     GameNotFound,
     GameRegistry,
     HostLink,
-    MAX_PLAYERS,
     NameTaken,
     NotHost,
     PlayerRef,
 )
-from helpers import ManualScheduler
 
 
 @pytest.fixture

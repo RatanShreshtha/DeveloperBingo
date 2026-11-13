@@ -7,7 +7,9 @@ class Scheduler(Protocol):
     """Runs an action after a delay. The engine closes each settlement window through this, and
     tests fake it to close windows without waiting."""
 
-    def call_later(self, delay: float, action: Callable[[], Awaitable[None]]) -> None: ...
+    def call_later(
+        self, delay: float, action: Callable[[], Awaitable[None]]
+    ) -> None: ...
 
 
 class AsyncioScheduler:

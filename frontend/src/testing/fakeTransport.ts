@@ -1,7 +1,14 @@
-import type { Announcements, CommandName, Commands, EventName } from '../realtime/protocol'
+import type {
+  Announcements,
+  CommandName,
+  Commands,
+  EventName,
+} from '../realtime/protocol'
 import { useTransport, type Transport } from '../realtime/transport'
 
-type Reply<E extends CommandName> = Commands[E][1] | ((payload: Commands[E][0]) => Commands[E][1] | Promise<Commands[E][1]>)
+type Reply<E extends CommandName> =
+  | Commands[E][1]
+  | ((payload: Commands[E][0]) => Commands[E][1] | Promise<Commands[E][1]>)
 
 /**
  * A scripted server for tests. Give each command the reply it should get, emit an event as the
@@ -21,20 +28,33 @@ export class FakeTransport implements Transport {
 
   /** The payloads sent with this command, in order. */
   payloads<E extends CommandName>(event: E): Commands[E][0][] {
-    return this.sent.filter((call) => call.event === event).map((call) => call.payload as Commands[E][0])
+    return this.sent
+      .filter((call) => call.event === event)
+      .map((call) => call.payload as Commands[E][0])
   }
 
-  async send<E extends CommandName>(event: E, payload: Commands[E][0]): Promise<Commands[E][1]> {
+  async send<E extends CommandName>(
+    event: E,
+    payload: Commands[E][0],
+  ): Promise<Commands[E][1]> {
     this.sent.push({ event, payload })
     const reply = this.replies.get(event)
     if (reply === undefined) {
       throw new Error(`The fake server has no reply for "${event}"`)
     }
-    return (typeof reply === 'function' ? reply(payload as never) : reply) as Commands[E][1]
+    return (
+      typeof reply === 'function' ? reply(payload as never) : reply
+    ) as Commands[E][1]
   }
 
-  listen<E extends EventName>(event: E, handler: (data: Announcements[E]) => void): void {
-    this.listeners.set(event, [...(this.listeners.get(event) ?? []), handler as (data: never) => void])
+  listen<E extends EventName>(
+    event: E,
+    handler: (data: Announcements[E]) => void,
+  ): void {
+    this.listeners.set(event, [
+      ...(this.listeners.get(event) ?? []),
+      handler as (data: never) => void,
+    ])
   }
 
   onReconnect(handler: () => void | Promise<void>): void {

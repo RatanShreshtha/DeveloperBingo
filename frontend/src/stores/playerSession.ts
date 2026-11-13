@@ -1,15 +1,26 @@
 import { ref } from 'vue'
 import { messageFor, UNREACHABLE } from '../utils/errors'
 import type { Prize } from '../utils/prizes'
-import type { ClaimSettled, PlayerRef, PlayerSnapshot } from '../realtime/protocol'
-import { forgetSession, saveSession, savedSessionFor } from '../realtime/savedSession'
+import type {
+  ClaimSettled,
+  PlayerRef,
+  PlayerSnapshot,
+} from '../realtime/protocol'
+import {
+  forgetSession,
+  saveSession,
+  savedSessionFor,
+} from '../realtime/savedSession'
 import type { GameSession } from './gameSession'
 
 type JoinStart = 'fresh' | 'reload' | 'reconnect'
 type JoinFailure = 'leave' | 'error' | 'actionError'
 
 // An unreachable server does not establish that the player has left the game.
-const JOIN_FAILURES: Record<JoinStart, { refused: JoinFailure; unreachable: JoinFailure }> = {
+const JOIN_FAILURES: Record<
+  JoinStart,
+  { refused: JoinFailure; unreachable: JoinFailure }
+> = {
   fresh: { refused: 'error', unreachable: 'error' },
   reload: { refused: 'leave', unreachable: 'error' },
   reconnect: { refused: 'leave', unreachable: 'actionError' },
@@ -26,7 +37,9 @@ export function createPlayerSession(game: GameSession) {
   const isPending = (prize: Prize) => pendingClaims.value.includes(prize)
 
   function settleClaim(claim: ClaimSettled) {
-    pendingClaims.value = pendingClaims.value.filter((known) => known !== claim.prize)
+    pendingClaims.value = pendingClaims.value.filter(
+      (known) => known !== claim.prize,
+    )
     if (!claim.accepted && claim.error) {
       actionError.value = messageFor(claim.error)
     }
@@ -61,10 +74,14 @@ export function createPlayerSession(game: GameSession) {
     ticket.value = snapshot.ticket
     ticks.value = snapshot.ticks
     // Claims settled while disconnected are reported in the new snapshot.
-    const settledAway = pendingClaims.value.filter((prize) => !snapshot.pending_claims.includes(prize))
+    const settledAway = pendingClaims.value.filter(
+      (prize) => !snapshot.pending_claims.includes(prize),
+    )
     pendingClaims.value = snapshot.pending_claims
     for (const prize of settledAway) {
-      const decided = snapshot.decided_claims.filter((claim) => claim.prize === prize).at(-1)
+      const decided = snapshot.decided_claims
+        .filter((claim) => claim.prize === prize)
+        .at(-1)
       if (decided) {
         settleClaim(decided)
       }
@@ -122,7 +139,12 @@ export function createPlayerSession(game: GameSession) {
 
   async function reconnect() {
     if (player.value) {
-      await enterGame(player.value.code, player.value.name, 'reconnect', rejoinToken)
+      await enterGame(
+        player.value.code,
+        player.value.name,
+        'reconnect',
+        rejoinToken,
+      )
     }
   }
 
@@ -134,7 +156,9 @@ export function createPlayerSession(game: GameSession) {
     }
     pendingClaims.value = [...pendingClaims.value, prize]
     if (!(await game.attempt(() => net.send('claim_prize', { prize })))) {
-      pendingClaims.value = pendingClaims.value.filter((known) => known !== prize)
+      pendingClaims.value = pendingClaims.value.filter(
+        (known) => known !== prize,
+      )
     }
   }
 
@@ -157,5 +181,17 @@ export function createPlayerSession(game: GameSession) {
   net.listen('claim_settled', settleClaim)
   net.listen('replaced', () => leave({ replaced: true }))
 
-  return { player, ticket, ticks, replaced, pendingClaims, isPending, join, resume, reconnect, toggleTick, claimPrize }
+  return {
+    player,
+    ticket,
+    ticks,
+    replaced,
+    pendingClaims,
+    isPending,
+    join,
+    resume,
+    reconnect,
+    toggleTick,
+    claimPrize,
+  }
 }

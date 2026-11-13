@@ -14,14 +14,24 @@ describe('PlayerLobbyView draws', () => {
     await joinedAda(fake, {
       status: 'started',
       draws: [
-        { position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' },
-        { position: 2, name: 'JSON', explanation: 'A lightweight data format.' },
+        {
+          position: 1,
+          name: 'Algorithm',
+          explanation: 'A finite sequence of steps.',
+        },
+        {
+          position: 2,
+          name: 'JSON',
+          explanation: 'A lightweight data format.',
+        },
       ],
     })
 
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    const history = wrapper.findAll('[data-test="draw-history"] li').map((li) => li.text())
+    const history = wrapper
+      .findAll('[data-test="draw-history"] li')
+      .map((li) => li.text())
     expect(history).toHaveLength(2)
     expect(history[0]).toContain('JSON')
     expect(history[0]).toContain('A lightweight data format.')
@@ -32,17 +42,41 @@ describe('PlayerLobbyView draws', () => {
   it('orders live draws by position without changing the stored draw order', async () => {
     const store = await joinedAda(fake, {
       status: 'started',
-      draws: [{ position: 1, name: 'Algorithm', explanation: 'A finite sequence of steps.' }],
+      draws: [
+        {
+          position: 1,
+          name: 'Algorithm',
+          explanation: 'A finite sequence of steps.',
+        },
+      ],
     })
     const wrapper = mount(PlayerLobbyView, { props: { code: 'ABC123' } })
 
-    fake.emit('topic_drawn', { position: 3, name: 'Monad', explanation: 'A burrito.' })
-    fake.emit('topic_drawn', { position: 2, name: 'JSON', explanation: 'A data format.' })
+    fake.emit('topic_drawn', {
+      position: 3,
+      name: 'Monad',
+      explanation: 'A burrito.',
+    })
+    fake.emit('topic_drawn', {
+      position: 2,
+      name: 'JSON',
+      explanation: 'A data format.',
+    })
     await flushPromises()
 
-    const history = wrapper.findAll('[data-test="draw-history"] li').map((li) => li.text())
-    expect(history).toEqual(['3. Monad: A burrito.', '2. JSON: A data format.', '1. Algorithm: A finite sequence of steps.'])
-    expect(store.draws.map((draw) => draw.name)).toEqual(['Algorithm', 'Monad', 'JSON'])
+    const history = wrapper
+      .findAll('[data-test="draw-history"] li')
+      .map((li) => li.text())
+    expect(history).toEqual([
+      '3. Monad: A burrito.',
+      '2. JSON: A data format.',
+      '1. Algorithm: A finite sequence of steps.',
+    ])
+    expect(store.draws.map((draw) => draw.name)).toEqual([
+      'Algorithm',
+      'Monad',
+      'JSON',
+    ])
   })
 
   it('says the game is still waiting to start before the host starts it', async () => {
