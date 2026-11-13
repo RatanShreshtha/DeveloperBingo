@@ -1,13 +1,12 @@
 import random
 
 import pytest
-from helpers import ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
+from helpers import ManualRegistry, claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
     ClaimNotValid,
     GameAlreadyEnded,
-    GameRegistry,
     NotHost,
     PlayerRef,
 )
@@ -17,7 +16,7 @@ from devbingo_backend.wire import HostLink
 
 @pytest.fixture
 def lobby():
-    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(41))
+    registry = ManualRegistry(rng=random.Random(41))
     game = registry.create_game(DEFAULT_POOL)
     ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     return registry, game, ticket

@@ -5,7 +5,7 @@ import logging
 
 import pytest
 from fastapi.testclient import TestClient
-from helpers import claim_and_settle, names_on, start_and_draw_everything
+from helpers import names_on, start_and_draw_everything
 
 from devbingo_backend.app import create_app
 from devbingo_backend.game import GameAlreadyEnded, GameSummary, PlayerRef
@@ -33,7 +33,7 @@ def store():
 
 @pytest.fixture
 def client(store):
-    app = create_app(pool_library=InMemoryPoolLibrary(), history_store=store)
+    app = create_app(pool_library=InMemoryPoolLibrary(), history_store=store, settlement_window_seconds=0.0)
     with TestClient(app) as c:
         yield c
 
@@ -71,9 +71,11 @@ def test_a_full_house_game_shows_claims_with_outcomes_and_winners(client):
     start_and_draw_everything(registry, game)
     for topic in names_on(ticket):
         registry.tick(ada, topic)
-    # The app's registry schedules its windows on the running event loop, so the claim needs one.
+    # The app's registry schedules its windows on the running event loop, so the claim needs one:
+    # the window has no length, so it closes as soon as the loop gets to it.
     async def claim_full_house():
-        claim_and_settle(registry, ada, Prize.FULL_HOUSE)
+        registry.claim(ada, Prize.FULL_HOUSE)
+        await asyncio.sleep(0.05)
 
     asyncio.run(claim_full_house())
 

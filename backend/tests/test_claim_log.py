@@ -2,11 +2,11 @@ import random
 
 import pytest
 
-from helpers import ManualScheduler, start_and_draw_everything
+from helpers import ManualRegistry, start_and_draw_everything
 from test_claims import PRIZE_TOPICS, tick
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import GameRegistry, PlayerRef
+from devbingo_backend.game import PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
 from devbingo_backend.wire import ErrorCode
@@ -14,7 +14,7 @@ from devbingo_backend.wire import ErrorCode
 
 @pytest.fixture
 def table():
-    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(31))
+    registry = ManualRegistry(rng=random.Random(31))
     game = registry.create_game(DEFAULT_POOL)
     ada = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     registry.join(PlayerRef(game.code, "Grace"))
@@ -38,7 +38,7 @@ def test_the_log_holds_accepted_and_refused_claims_in_order(table):
     assert registry.host_snapshot(game).claims == (
         ClaimRecord("Grace", Prize.EARLY_FIVE, False, ErrorCode.CLAIM_NOT_VALID),
     )  # Ada's claim is logged when its window settles, not before
-    registry.close_window(game.code, Prize.EARLY_FIVE)
+    registry.settle()
     attempt(registry, game, "Grace", Prize.EARLY_FIVE)
 
     assert registry.host_snapshot(game).claims == (

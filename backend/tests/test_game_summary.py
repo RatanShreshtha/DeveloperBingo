@@ -3,7 +3,7 @@
 import random
 
 import pytest
-from helpers import ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
+from helpers import ManualRegistry, ManualScheduler, claim_and_settle, names_on, start_and_draw_everything
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.errors import ErrorCode
@@ -14,7 +14,7 @@ from devbingo_backend.prizes import Prize
 @pytest.fixture
 def setup():
     summaries = []
-    registry = GameRegistry(scheduler=ManualScheduler(), rng=random.Random(5), on_ended=summaries.append)
+    registry = ManualRegistry(rng=random.Random(5), on_ended=summaries.append)
     game = registry.create_game(DEFAULT_POOL, pool_name="Default")
     ticket = registry.join(PlayerRef(game.code, "Ada")).snapshot.ticket
     return registry, game, ticket, summaries

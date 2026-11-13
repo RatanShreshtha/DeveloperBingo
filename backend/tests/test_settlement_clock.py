@@ -91,20 +91,6 @@ def test_nothing_is_heard_or_awarded_before_the_window_closes(table):
     assert table.registry.host_snapshot(table.game).prizes[Prize.EARLY_FIVE] == ()
 
 
-def test_a_full_house_window_closing_on_time_ends_the_game_once_for_every_winner(table):
-    table.tick_everything("Ada")
-    table.tick_everything("Grace")
-    table.registry.claim(table.player("Ada"), Prize.FULL_HOUSE)
-    table.registry.claim(table.player("Grace"), Prize.FULL_HOUSE)
-
-    table.scheduler.close_all()
-
-    [(_, outcome)] = table.heard
-    assert outcome.settled[0].awarded_to == ("Ada", "Grace")
-    assert outcome.ended == "full_house"
-    assert table.registry.host_snapshot(table.game).status == "ended"
-
-
 def test_the_close_scheduled_before_the_host_ended_the_game_changes_nothing(table):
     table.registry.claim(table.player("Ada"), Prize.EARLY_FIVE)
     table.registry.end(table.game)

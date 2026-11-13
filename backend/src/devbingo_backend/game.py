@@ -382,15 +382,15 @@ class GameRegistry:
         return ClaimResult(Outcome(window_open=True if not was_open else None))
 
     async def _close_on_time(self, code: str, prize: Prize) -> None:
-        outcome = self.close_window(code, prize)
+        outcome = self._close_window(code, prize)
         if outcome is not None and self._on_outcome is not None:
             await self._on_outcome(code, outcome)
 
-    def close_window(self, code: str, prize: Prize) -> Outcome | None:
+    def _close_window(self, code: str, prize: Prize) -> Outcome | None:
         """Close the prize's settlement window now: every claim in it is judged against the draws,
         and all that earn the prize win it together. Awarding the full house ends the game.
-        Returns None when no window is open for the prize. Windows close on their own; this is
-        the close they run, public so a test can close one without waiting."""
+        Returns None when no window is open for the prize, as when the game ended first. Only the
+        clock calls this: tests fire the scheduler they gave the registry."""
         game = self._find(code)
         refusal = GameAlreadyEnded(code) if game.status == "ended" else None
         settled = game.settlement.close(prize, self._evidence(game), refusal)
