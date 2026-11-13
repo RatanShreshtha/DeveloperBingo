@@ -163,18 +163,18 @@ export interface components {
             /** Code */
             code: string;
             /**
-             * Reason
+             * End Reason
              * @enum {string}
              */
-            reason: "full_house" | "host";
+            end_reason: "full_house" | "host";
             /** Pool Name */
             pool_name: string | null;
             /** Draws */
             draws: components["schemas"]["DrawAnnouncement"][];
             /** Claims */
             claims: components["schemas"]["ClaimLogEntry"][];
-            /** Winners */
-            winners: components["schemas"]["PrizeBoardEntry"][];
+            /** Prizes */
+            prizes: components["schemas"]["PrizeBoardEntry"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {

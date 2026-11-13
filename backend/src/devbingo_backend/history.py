@@ -130,7 +130,7 @@ class PostgresHistoryStore:
                     raise AlreadyStored(summary.code)
                 session.add(
                     GameHistoryRecord(
-                        code=summary.code, reason=summary.reason, pool_name=summary.pool_name
+                        code=summary.code, reason=summary.end_reason, pool_name=summary.pool_name
                     )
                 )
                 session.flush()
@@ -154,7 +154,7 @@ class PostgresHistoryStore:
                             error=claim.error.value if claim.error else None,
                         )
                     )
-                for prize, players in summary.winners.items():
+                for prize, players in summary.prizes.items():
                     for sequence, player in enumerate(players):
                         session.add(
                             GameWinnerRecord(
@@ -200,13 +200,13 @@ class PostgresHistoryStore:
                 ).all()
         except SQLAlchemyError:
             raise HistoryUnavailable from None
-        winners: dict[Prize, tuple[str, ...]] = {
+        prizes: dict[Prize, tuple[str, ...]] = {
             prize: tuple(row.player for row in winner_rows if row.prize == prize.value)
             for prize in Prize
         }
         return GameSummary(
             code=game.code,
-            reason=game.reason,  # type: ignore[arg-type]
+            end_reason=game.reason,  # type: ignore[arg-type]
             pool_name=game.pool_name,
             draws=tuple(Draw(row.position, Topic(row.name, row.explanation)) for row in draws),
             claims=tuple(
@@ -218,5 +218,5 @@ class PostgresHistoryStore:
                 )
                 for row in claims
             ),
-            winners=winners,
+            prizes=prizes,
         )

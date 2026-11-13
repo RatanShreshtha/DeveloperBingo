@@ -53,13 +53,13 @@ def test_a_game_ended_by_the_host_has_its_draws_viewable_by_its_code(client):
     assert response.status_code == 200
     body = response.json()
     assert body["code"] == game.code
-    assert body["reason"] == "host"
+    assert body["end_reason"] == "host"
     assert body["pool_name"] == "Default"
     assert body["draws"] == [
         {"position": 1, "name": drawn.topic.name, "explanation": drawn.topic.explanation}
     ]
     assert body["claims"] == []
-    assert [w["awarded_to"] for w in body["winners"]] == [[] for _ in Prize]
+    assert [w["awarded_to"] for w in body["prizes"]] == [[] for _ in Prize]
 
 
 def test_a_full_house_game_shows_claims_with_outcomes_and_winners(client):
@@ -80,13 +80,13 @@ def test_a_full_house_game_shows_claims_with_outcomes_and_winners(client):
 
     body = client.get(f"/games/{game.code}/history").json()
 
-    assert body["reason"] == "full_house"
+    assert body["end_reason"] == "full_house"
     assert body["pool_name"] is None
     assert len(body["draws"]) == 90
     assert body["claims"] == [
         {"player": "Ada", "prize": "full_house", "accepted": True, "error": None}
     ]
-    assert {"prize": "full_house", "awarded_to": ["Ada"]} in body["winners"]
+    assert {"prize": "full_house", "awarded_to": ["Ada"]} in body["prizes"]
 
 
 def test_a_game_that_is_still_running_has_no_history_yet(client):
@@ -149,7 +149,7 @@ def test_a_code_that_already_has_history_is_never_given_to_a_new_game(store, mon
         code = c.post("/games").json()["code"]
 
     assert code == "FRESH1"
-    assert store.load(taken).reason == "host"
+    assert store.load(taken).end_reason == "host"
 
 
 def test_a_game_can_still_be_created_when_the_history_store_is_down():

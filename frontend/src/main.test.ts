@@ -33,7 +33,7 @@ describe('application routes', () => {
       }
       if (url === '/games/ABC123/history') {
         return new Response(JSON.stringify({
-          code: 'ABC123', reason: 'host', pool_name: null, draws: [], claims: [], winners: [],
+          code: 'ABC123', end_reason: 'host', pool_name: null, draws: [], claims: [], prizes: [],
         }))
       }
       throw new Error(`Unexpected request: ${url}`)

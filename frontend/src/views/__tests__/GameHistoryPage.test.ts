@@ -14,7 +14,7 @@ vi.mock('../../api/pools', () => ({ fetchDefaultPool: vi.fn(async () => ({ colum
 
 const history = {
   code: 'ABC123',
-  reason: 'full_house' as const,
+  end_reason: 'full_house' as const,
   pool_name: 'Default',
   draws: [
     { position: 1, name: 'Cache', explanation: 'Keeps results close' },
@@ -24,7 +24,7 @@ const history = {
     { player: 'Grace', prize: 'early_five' as const, accepted: false, error: 'claim_not_valid' as const },
     { player: 'Ada', prize: 'full_house' as const, accepted: true, error: null },
   ],
-  winners: [
+  prizes: [
     { prize: 'early_five' as const, awarded_to: [] },
     { prize: 'full_house' as const, awarded_to: ['Ada'] },
   ],

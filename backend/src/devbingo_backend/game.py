@@ -166,16 +166,18 @@ class Joined:
 
 @dataclass(frozen=True)
 class GameSummary:
-    """An ended game as the History Store keeps it. The game's code is its ID."""
+    """An ended game as the History Store keeps it: the host's Game snapshot at the end, less what
+    only a live game needs (the pool itself, the players, the window state). The game's code is its
+    ID, and the fields carry the snapshot's names."""
 
     code: str
-    reason: EndReason
+    end_reason: EndReason
     # The pool's name, when it has one.
     pool_name: str | None
     draws: tuple[Draw, ...]
     claims: tuple[ClaimRecord, ...]
     # Every prize, in the order of Prize, with the players it was awarded to (empty if unawarded).
-    winners: dict[Prize, tuple[str, ...]]
+    prizes: Mapping[Prize, tuple[str, ...]]
 
 
 def _hash_token(token: str) -> str:
@@ -442,9 +444,14 @@ class GameRegistry:
 
     def host_snapshot(self, host: HostLink) -> HostSnapshot:
         """The host's Game snapshot, once the link proves it belongs to the game's host."""
-        game = self._host_game(host)
+        return self._host_snapshot_of(self._host_game(host))
+
+    @classmethod
+    def _host_snapshot_of(cls, game: _Game) -> HostSnapshot:
+        """The one place the host's view of a game is assembled: for the host, and for the
+        summary kept when the game ends."""
         return HostSnapshot(
-            **self._shared(game),
+            **cls._shared(game),
             claims=tuple(game.settlement.log()),
             pool=game.pool,
             pool_name=game.pool_name,
@@ -488,13 +495,14 @@ class GameRegistry:
         game.end_reason = reason
         if self._on_ended is None:
             return
+        snapshot = self._host_snapshot_of(game)
         summary = GameSummary(
             code=game.code,
-            reason=reason,
-            pool_name=game.pool_name,
-            draws=tuple(game.draws),
-            claims=tuple(game.settlement.log()),
-            winners={prize: tuple(names) for prize, names in game.settlement.board().items()},
+            end_reason=reason,
+            pool_name=snapshot.pool_name,
+            draws=snapshot.draws,
+            claims=snapshot.claims,
+            prizes=snapshot.prizes,
         )
         try:
             self._on_ended(summary)
