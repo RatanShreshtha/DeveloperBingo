@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchGameHistory } from '../../api/games'
-import { HttpError } from '../../api/request'
+import { NotFoundError, UnavailableError } from '../../api/request'
 import { hostSnapshot } from '../../testing/snapshots'
 import GameHistoryView from '../GameHistoryPage.vue'
 import HostView from '../HostPage.vue'
@@ -76,7 +76,7 @@ describe('GameHistoryView', () => {
   })
 
   it('says when there is no history', async () => {
-    vi.mocked(fetchGameHistory).mockRejectedValue(new HttpError(new Response(null, { status: 404 })))
+    vi.mocked(fetchGameHistory).mockRejectedValue(new NotFoundError())
     const wrapper = mountHistory()
     await flushPromises()
 
@@ -84,7 +84,7 @@ describe('GameHistoryView', () => {
   })
 
   it('says when history is unavailable', async () => {
-    vi.mocked(fetchGameHistory).mockRejectedValue(new HttpError(new Response(null, { status: 503 })))
+    vi.mocked(fetchGameHistory).mockRejectedValue(new UnavailableError())
     const wrapper = mountHistory()
     await flushPromises()
 

@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from devbingo_backend.pool import Pool
+    from devbingo_backend.pool_library import PoolSummary
     from devbingo_backend.settlement import ClaimRecord
 
 
@@ -309,6 +310,10 @@ class PoolSummaryResponse(BaseModel):
     id: int
     name: str
     is_default: bool
+
+    @classmethod
+    def from_summary(cls, summary: "PoolSummary") -> "PoolSummaryResponse":
+        return cls(id=summary.id, name=summary.name, is_default=summary.is_default)
 
 
 class PoolRefusal(BaseModel):

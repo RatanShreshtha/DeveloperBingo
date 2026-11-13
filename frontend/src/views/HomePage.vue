@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { createGame as createRemoteGame } from '../api/games'
 import { fetchPools, type PoolSummary } from '../api/pools'
 import { useAsyncState } from '../composables/useAsyncState'
+import { hostPath } from '../router'
 
 const { data: created, error: createError, run: create } =
   useAsyncState<{ code: string; hostLink: string }>()
@@ -18,13 +19,8 @@ onMounted(async () => {
 
 async function createGame() {
   await create(async () => {
-    // The default pool is the server's fallback, so choosing it sends no pool id.
-    const picked = pools.value.find((pool) => pool.id === pickedId.value)
-    const game = await createRemoteGame(picked && !picked.is_default ? picked.id : undefined)
-    return {
-      code: game.code,
-      hostLink: `/host/${encodeURIComponent(game.code)}?token=${encodeURIComponent(game.host_token)}`,
-    }
+    const game = await createRemoteGame(pools.value.find((pool) => pool.id === pickedId.value))
+    return { code: game.code, hostLink: hostPath(game) }
   })
 }
 </script>

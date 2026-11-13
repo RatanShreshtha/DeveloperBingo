@@ -53,7 +53,7 @@ describe('HomeView', () => {
 
     await wrapper.get('button[data-test="create-game"]').trigger('click')
 
-    expect(createGame).toHaveBeenCalledWith(undefined)
+    expect(createGame).toHaveBeenCalledWith({ id: 1, name: 'Default', is_default: true })
   })
 
   it('has the default pool selected at first, and sends no pool id when it is left alone', async () => {
@@ -70,7 +70,7 @@ describe('HomeView', () => {
 
     await wrapper.get('button[data-test="create-game"]').trigger('click')
 
-    expect(createGame).toHaveBeenCalledWith(undefined)
+    expect(createGame).toHaveBeenCalledWith({ id: 1, name: 'Default', is_default: true })
   })
 
   it('offers every saved pool and creates the game on the one picked', async () => {
@@ -87,7 +87,7 @@ describe('HomeView', () => {
     await wrapper.get('select[data-test="pool-picker"]').setValue('7')
     await wrapper.get('button[data-test="create-game"]').trigger('click')
 
-    expect(createGame).toHaveBeenCalledWith(7)
+    expect(createGame).toHaveBeenCalledWith({ id: 7, name: 'Rustaceans', is_default: false })
   })
 
   it('links to the custom pool editor', async () => {

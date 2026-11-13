@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { fetchGameHistory, type GameHistoryResponse } from '../api/games'
-import { HttpError } from '../api/request'
+import { NotFoundError, UnavailableError } from '../api/request'
 import { useAsyncState } from '../composables/useAsyncState'
 import { newestDrawsFirst } from '../utils/draws'
 import { END_MESSAGES } from '../utils/endMessages'
@@ -15,10 +15,10 @@ const { data: history, error, run } = useAsyncState<GameHistoryResponse>()
 const latestDraws = computed(() => newestDrawsFirst(history.value?.draws ?? []))
 const errorMessage = computed(() => {
   if (!error.value) return null
-  if (error.value instanceof HttpError && error.value.status === 404) {
+  if (error.value instanceof NotFoundError) {
     return 'There is no stored history for this game'
   }
-  if (error.value instanceof HttpError && error.value.status === 503) {
+  if (error.value instanceof UnavailableError) {
     return 'Game history is unavailable right now. Try again shortly.'
   }
   return 'Could not load the game history'
