@@ -8,19 +8,22 @@ POOL_SIZE = sum(COLUMN_SIZES)
 
 
 class PoolError(ValueError):
-    """Base class for pools that break the pool rules."""
+    """Base class for pools that break the pool rules. `rule` names the rule that was broken, as
+    the HTTP routes report it."""
+
+    rule: str = "invalid_pool"
 
 
 class PoolSizeError(PoolError):
-    pass
+    rule = "pool_size"
 
 
 class EmptyTopicError(PoolError):
-    pass
+    rule = "empty_topic"
 
 
 class DuplicateTopicError(PoolError):
-    pass
+    rule = "duplicate_topic"
 
 
 @dataclass(frozen=True)

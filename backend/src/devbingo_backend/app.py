@@ -12,13 +12,13 @@ from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry, HostLink
 from devbingo_backend.history import HistoryStore, HistoryUnavailable, PostgresHistoryStore
 from devbingo_backend.history_api import history_router
 from devbingo_backend.pool_library import (
+    DEFAULT_POOL_NAME,
     PoolLibrary,
     PoolLibraryUnavailable,
     PoolNotFound,
     PostgresPoolLibrary,
 )
-from devbingo_backend.pool_store import DEFAULT_POOL_NAME
-from devbingo_backend.pools_api import PoolResponse, build_pools_router
+from devbingo_backend.pools_api import build_pools_router
 from devbingo_backend.realtime import build_socket_server
 from devbingo_backend.wire import SOCKET_MODELS, CreateGameRequest, HealthResponse
 
@@ -98,10 +98,6 @@ def create_app(
         except PoolNotFound:
             raise HTTPException(status_code=404, detail="pool not found") from None
         return registry.create_game(saved.pool, pool_name=saved.name)
-
-    @app.get("/pools/default", response_model=PoolResponse)
-    def read_default_pool() -> PoolResponse:
-        return PoolResponse.from_pool(library.load_default())
 
     app.include_router(build_pools_router(library))
 
