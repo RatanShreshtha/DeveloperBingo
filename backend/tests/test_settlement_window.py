@@ -161,8 +161,12 @@ def test_a_window_still_open_when_the_full_house_ends_the_game_refuses_its_claim
     registry.claim(ada(game), Prize.EARLY_FIVE)
     registry.claim(grace(game), Prize.FULL_HOUSE)
     registry.scheduler.pending.reverse()  # the full house window's timer fires first
-    _, early_five = registry.settle()
-    (settled,) = early_five.settled
+    (outcome,) = registry.settle()  # the early five's own timer later finds nothing to settle
+    full_house, early_five = outcome.settled
 
-    assert settled.awarded_to == ()
-    assert settled.refused == ("Ada",)
+    assert full_house.awarded_to == ("Grace",)
+    assert early_five.awarded_to == ()
+    assert early_five.refused == ("Ada",)
+    # An ended game has no open window, so the host is told it closed.
+    assert outcome.window_open is False
+    assert registry.host_snapshot(game).window_open is False

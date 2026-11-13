@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installFakeTransport, type FakeTransport } from '../testing/fakeTransport'
+import { hostSnapshot } from '../testing/snapshots'
 import { useHostSession } from './session'
 
 vi.mock('../api/games', async () => (await import('../testing/apiMock')).apiGamesMock())
@@ -40,6 +41,20 @@ describe('session store when the game ends', () => {
     expect(fake.payloads('end_game')).toEqual([link])
     expect(store.ended).toBe(true)
     expect(store.endReason).toBe('host')
+  })
+
+  it('leaves the settlement window to the server when the game ends', async () => {
+    fake.answer('watch_lobby', hostSnapshot({ window_open: true }))
+    fake.answer('end_game', { ok: true })
+    const store = useHostSession()
+    await store.watchAsHost(link)
+
+    fake.emit('game_ended', { reason: 'full_house' })
+    await store.end(link)
+    expect(store.windowOpen).toBe(true)
+
+    fake.emit('window_changed', { open: false })
+    expect(store.windowOpen).toBe(false)
   })
 
   it('stays running and says why when ending the game is refused', async () => {

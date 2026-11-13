@@ -12,7 +12,6 @@ const useSessionStore = defineStore('session', () => {
 
   game.net.listen('game_ended', (end) => {
     game.recordEnd(end.reason)
-    host.closeWindow()
   })
   game.net.onReconnect(async () => {
     if (player.player.value) {
