@@ -406,7 +406,8 @@ class GameRegistry:
 
     def _close_window(self, code: str, prize: Prize) -> Outcome | None:
         """Close the prize's settlement window now: every claim in it is judged against the draws,
-        and all that earn the prize win it together. Awarding the full house ends the game.
+        and all that earn the prize win it together. Awarding the full house ends the game, and every
+        other open window settles with it.
         Returns None when no window is open for the prize, as when the game ended first. Only the
         clock calls this: tests fire the scheduler they gave the registry."""
         game = self._find(code)
@@ -414,12 +415,19 @@ class GameRegistry:
         settled = game.settlement.close(prize, self._evidence(game), refusal)
         if settled is None:
             return None
-        ended: EndReason | None = None
-        if settled.awarded_to and prize is Prize.FULL_HOUSE:
-            self._end(game, "full_house")
-            ended = "full_house"
-        window_open = None if game.settlement.window_open() else False
-        return Outcome((settled,), ended=ended, window_open=window_open)
+        if not (settled.awarded_to and prize is Prize.FULL_HOUSE):
+            window_open = None if game.settlement.window_open() else False
+            return Outcome((settled,), window_open=window_open)
+        # The full house ends the game, and an ended game has no open window: the others settle
+        # now, refused as `game_ended`, as when the host ends the game.
+        refusal = GameAlreadyEnded(code)
+        rest = tuple(
+            outcome
+            for other in game.settlement.open_prizes()
+            if (outcome := game.settlement.close(other, self._evidence(game), refusal)) is not None
+        )
+        self._end(game, "full_house")
+        return Outcome((settled, *rest), ended="full_house", window_open=False)
 
     @staticmethod
     def _evidence(game: _Game) -> Evidence:

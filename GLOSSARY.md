@@ -61,7 +61,7 @@ Every prize in a game, with who each one was awarded to, or that it is still ope
 _Avoid_: Leaderboard, scoreboard
 
 **Settlement window**:
-The short period, opened by the first valid claim for a prize, during which every valid claim for that prize wins it together. Draws are held until it closes.
+The short period, opened by the first valid claim for a prize, during which every valid claim for that prize wins it together. Draws are held until it closes. An ended game has no open window: ending the game settles every window still open.
 _Avoid_: Grace period, tie window
 
 **Column**:

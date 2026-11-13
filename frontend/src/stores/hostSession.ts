@@ -11,10 +11,6 @@ export function createHostSession(game: GameSession) {
   const poolName = ref<string | null>(null)
   const windowOpen = ref(false)
 
-  function closeWindow() {
-    windowOpen.value = false
-  }
-
   async function watchAsHost(link: HostLink) {
     error.value = null
     hostLink.value = link
@@ -45,7 +41,6 @@ export function createHostSession(game: GameSession) {
   async function end(link: HostLink) {
     if (await game.attempt(() => net.send('end_game', link))) {
       game.recordEnd('host')
-      closeWindow()
     }
   }
 
@@ -63,5 +58,5 @@ export function createHostSession(game: GameSession) {
     windowOpen.value = change.open
   })
 
-  return { hostLink, claims, pool, poolName, windowOpen, closeWindow, watchAsHost, reconnect, start, end, drawNext }
+  return { hostLink, claims, pool, poolName, windowOpen, watchAsHost, reconnect, start, end, drawNext }
 }
