@@ -4,71 +4,37 @@ test_settlement_clock.py and test_settlement_window.py."""
 
 import asyncio
 import logging
-import random
 
-from helpers import ManualScheduler, start_and_draw_everything
-from test_realtime import host_message, run, tick_message, topics_on
+from helpers import (
+    ManualRegistry,
+    RealtimeTable,
+    RecordingBroadcaster,
+    host_message,
+    names_on,
+    run,
+    start_and_draw_everything,
+    tick_message,
+    topics_on,
+)
 
 from devbingo_backend.default_pool import DEFAULT_POOL
-from devbingo_backend.game import GameRegistry, PlayerRef
+from devbingo_backend.game import PlayerRef
 from devbingo_backend.prizes import Prize
 from devbingo_backend.realtime import RealtimeAdapter
 from devbingo_backend.scheduler import AsyncioScheduler
 
 
-class OrderedBroadcaster:
-    """Records every emit in one list, in order, and raises for the events in `failing`."""
-
-    def __init__(self) -> None:
-        self.sent: list[tuple[str, str, object]] = []
-        self.failing: set[str] = set()
-
-    async def enter_room(self, sid: str, room: str) -> None:
-        pass
-
-    async def leave_room(self, sid: str, room: str) -> None:
-        pass
-
-    async def emit(self, event, data, room=None, to=None) -> None:
-        if event in self.failing:
-            raise RuntimeError(f"cannot emit {event}")
-        self.sent.append((event, room or to or "", data))
-
-
-class Table:
+def a_table(scheduler=None) -> RealtimeTable:
     """Ada and Grace have joined on their own sockets, the host watches, every topic is drawn and
-    each player has ticked five."""
-
-    def __init__(self, scheduler=None) -> None:
-        self.scheduler = scheduler or ManualScheduler()
-        self.registry = GameRegistry(rng=random.Random(5), scheduler=self.scheduler, window_seconds=0)
-        self.game = self.registry.create_game(DEFAULT_POOL)
-        self.broadcaster = OrderedBroadcaster()
-        self.adapter = RealtimeAdapter(self.registry, self.broadcaster)
-        self.tickets: dict[str, list] = {}
-        for name in ("Ada", "Grace"):
-            ack = run(self.adapter.join_game(self.sid(name), {"code": self.game.code, "name": name}))
-            self.tickets[name] = ack["ticket"]
-        run(self.adapter.watch_lobby("sid-host", host_message(self.game)))
-        start_and_draw_everything(self.registry, self.game)
-        for name in ("Ada", "Grace"):
-            self.tick(name, topics_on(self.tickets[name])[:5])
-        self.broadcaster.sent.clear()
-
-    @staticmethod
-    def sid(name: str) -> str:
-        return f"sid-{name.lower()}"
-
-    def tick(self, name: str, topics) -> None:
-        for topic in topics:
-            run(self.adapter.tick_topic(self.sid(name), tick_message(self.game, topic, name)))
-
-    def claim(self, name: str, prize: str = "early_five"):
-        return run(self.adapter.claim_prize(self.sid(name), {"prize": prize}))
-
-    @property
-    def host(self) -> str:
-        return f"{self.game.code}:host"
+    each player has ticked five. What was sent so far is forgotten."""
+    t = RealtimeTable(scheduler=scheduler, window_seconds=0)
+    t.join_players("Ada", "Grace")
+    t.watch()
+    t.start_and_draw_everything()
+    for name in ("Ada", "Grace"):
+        t.tick(name)
+    t.broadcaster.sent.clear()
+    return t
 
 
 def logged(t, who, accepted=True, error=None, prize="early_five"):
@@ -76,7 +42,7 @@ def logged(t, who, accepted=True, error=None, prize="early_five"):
 
 
 def settled(t, who, accepted=True, error=None, prize="early_five"):
-    return ("claim_settled", Table.sid(who), {"prize": prize, "accepted": accepted, "error": error})
+    return ("claim_settled", RealtimeTable.sid(who), {"prize": prize, "accepted": accepted, "error": error})
 
 
 def window(t, is_open):
@@ -84,7 +50,7 @@ def window(t, is_open):
 
 
 def test_the_first_valid_claim_is_waiting_and_tells_the_host_the_window_opened():
-    t = Table()
+    t = a_table()
 
     acks = [t.claim("Ada"), t.claim("Grace")]
 
@@ -93,7 +59,7 @@ def test_the_first_valid_claim_is_waiting_and_tells_the_host_the_window_opened()
 
 
 def test_a_close_logs_each_claim_then_awards_then_tells_each_claimant_then_the_window():
-    t = Table()
+    t = a_table()
     t.claim("Ada")
     t.claim("Grace")
     t.broadcaster.sent.clear()
@@ -111,7 +77,7 @@ def test_a_close_logs_each_claim_then_awards_then_tells_each_claimant_then_the_w
 
 
 def test_a_claim_refused_at_close_is_settled_for_that_claimant_only():
-    t = Table()
+    t = a_table()
     # Grace takes back two ticks, so her claim is not valid; it still queues in Ada's open window.
     grace_ticks = sorted(t.registry.player_snapshot(PlayerRef(t.game.code, "Grace")).ticks)
     for topic in grace_ticks[:2]:
@@ -130,7 +96,7 @@ def test_a_claim_refused_at_close_is_settled_for_that_claimant_only():
 
 
 def test_a_full_house_close_announces_the_end_before_telling_the_claimants():
-    t = Table()
+    t = a_table()
     for name in ("Ada", "Grace"):
         t.tick(name, topics_on(t.tickets[name]))
     t.claim("Ada", "full_house")
@@ -152,7 +118,7 @@ def test_a_full_house_close_announces_the_end_before_telling_the_claimants():
 
 
 def test_ending_the_game_mid_window_refuses_the_claimants_at_once_and_the_late_close_sends_nothing():
-    t = Table()
+    t = a_table()
     t.claim("Ada")
     t.claim("Grace")
     t.broadcaster.sent.clear()
@@ -174,7 +140,7 @@ def test_ending_the_game_mid_window_refuses_the_claimants_at_once_and_the_late_c
 
 
 def test_a_failed_send_is_logged_and_every_other_send_still_goes_out(caplog):
-    t = Table()
+    t = a_table()
     t.claim("Ada")
     t.claim("Grace")
     t.broadcaster.sent.clear()
@@ -191,7 +157,7 @@ def test_a_failed_send_is_logged_and_every_other_send_still_goes_out(caplog):
 
 def test_on_the_real_clock_a_claim_is_waiting_then_settled_without_being_asked_again():
     # Nothing is scheduled until the claim, so the table is set up before the loop that runs it.
-    t = Table(scheduler=AsyncioScheduler())
+    t = a_table(scheduler=AsyncioScheduler())
 
     async def scenario():
         ack = await t.adapter.claim_prize("sid-ada", {"prize": "early_five"})
@@ -201,3 +167,21 @@ def test_on_the_real_clock_a_claim_is_waiting_then_settled_without_being_asked_a
 
     assert asyncio.run(scenario()) == {"ok": True, "waiting": True}
     assert settled(t, "Ada") in t.broadcaster.sent
+
+
+def test_settling_through_the_test_registry_records_the_outcomes_and_still_announces_them():
+    registry = ManualRegistry()
+    broadcaster = RecordingBroadcaster()
+    RealtimeAdapter(registry, broadcaster)
+    game = registry.create_game(DEFAULT_POOL)
+    ada = PlayerRef(game.code, "Ada")
+    ticket = registry.join(ada).snapshot.ticket
+    start_and_draw_everything(registry, game)
+    for topic in names_on(ticket)[:5]:
+        registry.tick(ada, topic)
+    registry.claim(ada, Prize.EARLY_FIVE)
+
+    (outcome,) = registry.settle()
+
+    assert outcome.settled[0].awarded_to == ("Ada",)
+    assert ("prize_awarded", game.code, {"prize": "early_five", "awarded_to": ["Ada"]}) in broadcaster.emitted
