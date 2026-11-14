@@ -360,7 +360,22 @@ class GameHistoryResponse(_Message):
         )
 
 
-# Models the OpenAPI schema carries that no REST route returns.
+# The message each server event carries. This is the one place an event's model is named: the
+# realtime adapter checks every emit against it, and the OpenAPI schema lists these messages.
+SERVER_MESSAGES: dict[ServerEvent, type[BaseModel]] = {
+    ServerEvent.LOBBY_UPDATED: LobbyUpdated,
+    ServerEvent.GAME_STARTED: GameStarted,
+    ServerEvent.GAME_ENDED: GameEnded,
+    ServerEvent.TOPIC_DRAWN: DrawAnnouncement,
+    ServerEvent.PRIZE_AWARDED: PrizeAwarded,
+    ServerEvent.CLAIM_LOGGED: ClaimLogEntry,
+    ServerEvent.WINDOW_CHANGED: WindowChanged,
+    ServerEvent.REPLACED: Replaced,
+    ServerEvent.CLAIM_SETTLED: ClaimSettled,
+}
+
+# Models the OpenAPI schema carries that no REST route returns: the client's messages, the
+# acknowledgements, and every message a server event carries.
 SOCKET_MODELS: list[type[BaseModel]] = [
     JoinPayload,
     TickPayload,
@@ -373,14 +388,8 @@ SOCKET_MODELS: list[type[BaseModel]] = [
     Refusal,
     Accepted,
     ClaimWaiting,
-    ClaimSettled,
     JoinAck,
     WatchAck,
     DrawAck,
-    LobbyUpdated,
-    GameStarted,
-    GameEnded,
-    PrizeAwarded,
-    Replaced,
-    WindowChanged,
+    *SERVER_MESSAGES.values(),
 ]
