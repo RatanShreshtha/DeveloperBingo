@@ -20,6 +20,7 @@ export function createHostSession(game: GameSession) {
   async function watch(link: HostLink, failure: 'error' | 'actionError') {
     error.value = null
     hostLink.value = link
+    game.roles.add('host')
     let result
     try {
       result = await net.send('watch_lobby', link)

@@ -11,6 +11,10 @@ import { transport } from '../realtime/transport'
 
 type Refusable = { ok: true } | Refusal
 
+// A role this tab holds in the game: 'player' once it has joined as a player, 'host' once it
+// watches as host. Reconnect restores each role the tab holds.
+export type Role = 'player' | 'host'
+
 export function createGameSession() {
   const net = transport()
   const status = ref<GameSnapshot['status']>('lobby')
@@ -23,6 +27,7 @@ export function createGameSession() {
   const prizes = ref<PrizeBoardEntry[]>([])
   const error = ref<string | null>(null)
   const actionError = ref<string | null>(null)
+  const roles = new Set<Role>()
 
   function recordEnd(reason: GameEnd['reason']) {
     status.value = 'ended'
@@ -95,6 +100,7 @@ export function createGameSession() {
     prizes,
     error,
     actionError,
+    roles,
     recordEnd,
     recordDraw,
     applySnapshot,

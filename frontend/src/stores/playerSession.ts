@@ -47,6 +47,7 @@ export function createPlayerSession(game: GameSession) {
 
   function leave(reason: { replaced: true } | { error: string }) {
     player.value = null
+    game.roles.delete('player')
     ticket.value = null
     ticks.value = []
     pendingClaims.value = []
@@ -91,6 +92,7 @@ export function createPlayerSession(game: GameSession) {
   function enter(code: string, snapshot: PlayerSnapshot) {
     const who = { code, name: snapshot.name }
     player.value = who
+    game.roles.add('player')
     replaced.value = false
     rejoinToken = snapshot.rejoin_token
     saveSession({ ...who, token: snapshot.rejoin_token })

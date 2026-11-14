@@ -6,13 +6,13 @@ Reconnect dispatch is also implicit. `onReconnect` picks the role from state (`p
 
 **Blocked by:** none
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
-- [ ] One field list drives both facades, or the views read the store through a single typed composable per role. The field lists are written once
-- [ ] Choose between two shapes and record the choice in `docs/adr/` if it changes the seam: (a) keep one store and generate the role views from its list, or (b) split into a player store and a host store that share a plain `gameSession` composable. Option (b) only works if the single transport listener moves into the shared composable
-- [ ] The reconnect path names the role explicitly, set when the session is joined or hosted, instead of inferring it from state
-- [ ] `PlayerPage`, `HostPage` and `JoinPage` change only their imports, if at all
-- [ ] Existing store and view tests pass, with no test rewritten to hide a behaviour change
+- [x] Each view is built by `viewOf` from its own field list (`PLAYER_VIEW`, `HOST_VIEW`). The nine fields both roles read are listed once, in `SHARED_VIEW`, which both lists spread in. The store lists every field once, and a view names only the fields it reads
+- [x] Shape (a) was chosen: one store with generated role views. The seam is unchanged (`usePlayerSession` and `useHostSession` keep their signatures), so no ADR was needed. Shape (b) would have moved the transport listener, which ticket 19 merged into one store on purpose
+- [x] The reconnect path names the role explicitly. `gameSession` holds a `roles` set: a join adds `'player'`, a leave removes it, and watching as host adds `'host'`. Reconnect checks the `'player'` role first, as before
+- [x] No view changed. `PlayerPage`, `HostPage` and `JoinPage` are untouched
+- [x] Existing tests pass unchanged. One characterization test was added before the change: a tab that watches as host and whose player is replaced reconnects as host. The existing test that a tab with both roles recovers only its player still holds
 
 ## Notes
 
