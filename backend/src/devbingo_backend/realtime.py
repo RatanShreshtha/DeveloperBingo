@@ -7,6 +7,7 @@ import socketio
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from devbingo_backend.game import (
+    Drawn,
     GameError,
     GameRegistry,
     GameSummary,
@@ -81,6 +82,31 @@ def _host_room(code: str) -> str:
     return f"{code}:host"
 
 
+def _already_an_outcome(outcome: Outcome) -> Outcome:
+    """The registry's result is already the outcome to announce."""
+    return outcome
+
+
+def _drawn_outcome(drawn: Drawn) -> Outcome:
+    return drawn.outcome
+
+
+def _accepted(_result: object) -> Ack:
+    return Accepted().model_dump(mode="json")
+
+
+def _draw_ack(drawn: Drawn) -> Ack:
+    return DrawAck(draw=DrawAnnouncement.from_draw(drawn.draw)).model_dump(mode="json")
+
+
+def _prize_named(name: str) -> Prize:
+    """The prize a claim names. A name that is no prize is refused as `unknown_prize`."""
+    try:
+        return Prize(name)
+    except ValueError:
+        raise UnknownPrize from None
+
+
 class RealtimeAdapter:
     """Turns socket events into engine calls and engine state into room broadcasts.
 
@@ -142,38 +168,40 @@ class RealtimeAdapter:
         await self._broadcaster.enter_room(sid, _host_room(host.code))
         return WatchAck.from_snapshot(snapshot).model_dump(mode="json")
 
-    async def start_game(self, sid: str, payload: object) -> Ack:
+    async def _host_command[R](
+        self,
+        payload: object,
+        command: Callable[[HostLink], R],
+        announce: Callable[[R], Outcome],
+        reply: Callable[[R], Ack],
+    ) -> Ack:
+        """Runs one host command: reads the host link, makes the registry call, announces what it
+        changed, then answers the host. A game error is refused to the sender and nothing is
+        announced. Any other error is not a refusal, and it is not caught here."""
         try:
             host = _parse(HostLink, payload)
-            outcome = self._registry.start(host)
+            result = command(host)
         except GameError as err:
             return _refusal(err)
 
-        await self.publish(host.code, outcome)
-        return Accepted().model_dump(mode="json")
+        await self.publish(host.code, announce(result))
+        return reply(result)
+
+    async def start_game(self, sid: str, payload: object) -> Ack:
+        return await self._host_command(
+            payload, self._registry.start, _already_an_outcome, _accepted
+        )
 
     async def draw_topic(self, sid: str, payload: object) -> Ack:
-        try:
-            host = _parse(HostLink, payload)
-            drawn = self._registry.draw(host)
-        except GameError as err:
-            return _refusal(err)
-
-        await self.publish(host.code, drawn.outcome)
-        return DrawAck(draw=DrawAnnouncement.from_draw(drawn.draw)).model_dump(
-            mode="json"
+        return await self._host_command(
+            payload, self._registry.draw, _drawn_outcome, _draw_ack
         )
 
     async def end_game(self, sid: str, payload: object) -> Ack:
         """The host ends the game. Windows still open settle at once, refused; everyone in the room is told."""
-        try:
-            host = _parse(HostLink, payload)
-            outcome = self._registry.end(host)
-        except GameError as err:
-            return _refusal(err)
-
-        await self.publish(host.code, outcome)
-        return Accepted().model_dump(mode="json")
+        return await self._host_command(
+            payload, self._registry.end, _already_an_outcome, _accepted
+        )
 
     async def claim_prize(self, sid: str, payload: object) -> Ack:
         """A refused claim is told to the claimant at once, and logged for the host. A valid one
@@ -182,10 +210,7 @@ class RealtimeAdapter:
         try:
             message = _parse(ClaimPayload, payload)
             player = self._registry.player_on(sid)
-            try:
-                prize = Prize(message.prize)
-            except ValueError:
-                raise UnknownPrize from None
+            prize = _prize_named(message.prize)
             result = self._registry.claim(player, prize)
         except GameError as err:
             return _refusal(err)
