@@ -7,13 +7,18 @@
 
 **Blocked by:** none
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
-- [ ] Each command that needs a status (`start`, `draw`, `tick`, `untick`, `claim`) asks `_Game` for it, for example `game.require_started()` or `game.require_not_ended()`. The rule "which commands are allowed in which status" then lives in one place
-- [ ] `ClaimSettlement` reports window transitions in its own result, for example a `WindowTransition` of opened, closed, or unchanged. `end`, `claim` and `_close_window` pass that through instead of each comparing before and after
-- [ ] The `Outcome.window_open` values the adapter sees are unchanged, so `WINDOW_CHANGED` is still sent only on a real transition. The existing tests for the window flag pass without edits
-- [ ] A test per status gate checks that a command in the wrong status is refused with the same error code as before
-- [ ] Do not split the registry into separate classes in this ticket. Only one implementation of each part exists, so a new seam would be hypothetical
+- [x] Each command that needs a status asks `_Game` for its gate: `require_not_ended()`, `require_lobby()`, `require_started()`, and `claim_refusal()` for claims, which logs the refusal instead of raising. `_refuse_if_ended` and `_game_refusal` are deleted
+- [x] `ClaimSettlement` reports the game-wide window change in its own results: `Pending.window`, `Settled.window`, and `close_all()` returns it for a whole call. The change is True when a window opened, False when the last closed, and None otherwise. The registry no longer compares before and after. `open_prizes()` is deleted
+- [x] The `Outcome.window_open` values are unchanged, and no existing window-flag test was edited. `WINDOW_CHANGED` is still sent only on a real transition
+- [x] `tests/test_status_gates.py` is a table of each command against each status: a status refuses with the same error as before. It was written and passed against the old code first
+- [x] The registry stays one class. No new seam was added
+
+## Notes
+
+- Found in the architecture review of 2026-11-13 (candidate 2).
+- Related: ticket 24 moved snapshot assembly into the engine. The snapshot helpers stay where they are.
 
 ## Notes
 

@@ -245,6 +245,30 @@ class _Game:
             candidate.lines != held.ticket.lines for held in self.players.values()
         )
 
+    # The status gates. Each command asks the game for the gate it needs, so the rule for which
+    # status refuses which command is written once, here.
+
+    def require_not_ended(self) -> None:
+        if self.status == "ended":
+            raise GameAlreadyEnded(self.code)
+
+    def require_lobby(self) -> None:
+        """Joining and starting need the lobby: the pool locks when the game starts."""
+        if self.status != "lobby":
+            raise GameAlreadyStarted(self.code)
+
+    def require_started(self) -> None:
+        if self.status != "started":
+            raise GameNotStarted(self.code)
+
+    def claim_refusal(self) -> GameError | None:
+        """Why a claim is refused outright: the game has ended, or has not started. Logged for the host."""
+        if self.status == "ended":
+            return GameAlreadyEnded(self.code)
+        if self.status != "started":
+            return GameNotStarted(self.code)
+        return None
+
 
 class GameRegistry:
     """In-memory store of live games. Holds all lobby and start rules."""
@@ -321,9 +345,8 @@ class GameRegistry:
                 rejoin_token=self._issue_token(member),
                 replaced=replaced,
             )
-        self._refuse_if_ended(game, player.code)
-        if game.status != "lobby":
-            raise GameAlreadyStarted(player.code)
+        game.require_not_ended()
+        game.require_lobby()
         if len(game.players) >= MAX_PLAYERS:
             raise GameFull(player.code)
         ticket = self._deal_unique_ticket(game)
@@ -376,9 +399,8 @@ class GameRegistry:
     def start(self, host: HostLink) -> Outcome:
         """Start the game: joining closes and the pool locks."""
         game = self._host_game(host)
-        self._refuse_if_ended(game, host.code)
-        if game.status != "lobby":
-            raise GameAlreadyStarted(host.code)
+        game.require_not_ended()
+        game.require_lobby()
         game.status = "started"
         game.undrawn = list(game.pool.topics)
         return Outcome(started=True)
@@ -388,32 +410,21 @@ class GameRegistry:
         Every open settlement window settles at once, its claims refused as `game_ended`. A close
         still scheduled for one of them later finds it gone and does nothing."""
         game = self._host_game(host)
-        self._refuse_if_ended(game, host.code)
-        was_open = game.settlement.window_open()
-        refusal = GameAlreadyEnded(host.code)
-        settled = tuple(
-            outcome
-            for prize in game.settlement.open_prizes()
-            if (outcome := game.settlement.close(prize, self._evidence(game), refusal))
-            is not None
+        game.require_not_ended()
+        settled, window_open = game.settlement.close_all(
+            self._evidence(game), GameAlreadyEnded(host.code)
         )
         summary = self._end(game, "host")
-        return Outcome(
-            settled,
-            ended="host",
-            window_open=False if was_open else None,
-            summary=summary,
-        )
+        return Outcome(settled, ended="host", window_open=window_open, summary=summary)
 
     def draw(self, host: HostLink) -> Drawn:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final.
         Draws are held while any settlement window is open."""
         game = self._host_game(host)
-        self._refuse_if_ended(game, host.code)
+        game.require_not_ended()
         if game.settlement.window_open():
             raise SettlementWindowOpen(host.code)
-        if game.status != "started":
-            raise GameNotStarted(host.code)
+        game.require_started()
         if not game.undrawn:
             raise NoTopicsLeft(host.code)
         topic = game.undrawn.pop(self._rng.randrange(len(game.undrawn)))
@@ -425,7 +436,7 @@ class GameRegistry:
         """Tick a topic on the player's ticket. It must be on the ticket and already drawn.
         Refused once the game has ended: the ticks then match the claims that were judged."""
         game, member = self._player_game(player)
-        self._refuse_if_ended(game, player.code)
+        game.require_not_ended()
         if topic_name not in member.ticket.topic_names():
             raise TopicNotOnTicket(topic_name)
         if topic_name not in game.drawn_names():
@@ -436,7 +447,7 @@ class GameRegistry:
         """Untick a topic on the player's ticket. Refused while the player has a claim waiting in a
         settlement window: a player may untick only before a claim is made."""
         game, member = self._player_game(player)
-        self._refuse_if_ended(game, player.code)
+        game.require_not_ended()
         if game.settlement.has_pending(member.name):
             raise ClaimPending(topic_name)
         if topic_name not in member.ticket.topic_names():
@@ -449,14 +460,13 @@ class GameRegistry:
         opening it if none is; the window closes on its own after the window length, and its
         outcome goes to the listener. A repeat while the window is open changes nothing."""
         game, member = self._player_game(player)
-        was_open = game.settlement.window_open()
         ticked_and_drawn = member.ticks & game.drawn_names()
         decision = game.settlement.claim(
             prize,
             member.name,
             member.ticket,
             ticked_and_drawn,
-            self._game_refusal(game, player.code),
+            game.claim_refusal(),
         )
         if isinstance(decision, Refused):
             return ClaimResult(Outcome(decided=(decision.record,)), decision.error)
@@ -464,7 +474,7 @@ class GameRegistry:
             self._scheduler.call_later(
                 self._window_seconds, lambda: self._close_on_time(player.code, prize)
             )
-        return ClaimResult(Outcome(window_open=True if not was_open else None))
+        return ClaimResult(Outcome(window_open=decision.window))
 
     async def _close_on_time(self, code: str, prize: Prize) -> None:
         outcome = self._close_window(code, prize)
@@ -483,16 +493,11 @@ class GameRegistry:
         if settled is None:
             return None
         if not (settled.awarded_to and prize is Prize.FULL_HOUSE):
-            window_open = None if game.settlement.window_open() else False
-            return Outcome((settled,), window_open=window_open)
+            return Outcome((settled,), window_open=settled.window)
         # The full house ends the game, and an ended game has no open window: the others settle
         # now, refused as `game_ended`, as when the host ends the game.
-        refusal = GameAlreadyEnded(code)
-        rest = tuple(
-            outcome
-            for other in game.settlement.open_prizes()
-            if (outcome := game.settlement.close(other, self._evidence(game), refusal))
-            is not None
+        rest, _ = game.settlement.close_all(
+            self._evidence(game), GameAlreadyEnded(code)
         )
         summary = self._end(game, "full_house")
         return Outcome(
@@ -506,14 +511,6 @@ class GameRegistry:
             return member.ticket, member.ticks & game.drawn_names()
 
         return evidence
-
-    @staticmethod
-    def _game_refusal(game: _Game, code: str) -> GameError | None:
-        if game.status == "ended":
-            return GameAlreadyEnded(code)
-        if game.status != "started":
-            return GameNotStarted(code)
-        return None
 
     def player_snapshot(self, player: PlayerRef) -> PlayerSnapshot:
         """The player's Game snapshot. Refuses anyone not in the game."""
@@ -565,11 +562,6 @@ class GameRegistry:
                 }
             ),
         }
-
-    @staticmethod
-    def _refuse_if_ended(game: _Game, code: str) -> None:
-        if game.status == "ended":
-            raise GameAlreadyEnded(code)
 
     def _end(self, game: _Game, reason: EndReason) -> GameSummary:
         """The one place a game ends, whether the host ended it or the full house was awarded.
