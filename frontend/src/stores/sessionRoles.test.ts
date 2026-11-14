@@ -74,6 +74,23 @@ describe('role-specific session modules', () => {
     ])
   })
 
+  it('reconnects the host once the player has been replaced, if the tab also watches as host', async () => {
+    const host = useHostSession()
+    const player = usePlayerSession()
+    fake.answer('watch_lobby', hostSnapshot())
+    fake.answer('join_game', playerSnapshot({ rejoin_token: 'token' }))
+    await host.watchAsHost(link)
+    await player.join('ABC123', 'Ada')
+    fake.emit('replaced', {})
+
+    await fake.reconnect()
+
+    expect(fake.payloads('join_game')).toEqual([
+      { code: 'ABC123', name: 'Ada', rejoin_token: null },
+    ])
+    expect(fake.payloads('watch_lobby')).toEqual([link, link])
+  })
+
   it('recovers the host once even when both role modules are accessed', async () => {
     const host = useHostSession()
     useHostSession()
