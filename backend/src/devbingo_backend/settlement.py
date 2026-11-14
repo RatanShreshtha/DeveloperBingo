@@ -13,11 +13,13 @@ from devbingo_backend.ticket import Ticket
 
 @dataclass(frozen=True)
 class Pending:
-    """A claim waiting in a settlement window. `opened_window` is true when this claim opened it,
-    so the caller knows to schedule the close."""
+    """A claim waiting in a settlement window. `opened_window` is true when this claim opened the
+    prize's window, so the caller knows to schedule the close. `window` is the game-wide change:
+    True when this claim opened the first window of the game, None when no window changed state."""
 
     prize: Prize
     opened_window: bool
+    window: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,9 @@ class Settled:
     refused: tuple[str, ...] = ()
     # What was decided for each claimant at close, in the order they claimed.
     records: tuple["ClaimRecord", ...] = ()
+    # The game-wide change this close made: False when it closed the game's last open window,
+    # None when other windows are still open or none was.
+    window: bool | None = None
 
 
 # What a claimant has, looked up when a window closes: their ticket, and the topics both ticked and drawn.
@@ -81,6 +86,7 @@ class ClaimSettlement:
         the prize is already awarded, or no window is open and the ticket does not earn it.
         Otherwise it waits in the prize's window, opening it if none is. A repeat by the same
         player is the same result."""
+        was_open = self.window_open()
         waiting = self._windows.get(prize)
         try:
             if refusal is not None:
@@ -93,16 +99,17 @@ class ClaimSettlement:
             return Refused(self._decide(claimant, prize, err), err)
         if waiting is None:
             self._windows[prize] = [claimant]
-            return Pending(prize, opened_window=True)
+            return Pending(prize, opened_window=True, window=self._transition(was_open))
         if claimant not in waiting:
             waiting.append(claimant)
-        return Pending(prize, opened_window=False)
+        return Pending(prize, opened_window=False, window=self._transition(was_open))
 
     def close(
         self, prize: Prize, evidence: Evidence, refusal: GameError | None = None
     ) -> Settled | None:
         """Close the prize's window: judge every waiting claim and award the prize to those that
         earn it. Does nothing when no window is open. `refusal` refuses every waiting claim."""
+        was_open = self.window_open()
         waiting = self._windows.pop(prize, None)
         if waiting is None:
             return None
@@ -119,15 +126,36 @@ class ClaimSettlement:
             (refused if error else winners).append(claimant)
         if winners:
             self._awards[prize] = winners
-        return Settled(prize, tuple(winners), tuple(refused), tuple(records))
+        return Settled(
+            prize,
+            tuple(winners),
+            tuple(refused),
+            tuple(records),
+            window=self._transition(was_open),
+        )
+
+    def close_all(
+        self, evidence: Evidence, refusal: GameError | None = None
+    ) -> tuple[tuple[Settled, ...], bool | None]:
+        """Close every open window, as the game ends. Returns what each close reported, and the
+        game-wide window change over the whole call: False when windows were open and now none are."""
+        was_open = self.window_open()
+        settled = tuple(
+            outcome
+            for prize in list(self._windows)
+            if (outcome := self.close(prize, evidence, refusal)) is not None
+        )
+        return settled, self._transition(was_open)
 
     def window_open(self) -> bool:
         """True while any prize has a settlement window open."""
         return bool(self._windows)
 
-    def open_prizes(self) -> list[Prize]:
-        """The prizes with a settlement window open."""
-        return list(self._windows)
+    def _transition(self, was_open: bool) -> bool | None:
+        """The game-wide window change since `was_open`: True when a window opened, False when the
+        last one closed, None when that did not change."""
+        now = self.window_open()
+        return now if now != was_open else None
 
     def has_pending(self, claimant: str) -> bool:
         """True when the player has a claim waiting in an open window."""
