@@ -6,12 +6,12 @@
 
 **Blocked by:** none (ticket 27 changes the outcome the adapter reads, so coordinate if they run together)
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
-- [ ] A host-command helper takes the payload model, the registry call, and an optional publish step. `start_game`, `draw_topic` and `end_game` use it. Each handler body is the registry call and nothing else
-- [ ] `claim_prize` parses the prize through a model or helper that raises `UnknownPrize`, so every payload goes through `_parse`
-- [ ] The helpers keep the refusal behaviour: a `GameError` becomes `_refusal(err)`, and nothing else is caught
-- [ ] A test calls `publish` with an outcome that has every field set, and checks the emission order against the list in the docstring, with a fake broadcaster that records calls
+- [x] `_host_command` takes the payload, the registry call, an `announce` step that picks the outcome, and a `reply` step that builds the ack. `start_game`, `draw_topic` and `end_game` each call it with one line
+- [x] The prize name is checked by `_prize_named`, which raises `UnknownPrize`. The claim payload still goes through `_parse`. The model's `prize` field stays a string on purpose: typing it as `Prize` would make an unknown prize fail as `invalid_message` instead of `unknown_prize`, which changes the wire contract
+- [x] `_host_command` refuses only a `GameError`. A test checks that any other error propagates
+- [x] `tests/test_publish_order.py` calls `publish` with an outcome that has every field set, and checks the emission order against the docstring's list, using the recording broadcaster
 
 ## Notes
 
