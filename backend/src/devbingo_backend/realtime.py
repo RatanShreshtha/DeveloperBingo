@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
@@ -8,6 +9,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from devbingo_backend.game import (
     GameError,
     GameRegistry,
+    GameSummary,
     HostLink,
     InvalidMessage,
     Outcome,
@@ -86,9 +88,17 @@ class RealtimeAdapter:
     every settlement window that closes on time, and announces it like a command's own outcome.
     """
 
-    def __init__(self, registry: GameRegistry, broadcaster: Broadcaster) -> None:
+    def __init__(
+        self,
+        registry: GameRegistry,
+        broadcaster: Broadcaster,
+        on_ended: Callable[[GameSummary], None] | None = None,
+    ) -> None:
+        """`on_ended` keeps each ended game's summary, such as in stored history. It runs on a
+        worker thread after the room hears the end, so a slow store does not hold up other players."""
         self._registry = registry
         self._broadcaster = broadcaster
+        self._on_ended = on_ended
         registry.listen(self.publish)
 
     async def join_game(self, sid: str, payload: object) -> Ack:
@@ -228,6 +238,19 @@ class RealtimeAdapter:
                 WindowChanged(open=outcome.window_open),
                 room=_host_room(code),
             )
+        # Last, so the room hears the end before the save starts.
+        if outcome.summary is not None:
+            await self._keep_ended(code, outcome.summary)
+
+    async def _keep_ended(self, code: str, summary: GameSummary) -> None:
+        """Hands an ended game to `on_ended` on a worker thread. A failure is logged and goes no
+        further: the game has already ended."""
+        if self._on_ended is None:
+            return
+        try:
+            await asyncio.to_thread(self._on_ended, summary)
+        except Exception:
+            logger.exception("could not keep the summary of game %s", code)
 
     async def _emit(
         self,
@@ -291,9 +314,12 @@ class _SocketIOBroadcaster:
         await self._server.emit(event, data, room=room, to=to)
 
 
-def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
+def build_socket_server(
+    registry: GameRegistry, on_ended: Callable[[GameSummary], None] | None = None
+) -> tuple[socketio.AsyncServer, RealtimeAdapter]:
+    """The socket server, and the adapter behind it. `on_ended` keeps each ended game's summary."""
     server = socketio.AsyncServer(async_mode="asgi")
-    adapter = RealtimeAdapter(registry, _SocketIOBroadcaster(server))
+    adapter = RealtimeAdapter(registry, _SocketIOBroadcaster(server), on_ended)
 
     commands: dict[ClientEvent, Callable[[str, Any], Awaitable[Ack]]] = {
         ClientEvent.JOIN_GAME: adapter.join_game,
@@ -309,4 +335,4 @@ def build_socket_server(registry: GameRegistry) -> socketio.AsyncServer:
         server.on(event.value, command)
     server.on("disconnect", adapter.disconnect)
 
-    return server
+    return server, adapter

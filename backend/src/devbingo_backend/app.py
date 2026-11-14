@@ -50,7 +50,6 @@ def create_app(
         else float(os.environ.get("SETTLEMENT_WINDOW_SECONDS", DEFAULT_WINDOW_SECONDS))
     )
     registry = GameRegistry(
-        on_ended=history.save,
         code_taken=code_has_history,
         window_seconds=window_seconds,
     )
@@ -102,7 +101,9 @@ def create_app(
 
     app.openapi = openapi_with_socket_messages
 
-    socket_server = build_socket_server(registry)
+    # Ended games reach history through the socket adapter, the path every live game takes.
+    socket_server, realtime = build_socket_server(registry, on_ended=history.save)
+    app.state.realtime = realtime
     app.mount("/socket.io", socketio.ASGIApp(socket_server))
 
     return app
