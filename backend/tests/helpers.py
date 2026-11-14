@@ -179,7 +179,11 @@ class RealtimeTable:
     are on sockets named "sid-<name>" unless a test says otherwise."""
 
     def __init__(
-        self, seed: int = 5, scheduler=None, window_seconds: float | None = None
+        self,
+        seed: int = 5,
+        scheduler=None,
+        window_seconds: float | None = None,
+        on_ended=None,
     ) -> None:
         self.scheduler = scheduler or ManualScheduler()
         window = DEFAULT_WINDOW_SECONDS if window_seconds is None else window_seconds
@@ -188,7 +192,7 @@ class RealtimeTable:
         )
         self.game = self.registry.create_game(DEFAULT_POOL, pool_name="Default")
         self.broadcaster = RecordingBroadcaster()
-        self.adapter = RealtimeAdapter(self.registry, self.broadcaster)
+        self.adapter = RealtimeAdapter(self.registry, self.broadcaster, on_ended)
         self.tickets: dict[str, list] = {}
 
     @staticmethod

@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import logging
 import random
 import secrets
 from collections.abc import Awaitable, Callable, Mapping
@@ -48,8 +47,6 @@ MAX_PLAYERS = 200
 
 # How long a settlement window stays open, unless the game registry is configured otherwise.
 DEFAULT_WINDOW_SECONDS = 1.0
-
-logger = logging.getLogger(__name__)
 
 _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _CODE_LENGTH = 6
@@ -103,6 +100,8 @@ class Outcome:
     drawn: "Draw | None" = None
     # Who is in the lobby now, in the order they joined. None when the lobby did not change.
     lobby: tuple[str, ...] | None = None
+    # The ended game's summary, when this is what ended it. Whoever keeps game history saves it.
+    summary: "GameSummary | None" = None
 
 
 @dataclass(frozen=True)
@@ -253,19 +252,16 @@ class GameRegistry:
     def __init__(
         self,
         rng: random.Random | None = None,
-        on_ended: Callable[[GameSummary], None] | None = None,
         code_taken: Callable[[str], bool] | None = None,
         scheduler: Scheduler | None = None,
         window_seconds: float = DEFAULT_WINDOW_SECONDS,
     ) -> None:
-        """`on_ended` is handed a summary of each game as it ends. It holds no networking or
-        storage itself: the caller decides what to do with it.
-        `code_taken` says whether a code is already in use somewhere the registry cannot see, such
+        """`code_taken` says whether a code is already in use somewhere the registry cannot see, such
         as stored history, so a new game never reuses it.
-        Each settlement window closes `window_seconds` after it opens, through `scheduler`."""
+        Each settlement window closes `window_seconds` after it opens, through `scheduler`.
+        An ended game is reported in the outcome that ends it. Saving it is the caller's job."""
         self._games: dict[str, _Game] = {}
         self._rng = rng or random.Random()
-        self._on_ended = on_ended
         self._code_taken = code_taken
         self._scheduler = scheduler or AsyncioScheduler()
         self._window_seconds = window_seconds
@@ -401,8 +397,13 @@ class GameRegistry:
             if (outcome := game.settlement.close(prize, self._evidence(game), refusal))
             is not None
         )
-        self._end(game, "host")
-        return Outcome(settled, ended="host", window_open=False if was_open else None)
+        summary = self._end(game, "host")
+        return Outcome(
+            settled,
+            ended="host",
+            window_open=False if was_open else None,
+            summary=summary,
+        )
 
     def draw(self, host: HostLink) -> Drawn:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final.
@@ -493,8 +494,10 @@ class GameRegistry:
             if (outcome := game.settlement.close(other, self._evidence(game), refusal))
             is not None
         )
-        self._end(game, "full_house")
-        return Outcome((settled, *rest), ended="full_house", window_open=False)
+        summary = self._end(game, "full_house")
+        return Outcome(
+            (settled, *rest), ended="full_house", window_open=False, summary=summary
+        )
 
     @staticmethod
     def _evidence(game: _Game) -> Evidence:
@@ -568,15 +571,14 @@ class GameRegistry:
         if game.status == "ended":
             raise GameAlreadyEnded(code)
 
-    def _end(self, game: _Game, reason: EndReason) -> None:
+    def _end(self, game: _Game, reason: EndReason) -> GameSummary:
         """The one place a game ends, whether the host ended it or the full house was awarded.
-        A failing observer is logged: it never stops the game from ending."""
+        Returns the game's summary for the outcome that announces the end. Nothing is stored here:
+        the outcome carries the summary, and whoever keeps history saves it."""
         game.status = "ended"
         game.end_reason = reason
-        if self._on_ended is None:
-            return
         snapshot = self._host_snapshot_of(game)
-        summary = GameSummary(
+        return GameSummary(
             code=game.code,
             end_reason=reason,
             pool_name=snapshot.pool_name,
@@ -584,10 +586,6 @@ class GameRegistry:
             claims=snapshot.claims,
             prizes=snapshot.prizes,
         )
-        try:
-            self._on_ended(summary)
-        except Exception:
-            logger.exception("could not hand over the summary of game %s", game.code)
 
     def _player_game(self, player: PlayerRef) -> tuple[_Game, _Player]:
         """The game and the player's record. Refuses anyone not in the game."""

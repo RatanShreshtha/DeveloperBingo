@@ -2,13 +2,14 @@
 
 import asyncio
 import logging
+from dataclasses import asdict
 
 import pytest
 from fastapi.testclient import TestClient
-from helpers import names_on, start_and_draw_everything
+from helpers import names_on, run, start_and_draw_everything
 
 from devbingo_backend.app import create_app
-from devbingo_backend.game import GameAlreadyEnded, GameSummary, HostLink, PlayerRef
+from devbingo_backend.game import GameAlreadyEnded, GameSummary, PlayerRef
 from devbingo_backend.history import HistoryUnavailable, InMemoryHistoryStore
 from devbingo_backend.pool_library import InMemoryPoolLibrary
 from devbingo_backend.prizes import Prize
@@ -52,7 +53,7 @@ def test_a_game_ended_by_the_host_has_its_draws_viewable_by_its_code(client):
     )
     registry.start(game)
     drawn = registry.draw(game).draw
-    registry.end(game)
+    end_game(client, asdict(game))
 
     response = client.get(f"/games/{game.code}/history")
 
@@ -126,7 +127,7 @@ def test_a_failing_store_does_not_stop_a_game_ending(caplog):
         registry = registry_of(client)
         game = registry.create_game(InMemoryPoolLibrary().load_default())
         with caplog.at_level(logging.ERROR):
-            registry.end(game)
+            end_game(client, asdict(game))
 
         with pytest.raises(GameAlreadyEnded):
             registry.start(game)
@@ -134,7 +135,9 @@ def test_a_failing_store_does_not_stop_a_game_ending(caplog):
 
 
 def end_game(client, link):
-    registry_of(client).end(HostLink(**link))
+    """Ends the game through the socket adapter, the path a live game takes, so its history is kept."""
+    ack = run(client.app.state.realtime.end_game("sid-host", link))
+    assert ack == {"ok": True}
 
 
 def test_a_game_created_from_a_saved_pool_records_that_pools_name_in_its_history(

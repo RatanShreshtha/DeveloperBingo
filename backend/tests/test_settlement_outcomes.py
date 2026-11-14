@@ -1,6 +1,7 @@
 """The outcomes the engine hands back when windows settle, so callers never diff the claim log."""
 
 import random
+from dataclasses import replace
 
 import pytest
 from helpers import ManualRegistry, draw_everything, names_on
@@ -70,8 +71,11 @@ def test_ending_the_game_settles_every_open_window_as_refused_game_ended(table):
 def test_ending_a_game_with_no_open_window_settles_nothing(table):
     registry, game = table
 
-    # No window was open, so the host is not told of a window change either.
-    assert registry.end(game) == Outcome(ended="host")
+    # No window was open, so the host is not told of a window change either. The outcome also
+    # carries the game's summary, which is checked in test_game_summary.py.
+    outcome = registry.end(game)
+    assert outcome.summary is not None
+    assert replace(outcome, summary=None) == Outcome(ended="host")
 
 
 def test_a_claim_refused_outright_reports_its_logged_record_in_the_outcome(table):
