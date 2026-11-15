@@ -1,0 +1,25 @@
+# Render Blueprint: the public web service and its Postgres database.
+# Create it in the Render dashboard with New > Blueprint, pointing at this repo.
+#
+# Both plans are paid on purpose. Free web services sleep after 15 minutes without traffic, and a
+# sleep wipes every live game (they are held in memory, see docs/adr/0001). Free Postgres expires
+# after 30 days.
+
+databases:
+  - name: devbingo-db
+    databaseName: devbingo
+    user: bingo
+    plan: basic-256mb
+
+services:
+  - type: web
+    name: developerbingo
+    runtime: docker
+    plan: starter
+    # Keep this at one instance. Games live in one process's memory.
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: devbingo-db
+          property: connectionString

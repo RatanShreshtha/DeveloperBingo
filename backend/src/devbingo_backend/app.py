@@ -1,12 +1,14 @@
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import socketio
 from fastapi import FastAPI
 from pydantic.json_schema import models_json_schema
 from sqlmodel import create_engine, text
 
+from devbingo_backend.frontend import serve_frontend
 from devbingo_backend.game import DEFAULT_WINDOW_SECONDS, GameRegistry
 from devbingo_backend.games_api import build_games_router
 from devbingo_backend.history import (
@@ -24,15 +26,31 @@ from devbingo_backend.wire import SOCKET_MODELS, HealthResponse
 DEFAULT_DATABASE_URL = "postgresql+psycopg://bingo:bingo@localhost:5432/devbingo"
 
 
+def normalize_database_url(url: str) -> str:
+    """Hosts hand out `postgres://` or `postgresql://` URLs, which SQLAlchemy would open with the
+    psycopg2 driver. This app uses psycopg (v3), so those prefixes are rewritten to name it."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix) :]
+    return url
+
+
 def create_app(
     database_url: str | None = None,
     pool_library: PoolLibrary | None = None,
     settlement_window_seconds: float | None = None,
     history_store: HistoryStore | None = None,
+    frontend_dir: Path | None = None,
 ) -> FastAPI:
     """`settlement_window_seconds` is how long a settlement window stays open. Without it the
-    SETTLEMENT_WINDOW_SECONDS environment variable is used, then one second."""
-    url = database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+    SETTLEMENT_WINDOW_SECONDS environment variable is used, then one second.
+
+    `frontend_dir` is the built app to serve from this origin. Without it the FRONTEND_DIR
+    environment variable is used; with neither, only the API is served (development, where Vite
+    serves the app)."""
+    url = normalize_database_url(
+        database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+    )
     engine = create_engine(url, connect_args={"connect_timeout": 2})
     history = history_store or PostgresHistoryStore(engine)
 
@@ -105,5 +123,11 @@ def create_app(
     socket_server, realtime = build_socket_server(registry, on_ended=history.save)
     app.state.realtime = realtime
     app.mount("/socket.io", socketio.ASGIApp(socket_server))
+
+    dist = frontend_dir or (
+        Path(os.environ["FRONTEND_DIR"]) if os.environ.get("FRONTEND_DIR") else None
+    )
+    if dist is not None:
+        serve_frontend(app, dist)
 
     return app
