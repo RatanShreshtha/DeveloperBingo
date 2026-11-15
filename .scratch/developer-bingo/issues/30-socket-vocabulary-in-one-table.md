@@ -10,7 +10,7 @@ A message that is emitted but missing from `SOCKET_MODELS` silently drops out of
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `tests/test_socket_vocabulary.py` fails when a `ServerEvent` has no entry in `SERVER_MESSAGES`, and when a message an event carries is missing from `SOCKET_MODELS`. The second check runs one way only: client and acknowledgement models are never reached from an event, so a check the other way would fail on them by design
 - [x] `wire.py` has one table, `SERVER_MESSAGES`, mapping each `ServerEvent` to its model. `SOCKET_MODELS` is built from it, and `RealtimeAdapter._emit` raises a `TypeError` for a message of the wrong model. The raise sits outside the try block, so it is not logged and swallowed like a failed send

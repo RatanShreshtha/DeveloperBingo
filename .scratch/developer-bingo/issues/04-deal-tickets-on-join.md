@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (Create a game and join the lobby), 03 (Pool model and the default pool)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Each ticket has three lines of five topics
 - [x] Each column on a ticket holds one to three topics, and no column is empty

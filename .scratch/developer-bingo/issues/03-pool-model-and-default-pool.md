@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Project skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] A pool with 89 or 91 topics is rejected
 - [x] A pool with duplicate topics is rejected

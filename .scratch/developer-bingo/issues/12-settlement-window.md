@@ -4,7 +4,7 @@
 
 **Blocked by:** 08 (Claim Early five), 17 (Deepen claims and engine outcomes)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] The first valid claim for a prize opens the settlement window
 - [x] Valid claims for the same prize within the window all win together

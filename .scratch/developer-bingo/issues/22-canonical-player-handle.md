@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `GameRegistry.join` returns a canonical player handle (the game code and the stored name) as part of `Joined`
 - [x] The adapter stores that handle for each socket and uses it for every later command. Held claim answers are keyed by it

@@ -4,7 +4,7 @@
 
 **Blocked by:** 08 (Claim Early five), 17 (Deepen claims and engine outcomes)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] A complete top line wins the top-line prize
 - [x] A complete middle line wins the middle-line prize

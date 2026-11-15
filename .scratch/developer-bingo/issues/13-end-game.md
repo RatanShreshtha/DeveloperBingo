@@ -4,7 +4,7 @@
 
 **Blocked by:** 11 (Full house)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Claiming the full house ends the game
 - [x] The host can end the game at any time

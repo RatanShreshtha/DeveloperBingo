@@ -4,7 +4,7 @@
 
 **Blocked by:** 17 (Deepen claims and engine outcomes), 20 (Pool per game)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ### Snapshot
 

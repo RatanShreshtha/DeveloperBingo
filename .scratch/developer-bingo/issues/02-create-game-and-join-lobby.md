@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Project skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Creating a game returns a game code and a private host link
 - [x] Only the host link can control the game

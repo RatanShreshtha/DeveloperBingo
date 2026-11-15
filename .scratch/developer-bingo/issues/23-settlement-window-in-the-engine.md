@@ -10,7 +10,7 @@ So every timed window test needs `RealtimeAdapter`, `RecordingBroadcaster` and `
 
 **Blocked by:** 22 (One handle per player)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ### Engine
 

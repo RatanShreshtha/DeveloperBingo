@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (Pool model and the default pool), 20 (Pool per game)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] The host can copy the default pool into a custom pool
 - [x] A custom pool is validated against the pool rules before saving

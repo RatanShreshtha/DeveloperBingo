@@ -6,7 +6,7 @@ Reconnect dispatch is also implicit. `onReconnect` picks the role from state (`p
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Each view is built by `viewOf` from its own field list (`PLAYER_VIEW`, `HOST_VIEW`). The nine fields both roles read are listed once, in `SHARED_VIEW`, which both lists spread in. The store lists every field once, and a view names only the fields it reads
 - [x] Shape (a) was chosen: one store with generated role views. The seam is unchanged (`usePlayerSession` and `useHostSession` keep their signatures), so no ADR was needed. Shape (b) would have moved the transport listener, which ticket 19 merged into one store on purpose

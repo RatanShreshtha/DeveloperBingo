@@ -4,7 +4,7 @@
 
 **Blocked by:** 08 (Claim Early five), 17 (Deepen claims and engine outcomes)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Four corners is valid when all four outermost topics are ticked and drawn
 - [x] Four corners is refused when any one of the four is not ticked

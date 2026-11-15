@@ -4,7 +4,7 @@
 
 **Blocked by:** 05 (Start the game and draw)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] A player can tick a drawn topic on their own ticket
 - [x] A tick on an undrawn topic is rejected and leaves the ticket unchanged

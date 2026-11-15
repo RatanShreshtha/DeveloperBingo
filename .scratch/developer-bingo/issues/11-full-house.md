@@ -4,7 +4,7 @@
 
 **Blocked by:** 08 (Claim Early five), 17 (Deepen claims and engine outcomes)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Full house is valid only when all fifteen topics are ticked and drawn
 - [x] A partly complete ticket is refused

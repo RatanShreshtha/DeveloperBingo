@@ -4,7 +4,7 @@
 
 **Blocked by:** 13 (End the game), 21 (Host sees every claim)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] An ended game stores its draws in order
 - [x] An ended game stores its claims with their outcomes

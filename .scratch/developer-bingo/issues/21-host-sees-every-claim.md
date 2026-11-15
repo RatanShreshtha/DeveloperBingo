@@ -4,7 +4,7 @@
 
 **Blocked by:** 17 (Deepen claims and engine outcomes)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Every claim is recorded in order: the player, the prize, and whether it was accepted or refused (with the refusal reason)
 - [x] The host sees each claim as it happens

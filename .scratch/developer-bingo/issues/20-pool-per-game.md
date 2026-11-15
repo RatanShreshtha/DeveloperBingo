@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `create_game` takes a `Pool`. Each game keeps its Pool and deals Tickets and draws from it
 - [x] The engine no longer imports `DEFAULT_POOL`. `DEFAULT_POOL` stays in code only as the seed data for the Pool Library

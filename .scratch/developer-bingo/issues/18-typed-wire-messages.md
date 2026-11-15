@@ -4,7 +4,7 @@
 
 **Blocked by:** 16 (Bind players to their socket)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `wire.py` holds a model for every incoming payload, every acknowledgement and every event payload
 - [x] The socket-only models appear in the OpenAPI schema: a custom `app.openapi()` adds their JSON schemas to `components.schemas` with Pydantic's `models_json_schema`. `npm run gen:api` is unchanged

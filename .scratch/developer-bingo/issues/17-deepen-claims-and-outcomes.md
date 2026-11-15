@@ -4,7 +4,7 @@
 
 **Blocked by:** 16 (Bind players to their socket), 18 (Typed wire messages)
 
-**Status:** ready-for-agent
+**Status:** done
 
 Build it as four commits, in this order. Every commit keeps all tests passing.
 

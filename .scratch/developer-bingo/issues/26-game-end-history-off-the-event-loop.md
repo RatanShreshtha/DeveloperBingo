@@ -6,7 +6,7 @@ A failed save is caught and logged in `_end`, so a database outage loses that ga
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Decide the shape of the ended-game hand-off. Chosen: the engine returns the summary in `Outcome.summary`, and the adapter keeps it with `asyncio.to_thread`. This is neither option in the original note: the engine stays I/O-free, and the adapter already announces every outcome. Recorded in `docs/adr/0004-ended-game-summary-kept-by-the-adapter.md`
 - [x] A failing keeper never stops the game from ending. The game is already ended when the keeper runs, and the failure is logged (`tests/test_ended_game_saving.py`)

@@ -9,7 +9,7 @@
 
 **Blocked by:** none (frontend only; independent of 24)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ### Store
 

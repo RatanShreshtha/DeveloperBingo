@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Tick, untick and claim take the player from the socket's session, not from the message
 - [x] A socket that has not joined is refused with `not_joined`, and nothing changes

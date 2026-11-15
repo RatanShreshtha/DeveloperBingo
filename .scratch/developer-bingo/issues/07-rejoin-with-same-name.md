@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 (Tick drawn topics)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Rejoining with the same name before the game ends restores the ticket (a rejoin is allowed even after the game has started; a new name is not)
 - [x] Rejoining restores the player's ticks

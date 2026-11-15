@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] The backend and frontend start with one command each
 - [x] A health endpoint reports the database connection status

@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 (Tick drawn topics)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] A valid Early five claim (any five ticked and drawn topics) wins the prize
 - [x] An invalid claim is refused, and the claimant is told

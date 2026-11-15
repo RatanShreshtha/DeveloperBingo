@@ -7,7 +7,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Each command that needs a status asks `_Game` for its gate: `require_not_ended()`, `require_lobby()`, `require_started()`, and `claim_refusal()` for claims, which logs the refusal instead of raising. `_refuse_if_ended` and `_game_refusal` are deleted
 - [x] `ClaimSettlement` reports the game-wide window change in its own results: `Pending.window`, `Settled.window`, and `close_all()` returns it for a whole call. The change is True when a window opened, False when the last closed, and None otherwise. The registry no longer compares before and after. `open_prizes()` is deleted
