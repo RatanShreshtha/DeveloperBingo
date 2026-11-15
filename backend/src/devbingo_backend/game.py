@@ -327,31 +327,46 @@ class GameRegistry:
         elif self._connections.holds(connection):
             raise AlreadyJoined
         game = self._find(player.code)
-        key = name_key(player.name)
-        member = game.players.get(key)
+        member = game.players.get(name_key(player.name))
         if member is not None:
-            holds_token = (
-                rejoin_token is not None
-                and bool(member.token_hash)
-                and hmac.compare_digest(member.token_hash, _hash_token(rejoin_token))
-            )
-            known = PlayerRef(player.code, member.name)
-            if self._connections.is_connected(known) and not holds_token:
-                raise NameTaken(player.name)
-            replaced = self._connections.attach(connection, known)
-            return Joined(
-                self._player_snapshot(game, member),
-                is_new_player=False,
-                rejoin_token=self._issue_token(member),
-                replaced=replaced,
-            )
+            return self._rejoin(game, member, player, rejoin_token, connection)
+        return self._new_join(game, player, connection)
+
+    def _rejoin(
+        self,
+        game: _Game,
+        member: _Player,
+        player: PlayerRef,
+        rejoin_token: str | None,
+        connection: str,
+    ) -> Joined:
+        """A name the game already holds: the player comes back, unless a live connection holds the
+        name and the join does not prove it is that player's."""
+        holds_token = (
+            rejoin_token is not None
+            and bool(member.token_hash)
+            and hmac.compare_digest(member.token_hash, _hash_token(rejoin_token))
+        )
+        known = PlayerRef(player.code, member.name)
+        if self._connections.is_connected(known) and not holds_token:
+            raise NameTaken(player.name)
+        replaced = self._connections.attach(connection, known)
+        return Joined(
+            self._player_snapshot(game, member),
+            is_new_player=False,
+            rejoin_token=self._issue_token(member),
+            replaced=replaced,
+        )
+
+    def _new_join(self, game: _Game, player: PlayerRef, connection: str) -> Joined:
+        """A name the game does not hold: a new player, while the lobby is open and there is room."""
         game.require_not_ended()
         game.require_lobby()
         if len(game.players) >= MAX_PLAYERS:
             raise GameFull(player.code)
         ticket = self._deal_unique_ticket(game)
         member = _Player(name=player.name.strip(), ticket=ticket)
-        game.players[key] = member
+        game.players[name_key(player.name)] = member
         self._connections.attach(connection, PlayerRef(player.code, member.name))
         snapshot = self._player_snapshot(game, member)
         return Joined(
