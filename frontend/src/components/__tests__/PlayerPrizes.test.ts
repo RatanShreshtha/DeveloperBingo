@@ -27,25 +27,17 @@ async function mountPlayer() {
 }
 
 describe('PlayerLobbyView prizes', () => {
-  it('shows draws above prizes and claims in two columns', async () => {
+  it('shows the claims right under the ticket, then draws, then prizes', async () => {
     await setUpPlayer()
     const wrapper = await mountPlayer()
 
     const headings = wrapper.findAll('h2.card-title')
-    expect(headings.slice(0, 3).map((heading) => heading.text())).toEqual([
+    expect(headings.slice(0, 4).map((heading) => heading.text())).toEqual([
+      'Your ticket',
+      'Claim',
       'Draws',
       'Prizes',
-      'Claim',
     ])
-    expect(headings[0].element.closest('.grid')).toBeNull()
-    expect(headings[1].element.closest('.grid')).toBe(
-      headings[2].element.closest('.grid'),
-    )
-    expect(
-      headings[1].element
-        .closest('.grid')
-        ?.classList.contains('md:grid-cols-2'),
-    ).toBe(true)
   })
 
   it('lets the player claim early five', async () => {

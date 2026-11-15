@@ -11,3 +11,6 @@ export const PRIZE_LABELS: Record<Prize, string> = {
   four_corners: 'Four corners',
   full_house: 'Full house',
 }
+
+// awarded: someone won it. unavailable: the game ended before it was won. open: the game is still on.
+export type PrizeStatus = 'awarded' | 'unavailable' | 'open'

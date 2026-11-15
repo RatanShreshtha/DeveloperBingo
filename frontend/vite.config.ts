@@ -15,7 +15,14 @@ export default defineConfig({
             ? '/index.html'
             : undefined,
       },
-      '/pools': 'http://localhost:8000',
+      // Like /games: a browser asking for a page gets the app, so /pools/new is the editor, not JSON.
+      '/pools': {
+        target: 'http://localhost:8000',
+        bypass: (request) =>
+          request.headers.accept?.includes('text/html')
+            ? '/index.html'
+            : undefined,
+      },
       '/socket.io': { target: 'http://localhost:8000', ws: true },
     },
   },

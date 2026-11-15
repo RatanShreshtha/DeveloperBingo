@@ -4,6 +4,7 @@ import { createApp, type App as VueApp } from 'vue'
 import type { RouterHistory } from 'vue-router'
 import App from './App.vue'
 import { createRouter } from './router'
+import { applyTheme, currentTheme } from './theme'
 
 export function createApplicationPlugins(history?: RouterHistory) {
   const pinia = createPinia()
@@ -26,4 +27,7 @@ export function createApplication(history?: RouterHistory) {
 }
 
 const root = document.getElementById('app')
-if (root) createApplication().app.mount(root)
+if (root) {
+  applyTheme(currentTheme())
+  createApplication().app.mount(root)
+}

@@ -7,7 +7,7 @@ defineProps<{ claims: ClaimLogEntry[] }>()
 </script>
 
 <template>
-  <BoardCard title="Claims">
+  <BoardCard title="Claims" icon="clock">
     <p v-if="claims.length === 0" class="text-base-content/70">
       No claims yet.
     </p>

@@ -50,17 +50,17 @@ class Pool:
 
 def build_pool(topics: Sequence[Topic]) -> Pool:
     if len(topics) != POOL_SIZE:
-        raise PoolSizeError(f"a pool needs {POOL_SIZE} topics, got {len(topics)}")
+        raise PoolSizeError(f"A pool needs {POOL_SIZE} topics, got {len(topics)}")
 
     seen: set[str] = set()
     for topic in topics:
         if not topic.name.strip() or not topic.explanation.strip():
             raise EmptyTopicError(
-                f"topic {topic.name!r} needs a name and an explanation"
+                f"Topic {topic.name!r} needs a name and an explanation"
             )
         key = name_key(topic.name)
         if key in seen:
-            raise DuplicateTopicError(f"topic {topic.name!r} appears more than once")
+            raise DuplicateTopicError(f"Topic {topic.name!r} appears more than once")
         seen.add(key)
 
     return Pool(tuple(topics))

@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useId } from 'vue'
 import type { PlayerSnapshot } from '../realtime/protocol'
+import AppIcon from './AppIcon.vue'
 
 defineProps<{
   ticket: PlayerSnapshot['ticket']
@@ -8,12 +10,17 @@ defineProps<{
   ended: boolean
 }>()
 defineEmits<{ toggle: [topic: string] }>()
+
+const titleId = useId()
 </script>
 
 <template>
-  <div class="card bg-base-100 shadow-sm">
+  <section class="card bg-base-100 shadow-sm" :aria-labelledby="titleId">
     <div class="card-body">
-      <h3 class="card-title">Your ticket</h3>
+      <h2 :id="titleId" class="card-title">
+        <AppIcon name="grid" class="text-primary" />
+        Your ticket
+      </h2>
       <p class="text-sm text-base-content/70 lg:hidden">
         Scroll sideways to see the full ticket.
       </p>
@@ -38,12 +45,8 @@ defineEmits<{ toggle: [topic: string] }>()
                 <button
                   v-if="cell"
                   type="button"
-                  class="btn btn-sm h-full min-h-16 w-full text-[0.6875rem] whitespace-normal break-words leading-tight disabled:!border-base-300 disabled:!bg-base-200 disabled:!text-base-content disabled:!opacity-100"
-                  :class="
-                    ticks.includes(cell)
-                      ? 'btn-success text-black'
-                      : 'btn-outline'
-                  "
+                  class="btn btn-soft btn-sm h-full min-h-16 w-full text-sm whitespace-normal break-words leading-tight disabled:!border-base-300 disabled:!bg-base-200 disabled:!text-base-content disabled:!opacity-100"
+                  :class="ticks.includes(cell) ? 'btn-success text-black' : ''"
                   data-test="tick-cell"
                   :aria-pressed="ticks.includes(cell)"
                   :disabled="ended || !drawn.includes(cell)"
@@ -60,5 +63,5 @@ defineEmits<{ toggle: [topic: string] }>()
         </table>
       </div>
     </div>
-  </div>
+  </section>
 </template>

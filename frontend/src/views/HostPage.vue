@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import type { HostLink } from '../api/games'
 import { useHostSession } from '../stores/session'
+import AppIcon from '../components/AppIcon.vue'
 import DrawHistory from '../components/DrawHistory.vue'
 import EndBanner from '../components/EndBanner.vue'
 import GameHeader from '../components/GameHeader.vue'
@@ -38,28 +39,31 @@ onMounted(() => {
       <div v-else class="flex flex-wrap gap-3">
         <button
           v-if="!store.started"
-          class="btn btn-primary dark:btn-neutral"
+          class="btn btn-soft btn-primary gap-2"
           type="button"
           data-test="start-game"
           @click="store.start()"
         >
+          <AppIcon name="play" />
           Start game
         </button>
         <button
           v-else
-          class="btn btn-primary dark:btn-neutral"
+          class="btn btn-soft btn-primary gap-2"
           type="button"
           data-test="draw-topic"
           @click="store.drawNext()"
         >
+          <AppIcon name="shuffle" />
           Draw topic
         </button>
         <button
-          class="btn btn-outline"
+          class="btn btn-soft gap-2"
           type="button"
           data-test="end-game"
           @click="store.end()"
         >
+          <AppIcon name="square" />
           End game
         </button>
       </div>
@@ -75,12 +79,16 @@ onMounted(() => {
       </p>
       <DrawHistory :draws="store.draws" />
       <div class="grid gap-5 md:grid-cols-2">
-        <PrizeBoard :prizes="store.prizes" />
+        <PrizeBoard :prizes="store.prizes" :ended="store.ended" />
         <ClaimLog :claims="store.claims" />
       </div>
       <LobbyList :players="store.players" />
     </template>
-    <p v-if="store.poolName" class="text-base-content/70" data-test="pool-name">
+    <p
+      v-if="store.poolName"
+      class="badge badge-outline h-auto px-3 py-2"
+      data-test="pool-name"
+    >
       Pool: {{ store.poolName }}
     </p>
     <PoolColumns v-if="store.pool" :columns="store.pool" />

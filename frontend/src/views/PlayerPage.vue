@@ -46,7 +46,7 @@ watch(
         {{ store.error }}
       </p>
       <RouterLink
-        class="btn btn-primary dark:btn-neutral"
+        class="btn btn-soft btn-primary"
         to="/join"
         data-test="join-link"
         >Join this game</RouterLink
@@ -69,19 +69,17 @@ watch(
         :ended="store.ended"
         @toggle="store.toggleTick"
       />
+      <ClaimPanel
+        v-if="store.started && !store.ended"
+        :prizes="store.prizes"
+        :pending="store.pendingClaims"
+        @claim="store.claimPrize"
+      />
       <p v-if="store.actionError" class="alert alert-error" role="alert">
         {{ store.actionError }}
       </p>
       <DrawHistory :draws="store.draws" />
-      <div class="grid gap-5 md:grid-cols-2">
-        <PrizeBoard :prizes="store.prizes" />
-        <ClaimPanel
-          v-if="store.started && !store.ended"
-          :prizes="store.prizes"
-          :pending="store.pendingClaims"
-          @claim="store.claimPrize"
-        />
-      </div>
+      <PrizeBoard :prizes="store.prizes" :ended="store.ended" />
       <LobbyList :players="store.players" />
     </template>
   </section>

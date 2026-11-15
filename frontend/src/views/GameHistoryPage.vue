@@ -31,7 +31,7 @@ onMounted(() => {
 
 <template>
   <section class="space-y-5">
-    <h2 class="text-2xl font-bold">Game {{ code }}</h2>
+    <h1 class="page-title">Game {{ code }}</h1>
     <p v-if="errorMessage" class="alert alert-error" role="alert">
       {{ errorMessage }}
     </p>
@@ -40,12 +40,13 @@ onMounted(() => {
         {{ END_MESSAGES.history[history.end_reason] }}
         <span v-if="history.pool_name">Pool: {{ history.pool_name }}</span>
       </p>
-      <BoardCard title="Winners" heading="h3">
+      <BoardCard title="Winners" icon="trophy">
         <ul class="space-y-2">
           <PrizeRow
             v-for="entry in history.prizes"
             :key="entry.prize"
             :prize="entry.prize"
+            :status="entry.awarded_to.length ? 'awarded' : 'unavailable'"
             :outcome="
               entry.awarded_to.length ? entry.awarded_to.join(', ') : 'nobody'
             "
@@ -53,7 +54,7 @@ onMounted(() => {
           />
         </ul>
       </BoardCard>
-      <BoardCard title="Draws" heading="h3">
+      <BoardCard title="Draws" icon="shuffle">
         <p v-if="history.draws.length === 0">Nothing was drawn.</p>
         <ol v-else class="space-y-2">
           <DrawItem
@@ -64,7 +65,7 @@ onMounted(() => {
           />
         </ol>
       </BoardCard>
-      <BoardCard title="Claims" heading="h3">
+      <BoardCard title="Claims" icon="clock">
         <p v-if="history.claims.length === 0">No claims were made.</p>
         <ol v-else class="space-y-2">
           <ClaimItem

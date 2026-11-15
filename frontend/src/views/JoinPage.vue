@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import AppIcon from '../components/AppIcon.vue'
 import { usePlayerSession } from '../stores/session'
 
 const store = usePlayerSession()
@@ -26,7 +27,7 @@ async function submit() {
   <section class="mx-auto max-w-xl">
     <div class="card bg-base-100 shadow-sm">
       <div class="card-body">
-        <h2 class="card-title">Join a game</h2>
+        <h1 class="card-title">Join a game</h1>
         <form class="space-y-4" @submit.prevent="submit">
           <label class="block space-y-2">
             <span class="font-medium">Game code</span>
@@ -48,7 +49,8 @@ async function submit() {
               required
             />
           </label>
-          <button class="btn btn-primary dark:btn-neutral" type="submit">
+          <button class="btn btn-soft btn-primary gap-2" type="submit">
+            <AppIcon name="join" />
             Join
           </button>
         </form>
