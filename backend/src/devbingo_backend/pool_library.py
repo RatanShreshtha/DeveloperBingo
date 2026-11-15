@@ -4,16 +4,15 @@ The library also decides what may be saved. `admit` holds every pool rule a new 
 each adapter calls it first, so a pool one adapter refuses the other refuses too.
 """
 
-import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, Session, SQLModel, select
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.pool import POOL_SIZE, Pool, PoolError, Topic, build_pool
+from devbingo_backend.postgres_store import PostgresStore
 
 DEFAULT_POOL_NAME = "Default"
 
@@ -156,12 +155,7 @@ class PoolTopicRecord(SQLModel, table=True):
     explanation: str
 
 
-# SQLModel classes expose __table__ at runtime; ty can't see it.
-_TABLES = [PoolRecord.__table__, PoolTopicRecord.__table__]  # ty: ignore[missing-attribute]
-
-# One process holds the app's state (ADR 0001), so a process-wide lock is enough to stop two
-# first requests from seeding the default pool twice.
-_seed_lock = threading.Lock()
+_MODELS = [PoolRecord, PoolTopicRecord]
 
 
 class PostgresPoolLibrary:
@@ -169,26 +163,16 @@ class PostgresPoolLibrary:
     seeded on first use, once, so the app can start while the database is down."""
 
     def __init__(self, engine: Any) -> None:
-        self._engine = engine
-        self._ready = False
+        self._store = PostgresStore(
+            engine, _MODELS, PoolLibraryUnavailable, setup=self._seed_default
+        )
 
-    def _ensure_ready(self) -> None:
-        """Create the pool tables if needed and seed the default pool. Done once: a failed attempt
-        leaves the library not ready, so the next call tries again."""
-        if self._ready:
-            return
-        with _seed_lock:
-            if self._ready:
-                return
-            SQLModel.metadata.create_all(self._engine, tables=_TABLES)
-            with Session(self._engine) as session:
-                existing = session.exec(
-                    select(PoolRecord).where(PoolRecord.is_default == True)  # noqa: E712
-                ).first()
-                if existing is None:
-                    self._add(session, DEFAULT_POOL_NAME, DEFAULT_POOL, is_default=True)
-                    session.commit()
-            self._ready = True
+    def _seed_default(self, session: Session) -> None:
+        existing = session.exec(
+            select(PoolRecord).where(PoolRecord.is_default == True)  # noqa: E712
+        ).first()
+        if existing is None:
+            self._add(session, DEFAULT_POOL_NAME, DEFAULT_POOL, is_default=True)
 
     @staticmethod
     def _add(
@@ -220,45 +204,27 @@ class PostgresPoolLibrary:
         )
 
     def load_default(self) -> Pool:
-        try:
-            self._ensure_ready()
-            with Session(self._engine) as session:
-                record = session.exec(
-                    select(PoolRecord).where(PoolRecord.is_default == True)  # noqa: E712
-                ).one()
-                return self._read(session, record).pool
-        except SQLAlchemyError:
-            # The database can't be reached or queried right now. Anything else is a bug and
-            # is left to surface rather than be mistaken for an outage.
-            raise PoolLibraryUnavailable from None
+        with self._store.session() as session:
+            record = session.exec(
+                select(PoolRecord).where(PoolRecord.is_default == True)  # noqa: E712
+            ).one()
+            return self._read(session, record).pool
 
     def save(self, name: str, topics: Sequence[Topic]) -> PoolSummary:
         name, pool = admit(name, topics)
-        try:
-            self._ensure_ready()
-            with Session(self._engine) as session:
-                record = self._add(session, name, pool)
-                session.commit()
-                return PoolSummary(record.id, name, is_default=False)  # ty: ignore[invalid-argument-type]  # set by the flush in _add
-        except SQLAlchemyError:
-            raise PoolLibraryUnavailable from None
+        with self._store.session() as session:
+            record = self._add(session, name, pool)
+            session.commit()
+            return PoolSummary(record.id, name, is_default=False)  # ty: ignore[invalid-argument-type]  # set by the flush in _add
 
     def list_pools(self) -> list[PoolSummary]:
-        try:
-            self._ensure_ready()
-            with Session(self._engine) as session:
-                records = session.exec(select(PoolRecord).order_by(PoolRecord.id)).all()  # ty: ignore[invalid-argument-type]  # SQLModel column
-                return [PoolSummary(r.id, r.name, r.is_default) for r in records]  # ty: ignore[invalid-argument-type]  # set by the flush in _add
-        except SQLAlchemyError:
-            raise PoolLibraryUnavailable from None
+        with self._store.session() as session:
+            records = session.exec(select(PoolRecord).order_by(PoolRecord.id)).all()  # ty: ignore[invalid-argument-type]  # SQLModel column
+            return [PoolSummary(r.id, r.name, r.is_default) for r in records]  # ty: ignore[invalid-argument-type]  # set by the flush in _add
 
     def get(self, pool_id: int) -> SavedPool:
-        try:
-            self._ensure_ready()
-            with Session(self._engine) as session:
-                record = session.get(PoolRecord, pool_id)
-                if record is None:
-                    raise PoolNotFound(pool_id)
-                return self._read(session, record)
-        except SQLAlchemyError:
-            raise PoolLibraryUnavailable from None
+        with self._store.session() as session:
+            record = session.get(PoolRecord, pool_id)
+            if record is None:
+                raise PoolNotFound(pool_id)
+            return self._read(session, record)
