@@ -59,7 +59,7 @@ describe('HostView ending the game', () => {
 
     expect(wrapper.find('[data-test="start-game"]').exists()).toBe(false)
     expect(wrapper.text()).toContain(
-      'The game is over: the full house was claimed',
+      'The game has ended: the full house was claimed',
     )
   })
 })
@@ -72,7 +72,7 @@ describe('PlayerLobbyView when the game ends', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain(
-      'The game is over: the full house was claimed',
+      'The game has ended: the full house was claimed',
     )
     expect(wrapper.find('[data-test="claim-early_five"]').exists()).toBe(false)
   })

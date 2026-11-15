@@ -83,8 +83,8 @@ def _host_room(code: str) -> str:
     return f"{code}:host"
 
 
-def _already_an_outcome(outcome: Outcome) -> Outcome:
-    """The registry's result is already the outcome to announce."""
+def _outcome_as_is(outcome: Outcome) -> Outcome:
+    """For a command whose result already is the outcome to announce, such as start and end."""
     return outcome
 
 
@@ -92,7 +92,7 @@ def _drawn_outcome(drawn: Drawn) -> Outcome:
     return drawn.outcome
 
 
-def _accepted(_result: object) -> Ack:
+def _accepted(_result: object = None) -> Ack:
     return Accepted().model_dump(mode="json")
 
 
@@ -190,7 +190,7 @@ class RealtimeAdapter:
 
     async def start_game(self, sid: str, payload: object) -> Ack:
         return await self._host_command(
-            payload, self._registry.start, _already_an_outcome, _accepted
+            payload, self._registry.start, _outcome_as_is, _accepted
         )
 
     async def draw_topic(self, sid: str, payload: object) -> Ack:
@@ -201,7 +201,7 @@ class RealtimeAdapter:
     async def end_game(self, sid: str, payload: object) -> Ack:
         """The host ends the game. Windows still open settle at once, refused; everyone in the room is told."""
         return await self._host_command(
-            payload, self._registry.end, _already_an_outcome, _accepted
+            payload, self._registry.end, _outcome_as_is, _accepted
         )
 
     async def claim_prize(self, sid: str, payload: object) -> Ack:
@@ -323,7 +323,7 @@ class RealtimeAdapter:
             change(self._registry.player_on(sid), message.topic)
         except GameError as err:
             return _refusal(err)
-        return Accepted().model_dump(mode="json")
+        return _accepted()
 
 
 class _SocketIOBroadcaster:
