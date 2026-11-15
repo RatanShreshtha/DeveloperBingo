@@ -154,7 +154,7 @@ export interface components {
          * @description Why a request was refused. Each engine error declares the code it maps to.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "game_ended" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "claim_not_valid" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message" | "settlement_open" | "claim_pending";
+        ErrorCode: "not_found" | "not_host" | "name_taken" | "game_full" | "already_started" | "game_ended" | "not_started" | "no_topics_left" | "not_a_player" | "not_drawn" | "not_on_ticket" | "claim_not_valid" | "prize_taken" | "already_joined" | "not_joined" | "unknown_prize" | "invalid_message" | "settlement_open" | "claim_made";
         /**
          * GameHistoryResponse
          * @description An ended game: its draws in order, every claim with its outcome, and who won each prize.
@@ -333,7 +333,7 @@ export interface components {
         };
         /**
          * GameEnded
-         * @description The game is over: someone claimed the full house, or the host ended it.
+         * @description The game has ended: someone claimed the full house, or the host ended it.
          */
         GameEnded: {
             /**

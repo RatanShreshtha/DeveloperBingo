@@ -18,8 +18,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   prize_taken: 'Someone has already been awarded this prize',
   unknown_prize: 'That prize does not exist',
   settlement_open: 'A claim is being settled. Draws resume in a moment.',
-  claim_pending:
-    'Your claim is waiting to be settled, so you cannot untick a topic now',
+  claim_made: 'You have already made a claim, so you cannot untick a topic',
   invalid_message: 'That request was not understood. Please reload the page.',
 }
 

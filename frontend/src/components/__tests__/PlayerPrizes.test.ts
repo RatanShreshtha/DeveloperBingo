@@ -150,13 +150,15 @@ describe('PlayerLobbyView prizes', () => {
         ticks: ['Algorithm'],
         draws: [{ position: 1, name: 'Algorithm', explanation: 'x' }],
       })
-      fake.answer('untick_topic', { ok: false, error: 'claim_pending' })
+      fake.answer('untick_topic', { ok: false, error: 'claim_made' })
       const wrapper = await mountPlayer()
 
       await wrapper.get('[data-test="tick-cell"]').trigger('click')
       await flushPromises()
 
-      expect(wrapper.get('[role="alert"]').text()).toContain('claim is waiting')
+      expect(wrapper.get('[role="alert"]').text()).toContain(
+        'already made a claim',
+      )
     })
   })
 

@@ -10,8 +10,8 @@ from typing import Any, Literal, TypeAlias
 from devbingo_backend.connections import Connections
 from devbingo_backend.errors import (  # noqa: F401  (re-exported: callers import errors from here)
     AlreadyJoined,
+    ClaimMade,
     ClaimNotValid,
-    ClaimPending,
     GameAlreadyEnded,
     GameAlreadyStarted,
     GameError,
@@ -457,12 +457,12 @@ class GameRegistry:
         member.ticks.add(topic_name)
 
     def untick(self, player: PlayerRef, topic_name: str) -> None:
-        """Untick a topic on the player's ticket. Refused while the player has a claim waiting in a
-        settlement window: a player may untick only before a claim is made."""
+        """Untick a topic on the player's ticket. Refused once the player has made any claim, waiting
+        or decided: a player may untick only before a claim is made."""
         game, member = self._player_game(player)
         game.require_not_ended()
-        if game.settlement.has_pending(member.name):
-            raise ClaimPending(topic_name)
+        if game.settlement.has_made_claim(member.name):
+            raise ClaimMade(topic_name)
         if topic_name not in member.ticket.topic_names():
             raise TopicNotOnTicket(topic_name)
         member.ticks.discard(topic_name)

@@ -286,7 +286,7 @@ class GameStarted(_Message):
 
 
 class GameEnded(_Message):
-    """The game is over: someone claimed the full house, or the host ended it."""
+    """The game has ended: someone claimed the full house, or the host ended it."""
 
     reason: EndReason
 

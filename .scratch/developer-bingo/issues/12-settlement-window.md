@@ -25,7 +25,7 @@ Settled in the architecture review of claims (see 17).
   - Each prize has its own window. Windows for different prizes can be open at the same time.
   - A repeat claim for the same prize by the same player, during one window, gets the same pending result. It is not an error.
   - A claim for a prize that has already been awarded is refused at once.
-- **Unticking is refused while the player has a pending claim.** This enforces spec.md's "a player may untick a topic before a claim is made".
+- **Unticking is refused once the player has made any claim, pending or decided.** This enforces spec.md's "a player may untick a topic before a claim is made". A refused claim counts as made, so it also fixes the player's ticks. The refusal is `claim_made`. (Changed after this ticket was closed: it was first refused only while a claim was pending.)
 
 ## Notes
 - Ticket 13 ends the game as soon as the full house is awarded (`GameRegistry._end`). With a settlement window, simultaneous full-house claims must all win, so the end has to move to when the window closes. The full-house claim currently sets `Awarded.ends_game` itself.

@@ -5,8 +5,8 @@ from helpers import ManualRegistry, draw_everything, names_on
 
 from devbingo_backend.default_pool import DEFAULT_POOL
 from devbingo_backend.game import (
+    ClaimMade,
     ClaimNotValid,
-    ClaimPending,
     GameAlreadyEnded,
     NoTopicsLeft,
     PlayerRef,
@@ -98,20 +98,32 @@ def test_draws_are_refused_while_a_window_is_open_and_resume_after_it_closes(tab
         registry.draw(game)
 
 
-def test_ticks_cannot_be_taken_back_while_the_player_has_a_claim_pending(table):
+def test_ticks_cannot_be_taken_back_once_the_player_has_made_a_claim(table):
     registry, game, tickets = table
     draw_all_and_tick_five(registry, game, tickets)
     registry.claim(ada(game), Prize.EARLY_FIVE)
     ticked = names_on(tickets["Ada"])[0]
 
-    with pytest.raises(ClaimPending):
+    with pytest.raises(ClaimMade):
         registry.untick(ada(game), ticked)
     registry.untick(grace(game), names_on(tickets["Grace"])[0])
     assert ticked in registry.player_snapshot(ada(game)).ticks
 
     registry.settle()
-    registry.untick(ada(game), ticked)
-    assert ticked not in registry.player_snapshot(ada(game)).ticks
+    with pytest.raises(ClaimMade):
+        registry.untick(ada(game), ticked)
+    assert ticked in registry.player_snapshot(ada(game)).ticks
+
+
+def test_a_refused_claim_also_fixes_the_ticks(table):
+    registry, game, tickets = table
+    draw_all_and_tick_five(registry, game, tickets)
+    ticked = names_on(tickets["Ada"])[0]
+    # Ada has no full house, so the claim is refused at once and logged.
+    assert registry.claim(ada(game), Prize.FULL_HOUSE).refusal is not None
+
+    with pytest.raises(ClaimMade):
+        registry.untick(ada(game), ticked)
 
 
 def test_a_queued_claim_is_judged_at_close_on_what_the_player_has_ticked_then(table):

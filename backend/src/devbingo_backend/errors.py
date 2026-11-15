@@ -25,7 +25,7 @@ class ErrorCode(StrEnum):
     UNKNOWN_PRIZE = "unknown_prize"
     INVALID_MESSAGE = "invalid_message"
     SETTLEMENT_OPEN = "settlement_open"
-    CLAIM_PENDING = "claim_pending"
+    CLAIM_MADE = "claim_made"
 
 
 class GameError(Exception):
@@ -113,7 +113,7 @@ class SettlementWindowOpen(GameError):
     code = ErrorCode.SETTLEMENT_OPEN
 
 
-class ClaimPending(GameError):
-    """A tick was taken back while the player has a claim waiting in a settlement window."""
+class ClaimMade(GameError):
+    """A tick was taken back after the player made a claim: ticks are fixed once a claim is made."""
 
-    code = ErrorCode.CLAIM_PENDING
+    code = ErrorCode.CLAIM_MADE

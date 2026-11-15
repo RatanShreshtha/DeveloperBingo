@@ -148,7 +148,7 @@ describe('PlayerLobbyView', () => {
       await flushPromises()
 
       expect(wrapper.text()).toContain(
-        'The game is over: the full house was claimed',
+        'The game has ended: the full house was claimed',
       )
       expect(wrapper.text()).toContain('Full house: awarded to Grace')
       expect(

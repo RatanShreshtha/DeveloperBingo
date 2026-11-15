@@ -1,9 +1,11 @@
 import type { components } from '../api/schema'
+import type { HostLink } from '../api/games'
 
-// Every message shape is generated from the server's models. Nothing is typed by hand here.
+// Every wire message shape is generated from the server's models. The one type written by hand is
+// PlayerRef: a client-side handle that never crosses the wire as a message of its own.
 type Schemas = components['schemas']
 
-export type HostLink = Schemas['HostLink']
+export type { HostLink }
 // One player in one game, as the server addresses them: the game code and their display name.
 export type PlayerRef = { code: string; name: string }
 export type GameSnapshot = Schemas['GameSnapshot']
@@ -21,8 +23,8 @@ export type Refusal = Schemas['Refusal']
 export type JoinResult = PlayerSnapshot | Refusal
 export type WatchResult = HostSnapshot | Refusal
 export type DrawResult = Schemas['DrawAck'] | Refusal
-// A tick changes only the player's own list, so the server says only whether it happened.
-// A command that only says whether it happened: start, end, tick and untick.
+// A command that only says whether it happened: start, end, tick and untick. A tick changes only
+// the player's own list, so the server says nothing more.
 export type Done = Schemas['Accepted'] | Refusal
 // A valid claim waits in its settlement window; its result follows as one `claim_settled`.
 export type ClaimResult = Schemas['ClaimWaiting'] | Refusal

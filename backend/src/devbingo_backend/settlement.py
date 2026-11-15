@@ -161,6 +161,13 @@ class ClaimSettlement:
         """True when the player has a claim waiting in an open window."""
         return any(claimant in waiting for waiting in self._windows.values())
 
+    def has_made_claim(self, claimant: str) -> bool:
+        """True once the player has made any claim in this game: one waiting in a window, or one
+        already decided, accepted or refused."""
+        return self.has_pending(claimant) or any(
+            record.player == claimant for record in self._log
+        )
+
     def pending_prizes(self, claimant: str) -> list[Prize]:
         """The prizes the player has a claim waiting on, in the order of Prize."""
         return [prize for prize in Prize if claimant in self._windows.get(prize, [])]
