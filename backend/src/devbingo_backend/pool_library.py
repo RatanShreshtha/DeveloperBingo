@@ -57,14 +57,14 @@ def admit(name: str, topics: Sequence[Topic]) -> tuple[str, Pool]:
     is checked first of all, so an oversized request is turned away before its topics are read."""
     if len(topics) > MAX_TOPICS:
         raise PoolRuleBroken(
-            "too_many_topics", f"a pool has at most {MAX_TOPICS} topics"
+            "too_many_topics", f"A pool has at most {MAX_TOPICS} topics"
         )
     name = name.strip()
     if not name:
-        raise PoolRuleBroken("empty_name", "a pool needs a name")
+        raise PoolRuleBroken("empty_name", "A pool needs a name")
     if len(name) > MAX_POOL_NAME:
         raise PoolRuleBroken(
-            "name_too_long", f"a pool name has at most {MAX_POOL_NAME} characters"
+            "name_too_long", f"A pool name has at most {MAX_POOL_NAME} characters"
         )
     if name.casefold() == DEFAULT_POOL_NAME.casefold():
         raise PoolRuleBroken(
@@ -75,12 +75,12 @@ def admit(name: str, topics: Sequence[Topic]) -> tuple[str, Pool]:
         if len(topic.name) > MAX_TOPIC_NAME:
             raise PoolRuleBroken(
                 "topic_name_too_long",
-                f"a topic name has at most {MAX_TOPIC_NAME} characters",
+                f"A topic name has at most {MAX_TOPIC_NAME} characters",
             )
         if len(topic.explanation) > MAX_EXPLANATION:
             raise PoolRuleBroken(
                 "explanation_too_long",
-                f"an explanation has at most {MAX_EXPLANATION} characters",
+                f"An explanation has at most {MAX_EXPLANATION} characters",
             )
     return name, build_pool(trimmed)
 
