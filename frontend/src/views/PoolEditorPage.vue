@@ -7,6 +7,7 @@ import {
   type PoolSummary,
   type TopicResponse,
 } from '../api/pools'
+import AppIcon from '../components/AppIcon.vue'
 import { useAsyncState } from '../composables/useAsyncState'
 
 const name = ref('')
@@ -43,8 +44,12 @@ async function save() {
 <template>
   <section class="space-y-5">
     <div class="space-y-2">
-      <h2 class="text-2xl font-bold">New custom pool</h2>
-      <p><RouterLink class="link" to="/">Back to home</RouterLink></p>
+      <h1 class="page-title">New custom pool</h1>
+      <p>
+        <RouterLink class="link inline-flex min-h-11 items-center gap-2" to="/"
+          ><AppIcon name="arrow-left" />Back to home</RouterLink
+        >
+      </p>
     </div>
     <p v-if="loadError" class="alert alert-error" role="alert">
       Could not load the default pool to copy.
@@ -92,11 +97,12 @@ async function save() {
           </ol>
           <div class="card-actions">
             <button
-              class="btn btn-primary dark:btn-neutral"
+              class="btn btn-soft btn-primary gap-2"
               type="button"
               data-test="save-pool"
               @click="save"
             >
+              <AppIcon name="check" />
               Save pool
             </button>
           </div>

@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { playerSnapshot } from '../../testing/snapshots'
 import { makeApplicationPlugins, makePlugins } from '../../testing/testRouter'
 import { startFresh } from '../../testing/testSetup'
@@ -34,7 +34,10 @@ describe('JoinView', () => {
     expect(fake.payloads('join_game')).toEqual([
       { code: 'ABC123', name: 'Ada', rejoin_token: null },
     ])
-    expect(router.currentRoute.value.path).toBe('/games/ABC123')
+    // The game page loads on demand, so the route settles a little after the join is answered.
+    await vi.waitFor(() => {
+      expect(router.currentRoute.value.path).toBe('/games/ABC123')
+    })
   })
 
   it('keeps the code, name and rejoin token for a reload', async () => {

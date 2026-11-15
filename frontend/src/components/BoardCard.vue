@@ -1,13 +1,21 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ title: string; heading?: 'h2' | 'h3' }>(), {
-  heading: 'h2',
-})
+import { useId } from 'vue'
+import AppIcon from './AppIcon.vue'
+import type { IconName } from './icons'
+
+defineProps<{ title: string; icon?: IconName }>()
+
+// The section is named by its heading, so screen readers can list it by name.
+const titleId = useId()
 </script>
 
 <template>
-  <section class="card bg-base-100 shadow-sm">
+  <section class="card bg-base-100 shadow-sm" :aria-labelledby="titleId">
     <div class="card-body">
-      <component :is="heading" class="card-title">{{ title }}</component>
+      <h2 :id="titleId" class="card-title">
+        <AppIcon v-if="icon" :name="icon" class="text-primary" />
+        {{ title }}
+      </h2>
       <slot />
     </div>
   </section>

@@ -1,6 +1,42 @@
 @import 'tailwindcss';
+
+/*
+ * The theme is set on the page's data-theme attribute (see src/theme.ts), so `dark:` follows the
+ * visitor's choice rather than the operating system alone.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* daisyUI's built-in light and dark themes, with no overrides (ADR 0005). */
 @plugin "daisyui" {
   themes:
     light --default,
-    dark --prefersdark;
+    dark;
+}
+
+/* On phones, body text sits one step smaller, so more of a game fits on screen. */
+@layer base {
+  @media (max-width: 39.99rem) {
+    body {
+      font-size: 0.875rem;
+    }
+  }
+}
+
+/* The type scale: one page title size, and card titles set in a quieter weight. Phones get one
+   step smaller; from `sm` up the sizes are unchanged. */
+@layer components {
+  .page-title {
+    @apply text-xl font-bold tracking-tight sm:text-3xl;
+  }
+
+  .card-title {
+    @apply text-base font-semibold tracking-tight sm:text-lg;
+  }
+
+  /* Touch targets: buttons and form fields are at least 44px tall, the size a thumb hits reliably. */
+  .btn,
+  .input,
+  .select {
+    min-height: 2.75rem;
+  }
 }

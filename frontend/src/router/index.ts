@@ -12,30 +12,51 @@ export function hostPath(link: { code: string; host_token: string }): string {
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', component: () => import('../views/HomePage.vue') },
-  { path: '/about', component: () => import('../views/AboutView.vue') },
-  { path: '/rules', component: () => import('../views/RulesView.vue') },
-  { path: '/join', component: () => import('../views/JoinPage.vue') },
+  {
+    path: '/about',
+    component: () => import('../views/AboutView.vue'),
+    meta: { title: 'About' },
+  },
+  {
+    path: '/rules',
+    component: () => import('../views/RulesView.vue'),
+    meta: { title: 'Rules' },
+  },
+  {
+    path: '/join',
+    component: () => import('../views/JoinPage.vue'),
+    meta: { title: 'Join a game' },
+  },
   {
     path: '/pools/new',
     component: () => import('../views/PoolEditorPage.vue'),
+    meta: { title: 'New custom pool' },
   },
   {
     path: '/games/:code/history',
     component: () => import('../views/GameHistoryPage.vue'),
+    meta: { title: 'Game history' },
     props: true,
   },
   {
     path: '/games/:code',
     component: () => import('../views/PlayerPage.vue'),
+    meta: { title: 'Your game' },
     props: true,
   },
   {
     path: '/host/:code',
     component: () => import('../views/HostPage.vue'),
     props: (route) => ({ code: route.params.code, token: route.query.token }),
+    meta: { title: 'Host dashboard' },
   },
 ]
 
 export function createRouter(history: RouterHistory = createWebHistory()) {
-  return createVueRouter({ history, routes })
+  const router = createVueRouter({ history, routes })
+  router.afterEach((to) => {
+    const title = to.meta.title as string | undefined
+    document.title = title ? `${title} · DeveloperBingo` : 'DeveloperBingo'
+  })
+  return router
 }

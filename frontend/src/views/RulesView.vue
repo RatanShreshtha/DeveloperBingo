@@ -20,14 +20,14 @@ const prizeDescriptions = [
 <template>
   <section class="mx-auto max-w-2xl space-y-6">
     <div class="space-y-2">
-      <h2 class="text-3xl font-bold">Rules</h2>
+      <h1 class="page-title">Rules</h1>
       <p class="text-base-content/70">
         How a game is played and how prizes are won.
       </p>
     </div>
     <div class="card bg-base-100 shadow-sm">
       <div class="card-body space-y-2">
-        <h3 class="card-title">Playing</h3>
+        <h2 class="card-title">Playing</h2>
         <ul class="list-disc space-y-1 pl-5">
           <li>
             The host draws topics from the pool. A topic is drawn at most once
@@ -54,7 +54,7 @@ const prizeDescriptions = [
     </div>
     <div class="card bg-base-100 shadow-sm">
       <div class="card-body space-y-2">
-        <h3 class="card-title">Prizes</h3>
+        <h2 class="card-title">Prizes</h2>
         <p>Each prize can be awarded at most once per game.</p>
         <dl class="space-y-2">
           <div v-for="[prize, description] in prizeDescriptions" :key="prize">

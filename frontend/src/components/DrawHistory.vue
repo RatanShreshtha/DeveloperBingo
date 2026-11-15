@@ -10,7 +10,7 @@ const latestDraws = computed(() => newestDrawsFirst(props.draws))
 </script>
 
 <template>
-  <BoardCard title="Draws">
+  <BoardCard title="Draws" icon="shuffle">
     <ol v-if="latestDraws.length" class="space-y-2" data-test="draw-history">
       <DrawItem v-for="draw in latestDraws" :key="draw.position" :draw="draw" />
     </ol>
