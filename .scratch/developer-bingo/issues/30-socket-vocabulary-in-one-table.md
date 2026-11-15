@@ -10,12 +10,12 @@ A message that is emitted but missing from `SOCKET_MODELS` silently drops out of
 
 **Blocked by:** none
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
-- [ ] A test fails when a `ServerEvent` has no model in `SOCKET_MODELS`, and when a `SOCKET_MODELS` entry is not reachable from an event. This is the cheap guard, and it can ship alone
-- [ ] Longer term: one table maps each `ServerEvent` to its model, and both the emit helper and the OpenAPI list read from it, so adding a message is a single edit
-- [ ] The regenerated `openapi.json` and `schema.d.ts` are unchanged by either change, so the wire contract stays the same
-- [ ] Do not change `ClientEvent` handling in this ticket
+- [x] `tests/test_socket_vocabulary.py` fails when a `ServerEvent` has no entry in `SERVER_MESSAGES`, and when a message an event carries is missing from `SOCKET_MODELS`. The second check runs one way only: client and acknowledgement models are never reached from an event, so a check the other way would fail on them by design
+- [x] `wire.py` has one table, `SERVER_MESSAGES`, mapping each `ServerEvent` to its model. `SOCKET_MODELS` is built from it, and `RealtimeAdapter._emit` raises a `TypeError` for a message of the wrong model. The raise sits outside the try block, so it is not logged and swallowed like a failed send
+- [x] Regenerating the OpenAPI file and `schema.d.ts` produces byte-identical output, so the wire contract is unchanged
+- [x] `ClientEvent` is untouched
 
 ## Notes
 

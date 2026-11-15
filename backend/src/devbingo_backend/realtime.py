@@ -20,6 +20,7 @@ from devbingo_backend.game import (
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
 from devbingo_backend.wire import (
+    SERVER_MESSAGES,
     Accepted,
     ClaimLogEntry,
     ClaimPayload,
@@ -285,7 +286,13 @@ class RealtimeAdapter:
         room: str | None = None,
         to: str | None = None,
     ) -> None:
-        """Sends one message. A failure is logged and goes no further."""
+        """Sends one message. A message of the wrong model is a bug and raises; a failure to send is
+        logged and goes no further."""
+        carried = SERVER_MESSAGES[event]
+        if not isinstance(message, carried):
+            raise TypeError(
+                f"{event.value} carries {carried.__name__}, not {type(message).__name__}"
+            )
         try:
             await self._broadcaster.emit(
                 event, message.model_dump(mode="json"), room=room, to=to
