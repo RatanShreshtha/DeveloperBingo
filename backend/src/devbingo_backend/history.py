@@ -1,14 +1,13 @@
 """The History Store: where ended games are kept, behind a port the app and the tests plug into."""
 
-import threading
 from typing import Any, Protocol, cast
 
-from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import Field, Session, SQLModel, col, select
+from sqlmodel import Field, SQLModel, col, select
 
 from devbingo_backend.errors import ErrorCode
 from devbingo_backend.game import Draw, EndReason, GameSummary
 from devbingo_backend.pool import Topic
+from devbingo_backend.postgres_store import PostgresStore
 from devbingo_backend.prizes import Prize
 from devbingo_backend.settlement import ClaimRecord
 
@@ -98,111 +97,83 @@ class GameWinnerRecord(SQLModel, table=True):
     player: str
 
 
-# SQLModel classes expose __table__ at runtime; ty can't see it.
-_TABLES = [
-    GameHistoryRecord.__table__,  # ty: ignore[missing-attribute]
-    GameDrawRecord.__table__,  # ty: ignore[missing-attribute]
-    GameClaimRecord.__table__,  # ty: ignore[missing-attribute]
-    GameWinnerRecord.__table__,  # ty: ignore[missing-attribute]
-]
-
-# One process holds the app's state (ADR 0001), so a process-wide lock is enough.
-_create_lock = threading.Lock()
+_MODELS = [GameHistoryRecord, GameDrawRecord, GameClaimRecord, GameWinnerRecord]
 
 
 class PostgresHistoryStore:
     """The store the app uses: ended games kept in Postgres, tables created on first use."""
 
     def __init__(self, engine: Any) -> None:
-        self._engine = engine
-        self._ready = False
-
-    def _ensure_tables(self) -> None:
-        with _create_lock:
-            if not self._ready:
-                SQLModel.metadata.create_all(self._engine, tables=_TABLES)
-                self._ready = True
+        self._store = PostgresStore(engine, _MODELS, HistoryUnavailable)
 
     def save(self, summary: GameSummary) -> None:
-        try:
-            self._ensure_tables()
-            with Session(self._engine) as session:
-                if session.get(GameHistoryRecord, summary.code) is not None:
-                    raise AlreadyStored(summary.code)
+        with self._store.session() as session:
+            if session.get(GameHistoryRecord, summary.code) is not None:
+                raise AlreadyStored(summary.code)
+            session.add(
+                GameHistoryRecord(
+                    code=summary.code,
+                    reason=summary.end_reason,
+                    pool_name=summary.pool_name,
+                )
+            )
+            session.flush()
+            for draw in summary.draws:
                 session.add(
-                    GameHistoryRecord(
-                        code=summary.code,
-                        reason=summary.end_reason,
-                        pool_name=summary.pool_name,
+                    GameDrawRecord(
+                        game_code=summary.code,
+                        position=draw.position,
+                        name=draw.topic.name,
+                        explanation=draw.topic.explanation,
                     )
                 )
-                session.flush()
-                for draw in summary.draws:
-                    session.add(
-                        GameDrawRecord(
-                            game_code=summary.code,
-                            position=draw.position,
-                            name=draw.topic.name,
-                            explanation=draw.topic.explanation,
-                        )
+            for sequence, claim in enumerate(summary.claims):
+                session.add(
+                    GameClaimRecord(
+                        game_code=summary.code,
+                        sequence=sequence,
+                        player=claim.player,
+                        prize=claim.prize.value,
+                        accepted=claim.accepted,
+                        error=claim.error.value if claim.error else None,
                     )
-                for sequence, claim in enumerate(summary.claims):
+                )
+            for prize, players in summary.prizes.items():
+                for sequence, player in enumerate(players):
                     session.add(
-                        GameClaimRecord(
+                        GameWinnerRecord(
                             game_code=summary.code,
+                            prize=prize.value,
                             sequence=sequence,
-                            player=claim.player,
-                            prize=claim.prize.value,
-                            accepted=claim.accepted,
-                            error=claim.error.value if claim.error else None,
+                            player=player,
                         )
                     )
-                for prize, players in summary.prizes.items():
-                    for sequence, player in enumerate(players):
-                        session.add(
-                            GameWinnerRecord(
-                                game_code=summary.code,
-                                prize=prize.value,
-                                sequence=sequence,
-                                player=player,
-                            )
-                        )
-                session.commit()
-        except SQLAlchemyError:
-            raise HistoryUnavailable from None
+            session.commit()
 
     def exists(self, code: str) -> bool:
-        try:
-            self._ensure_tables()
-            with Session(self._engine) as session:
-                return session.get(GameHistoryRecord, code) is not None
-        except SQLAlchemyError:
-            raise HistoryUnavailable from None
+        with self._store.session() as session:
+            return session.get(GameHistoryRecord, code) is not None
 
     def load(self, code: str) -> GameSummary | None:
-        try:
-            self._ensure_tables()
-            with Session(self._engine) as session:
-                game = session.get(GameHistoryRecord, code)
-                if game is None:
-                    return None
-                draws = session.exec(
-                    select(GameDrawRecord)
-                    .where(GameDrawRecord.game_code == code)
-                    .order_by(col(GameDrawRecord.position))
-                ).all()
-                claims = session.exec(
-                    select(GameClaimRecord)
-                    .where(GameClaimRecord.game_code == code)
-                    .order_by(col(GameClaimRecord.sequence))
-                ).all()
-                winner_rows = session.exec(
-                    select(GameWinnerRecord)
-                    .where(GameWinnerRecord.game_code == code)
-                    .order_by(col(GameWinnerRecord.sequence))
-                ).all()
-        except SQLAlchemyError:
-            raise HistoryUnavailable from None
+        with self._store.session() as session:
+            game = session.get(GameHistoryRecord, code)
+            if game is None:
+                return None
+            draws = session.exec(
+                select(GameDrawRecord)
+                .where(GameDrawRecord.game_code == code)
+                .order_by(col(GameDrawRecord.position))
+            ).all()
+            claims = session.exec(
+                select(GameClaimRecord)
+                .where(GameClaimRecord.game_code == code)
+                .order_by(col(GameClaimRecord.sequence))
+            ).all()
+            winner_rows = session.exec(
+                select(GameWinnerRecord)
+                .where(GameWinnerRecord.game_code == code)
+                .order_by(col(GameWinnerRecord.sequence))
+            ).all()
         prizes: dict[Prize, tuple[str, ...]] = {
             prize: tuple(row.player for row in winner_rows if row.prize == prize.value)
             for prize in Prize
