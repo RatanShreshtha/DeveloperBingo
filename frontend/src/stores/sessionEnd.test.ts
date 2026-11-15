@@ -60,6 +60,21 @@ describe('session store when the game ends', () => {
     expect(store.windowOpen).toBe(false)
   })
 
+  it('does not reopen an ended game when a late start acknowledgement arrives', async () => {
+    fake.answer('watch_lobby', hostSnapshot())
+    fake.answer('start_game', () => {
+      fake.emit('game_ended', { reason: 'host' })
+      return { ok: true }
+    })
+    const store = useHostSession()
+    await store.watchAsHost(link)
+
+    await store.start()
+
+    expect(store.status).toBe('ended')
+    expect(store.endReason).toBe('host')
+  })
+
   it('stays running and says why when ending the game is refused', async () => {
     fake.answer('end_game', { ok: false, error: 'not_host' })
     fake.answer('watch_lobby', hostSnapshot())

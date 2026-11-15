@@ -29,6 +29,13 @@ export function createGameSession() {
   const actionError = ref<string | null>(null)
   const roles = new Set<Role>()
 
+  // The game moves forward only: a start never reopens a game that has begun or ended.
+  function markStarted() {
+    if (status.value === 'lobby') {
+      status.value = 'started'
+    }
+  }
+
   function recordEnd(reason: GameEnd['reason']) {
     status.value = 'ended'
     endReason.value = reason
@@ -74,10 +81,9 @@ export function createGameSession() {
   net.listen('lobby_updated', (event) => {
     players.value = event.players
   })
-  net.listen('game_started', () => {
-    if (status.value === 'lobby') {
-      status.value = 'started'
-    }
+  net.listen('game_started', markStarted)
+  net.listen('game_ended', (end) => {
+    recordEnd(end.reason)
   })
   net.listen('topic_drawn', recordDraw)
   net.listen('prize_awarded', (award) => {
@@ -101,6 +107,7 @@ export function createGameSession() {
     error,
     actionError,
     roles,
+    markStarted,
     recordEnd,
     recordDraw,
     applySnapshot,
