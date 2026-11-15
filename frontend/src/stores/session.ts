@@ -11,9 +11,6 @@ const useSessionStore = defineStore('session', () => {
   const player = createPlayerSession(game)
   const host = createHostSession(game)
 
-  game.net.listen('game_ended', (end) => {
-    game.recordEnd(end.reason)
-  })
   game.net.onReconnect(async () => {
     // A tab that joined a game reconnects as its player. Only a tab with no player reconnects as
     // host, so a tab holding both roles recovers its player alone.

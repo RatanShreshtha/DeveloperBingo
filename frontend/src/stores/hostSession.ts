@@ -53,7 +53,7 @@ export function createHostSession(game: GameSession) {
   async function start() {
     const link = hostLink.value
     if (link && (await game.attempt(() => net.send('start_game', link)))) {
-      game.status.value = 'started'
+      game.markStarted()
     }
   }
 
