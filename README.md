@@ -54,3 +54,19 @@ The frontend's TypeScript types come from the backend's OpenAPI schema. After ch
 ```sh
 npm run gen:api
 ```
+
+## Deploying
+
+The `Dockerfile` builds the Vue app and runs the API beside it, so one process serves the page, the API and the socket on one origin. `render.yaml` describes the hosting: a web service and a Postgres database.
+
+To deploy on Render:
+
+1. In the Render dashboard, choose **New > Blueprint** and select this repo. Render reads `render.yaml` and creates the web service and database.
+2. Wait for the first build. The health check is `/health`; it reports `"database": "up"` once Postgres is reachable.
+3. Open the service's `onrender.com` URL. That is the public address.
+
+Keep these in mind:
+
+- **Run one instance.** Live games live in memory in one process (`docs/adr/0001`), so a second instance would split games between them.
+- **Don't use free plans for a live game.** A free web service sleeps when idle and a sleep drops every live game. Free Postgres expires after 30 days. Check current prices on Render's pricing page before you commit.
+- **Run the image locally** to check it before deploying: `docker build -t devbingo . && docker run -p 8000:8000 -e DATABASE_URL=... devbingo`, then open `http://localhost:8000`.
