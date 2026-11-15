@@ -85,6 +85,31 @@ def test_the_host_can_end_a_running_game(started_with_every_topic_drawn):
         registry.draw(game)
 
 
+def test_the_host_ending_with_no_window_open_reports_no_window_change(
+    started_with_every_topic_drawn,
+):
+    registry, game, _ = started_with_every_topic_drawn
+
+    outcome = registry.end(game)
+
+    assert outcome.ended == "host"
+    assert outcome.window_open is None
+    assert outcome.settled == ()
+
+
+def test_a_full_house_closing_the_last_window_reports_the_window_closed(
+    started_with_every_topic_drawn,
+):
+    registry, game, ticket = started_with_every_topic_drawn
+    tick_everything(registry, game, ticket)
+
+    outcome = claim_and_settle(registry, PlayerRef(game.code, "Ada"), Prize.FULL_HOUSE)
+
+    assert outcome.ended == "full_house"
+    assert outcome.window_open is False
+    assert [settled.prize for settled in outcome.settled] == [Prize.FULL_HOUSE]
+
+
 def test_the_host_can_end_a_game_still_in_the_lobby(lobby):
     registry, game, _ = lobby
 

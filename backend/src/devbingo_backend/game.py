@@ -411,11 +411,9 @@ class GameRegistry:
         still scheduled for one of them later finds it gone and does nothing."""
         game = self._host_game(host)
         game.require_not_ended()
-        settled, window_open = game.settlement.close_all(
-            self._evidence(game), GameAlreadyEnded(host.code)
+        return self._end_game(
+            game, "host", window_was_open=game.settlement.window_open()
         )
-        summary = self._end(game, "host")
-        return Outcome(settled, ended="host", window_open=window_open, summary=summary)
 
     def draw(self, host: HostLink) -> Drawn:
         """Draw one topic uniformly at random from those not yet drawn. Draws are final.
@@ -494,14 +492,9 @@ class GameRegistry:
             return None
         if not (settled.awarded_to and prize is Prize.FULL_HOUSE):
             return Outcome((settled,), window_open=settled.window)
-        # The full house ends the game, and an ended game has no open window: the others settle
-        # now, refused as `game_ended`, as when the host ends the game.
-        rest, _ = game.settlement.close_all(
-            self._evidence(game), GameAlreadyEnded(code)
-        )
-        summary = self._end(game, "full_house")
-        return Outcome(
-            (settled, *rest), ended="full_house", window_open=False, summary=summary
+        # The full house ends the game. The window it closed was open, so the host hears it close.
+        return self._end_game(
+            game, "full_house", window_was_open=True, settled=(settled,)
         )
 
     @staticmethod
@@ -562,6 +555,29 @@ class GameRegistry:
                 }
             ),
         }
+
+    def _end_game(
+        self,
+        game: _Game,
+        reason: EndReason,
+        *,
+        window_was_open: bool,
+        settled: tuple[Settled, ...] = (),
+    ) -> Outcome:
+        """The one way a game ends, whether the host ended it or the full house was awarded. Every
+        window still open settles at once, its claims refused as `game_ended`, and then the game is
+        recorded as ended. `settled` holds the windows already closed for this ending, and
+        `window_was_open` says whether a window was open as the game ended, which the host hears."""
+        rest, _ = game.settlement.close_all(
+            self._evidence(game), GameAlreadyEnded(game.code)
+        )
+        summary = self._end(game, reason)
+        return Outcome(
+            (*settled, *rest),
+            ended=reason,
+            window_open=False if window_was_open else None,
+            summary=summary,
+        )
 
     def _end(self, game: _Game, reason: EndReason) -> GameSummary:
         """The one place a game ends, whether the host ended it or the full house was awarded.
